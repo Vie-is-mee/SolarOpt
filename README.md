@@ -1,6 +1,19 @@
-# SolarOpt Studio
+<h1 align="center">SolarOpt Studio</h1>
 
-**Hệ thống hỗ trợ thiết kế và đánh giá sơ bộ phương án điện mặt trời áp mái**
+<p align="center"><strong>Hệ thống hỗ trợ thiết kế và đánh giá sơ bộ phương án điện mặt trời áp mái</strong></p>
+
+<p align="center">
+  <a href="https://react.dev/"><img src="https://img.shields.io/badge/React-20232A?style=flat-square&amp;logo=react&amp;logoColor=61DAFB" alt="React" /></a>
+  <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&amp;logo=typescript&amp;logoColor=white" alt="TypeScript" /></a>
+  <a href="https://vite.dev/"><img src="https://img.shields.io/badge/Vite-646CFF?style=flat-square&amp;logo=vite&amp;logoColor=white" alt="Vite" /></a>
+  <a href="https://tailwindcss.com/"><img src="https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=flat-square&amp;logo=tailwindcss&amp;logoColor=white" alt="Tailwind CSS" /></a>
+</p>
+<p align="center">
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3776AB?style=flat-square&amp;logo=python&amp;logoColor=white" alt="Python" /></a>
+  <a href="https://fastapi.tiangolo.com/"><img src="https://img.shields.io/badge/FastAPI-009688?style=flat-square&amp;logo=fastapi&amp;logoColor=white" alt="FastAPI" /></a>
+  <a href="https://opencv.org/"><img src="https://img.shields.io/badge/OpenCV-5C3EE8?style=flat-square&amp;logo=opencv&amp;logoColor=white" alt="OpenCV" /></a>
+  <a href="https://www.sqlite.org/"><img src="https://img.shields.io/badge/SQLite-003B57?style=flat-square&amp;logo=sqlite&amp;logoColor=white" alt="SQLite" /></a>
+</p>
 
 SolarOpt Studio hỗ trợ chuyển đổi ảnh hoặc bản vẽ mái nhà thành dữ liệu hình học có thể chỉnh sửa, mô phỏng ảnh hưởng của nắng và bóng che, đề xuất phương án bố trí tấm pin và kiểm tra kết quả trước khi bàn giao.
 
