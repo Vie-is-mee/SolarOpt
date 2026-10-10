@@ -141,3 +141,6 @@
   .canvas-bottom > span { font-size: 11px; }
   .history-modal h2 { font-size: 21px; }
 }
+
+.trace-section { scroll-margin-top: 24px; }
+.trace-section:focus { outline: none; }
