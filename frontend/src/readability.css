@@ -42,6 +42,14 @@
 @media print{html,body,.print-report{background:white}.print-report h3{break-after:avoid}.print-drawing .canvas-surface{aspect-ratio:auto;min-height:0}.print-drawing .roof-svg{height:300px;min-height:0;max-height:300px}.print-drawing{background:white}}
 
 /* A consistent title/description scale across all five studio steps. */
+.measurement-check { padding: 14px; border: 1px solid #dce6d8; border-radius: 9px; background: #f8faf4; margin-bottom: 18px; }
+.measurement-check > strong { font-size: 14px; color: #3a614b; }
+.measurement-check .muted-note { margin: 9px 0; }
+.canvas-measurement-note { padding: 10px 15px; background: #f8faf2; color: #627252; font-size: 12px; line-height: 1.7; border-top: 1px solid #e3eadc; }
+.map-label { right: 90px; flex-wrap: wrap; }
+.map-label .measurement-badge { font-size: 11px; letter-spacing: 0; padding: 5px 8px; border: 1px solid #dcc897; border-radius: 5px; background: #fff7df; color: #806127; }
+.map-label .measurement-badge.verified { border-color: #b8d4be; background: #edf7ec; color: #396247; }
+@media print { .print-drawing .canvas-measurement-note { display: none; } }
 .neighbor-fields .field { display: flex; flex-direction: column; min-width: 0; }
 .neighbor-fields .field > span { flex: 1; }
 .neighbor-fields .input-wrap { flex-shrink: 0; }

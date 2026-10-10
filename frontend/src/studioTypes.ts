@@ -7,6 +7,8 @@ export type Obstacle = {
   shape?:'rect'|'ellipse'|'polygon';rotation_deg?:number;points?:Point[];base_elevation_m?:number|null;
 }
 export type Config = {
+  dimensions_source?: 'assumed'|'reference'|'measured'; dimensions_verified?: boolean; calibration_reference_m?: number|null;
+  measurement_image_width_px?: number|null; measurement_image_height_px?: number|null;
   project_name:string; latitude:number; longitude:number; roof_width_m:number; roof_height_m:number;
   roof_azimuth_deg:number; roof_tilt_deg:number; north_rotation_deg:number; roof_elevation_m:number;
   roof_polygon:Point[]; geometry_confirmed:boolean; setback_m:number; panel_gap_m:number;

@@ -80,6 +80,11 @@ class ProjectConfig(StrictModel):
     roof_faces: list[RoofFace] = Field(default_factory=list, max_length=24)
     roof_openings: list[list[Point]] = Field(default_factory=list, max_length=24)
     geometry_confirmed: bool = False
+    dimensions_source: Literal["assumed", "reference", "measured"] = "assumed"
+    measurement_image_width_px: float | None = Field(default=None, gt=0, le=40000)
+    measurement_image_height_px: float | None = Field(default=None, gt=0, le=40000)
+    dimensions_verified: bool = False
+    calibration_reference_m: float | None = Field(default=None, gt=0, le=100)
     setback_m: float = Field(default=0.35, ge=0, le=10)
     panel_gap_m: float = Field(default=0.08, ge=0.02, le=5)
     obstacle_clearance_m: float = Field(default=0.25, ge=0, le=10)
