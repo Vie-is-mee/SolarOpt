@@ -1,4 +1,5 @@
 from __future__ import annotations
+import os
 
 
 try:
@@ -111,7 +112,7 @@ def generate_design(req: DesignRequest) -> DesignResult:
 
         solver = cp_model.CpSolver()
         solver.parameters.max_time_in_seconds = 3.0
-        solver.parameters.num_search_workers = 8
+        solver.parameters.num_search_workers = max(1, min(8, int(os.getenv("SOLAROPT_SOLVER_WORKERS", "2"))))
         status = solver.Solve(model)
         status_name = solver.StatusName(status)
         selected = [c for var, c in zip(xs, candidates) if solver.Value(var) == 1] if status in (cp_model.OPTIMAL, cp_model.FEASIBLE) else []
