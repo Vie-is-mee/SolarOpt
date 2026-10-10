@@ -40,3 +40,96 @@
 @media(max-width:760px){.field>input,.input-wrap input,select{font-size:16px}.field>span{font-size:12px}.card-title h3{font-size:15px}.card-title p{font-size:11px}.welcome-card p{font-size:12px}.input-kind strong{font-size:12px}.input-kind small{font-size:10px}.check-results p,.activity-item p{font-size:12px}.segmented button{font-size:10px}.confirmation strong{font-size:12px}.confirmation small{font-size:11px}.option-card>p{font-size:12px}.source-fact,.source-fact strong{font-size:12px}}
 
 @media print{html,body,.print-report{background:white}.print-report h3{break-after:avoid}.print-drawing .canvas-surface{aspect-ratio:auto;min-height:0}.print-drawing .roof-svg{height:300px;min-height:0;max-height:300px}.print-drawing{background:white}}
+
+/* A consistent title/description scale across all five studio steps. */
+.neighbor-fields .field { display: flex; flex-direction: column; min-width: 0; }
+.neighbor-fields .field > span { flex: 1; }
+.neighbor-fields .input-wrap { flex-shrink: 0; }
+@media screen {
+  .canvas-card { container-type: inline-size; }
+  .map-label { font-size: 11px; gap: 9px; letter-spacing: .8px; }
+  .map-label > span:last-child { font-size: 11px; padding: 5px 8px; line-height: 1.5; }
+  .map-dot { width: 7px; height: 7px; flex-shrink: 0; }
+  .canvas-legend { font-size: 12px; gap: 14px; padding: 9px 12px; border-radius: 7px; background: #f9fcf4ed; }
+  .canvas-legend span { gap: 6px; }
+  .canvas-legend i { width: 9px; height: 9px; }
+  .canvas-zoom { height: 36px; border-radius: 7px; background: #ffffffed; }
+  .canvas-zoom span { font-size: 12px; min-width: 44px; text-align: center; }
+  .canvas-zoom button { height: 100%; min-width: 30px; padding: 5px 8px; font-size: 18px; }
+  .canvas-zoom button svg { width: 18px; height: 18px; }
+}
+@container (max-width: 480px) {
+  .canvas-legend { bottom: 56px; left: 10px; gap: 10px; font-size: 11px; padding: 8px 10px; }
+  .map-label { flex-wrap: wrap; right: 13px; }
+}
+@media screen and (max-width: 760px) {
+  .canvas-legend { bottom: 56px; left: 10px; gap: 10px; font-size: 11px; padding: 8px 10px; }
+  .canvas-zoom { right: 10px; bottom: 10px; }
+  .map-label { top: 13px; left: 13px; right: 13px; flex-wrap: wrap; font-size: 10px; gap: 6px; }
+  .map-label > span:last-child { font-size: 10px; margin-left: 0; max-width: 100%; }
+}
+@media screen {
+  .studio-app {
+    --studio-title: clamp(27px, 2.2vw, 34px);
+    --studio-section-title: clamp(22px, 1.7vw, 27px);
+    --studio-card-title: 17px;
+    --studio-description: 13px;
+  }
+  .heading-line h1 { font-size: var(--studio-title); line-height: 1.35; }
+  .welcome-card h2 { font-size: clamp(25px, 2.2vw, 36px); line-height: 1.35; }
+  .section-intro h2, .preview-intro h3 { font-size: var(--studio-section-title); line-height: 1.45; }
+  .card-title h3, .tracer-heading h3, .geometry-inspector-heading h3,
+  .next-card h3, .activity-header h3 { font-size: var(--studio-card-title); line-height: 1.5; }
+  .geometry-inspector h4, .option-heading strong, .check-results strong,
+  .object-list strong, .mini-benefits strong, .activity-item strong,
+  .time-heading strong, .version-row strong { font-size: 14px; line-height: 1.6; }
+  .history-modal h2 { font-size: 23px; line-height: 1.4; }
+  .workspace-switch strong { font-size: 12px; }
+  .nav-item { font-size: 13px; }
+  .nav-item small, .workspace-switch small { font-size: 11px; line-height: 1.6; }
+
+  .project-heading p, .welcome-card p, .card-title p, .section-intro p,
+  .preview-intro p, .muted-note, .input-note, .provider-note, .provider-help,
+  .option-card > p, .side-note p, .check-results p, .stress-summary,
+  .stress-results small, .empty-note, .activity-header p, .activity-item p,
+  .activity-empty, .reference-panel p, .next-card p, .tracer-heading p,
+  .tracer-help, .tracer-calibration p, .trace-result p, .tracer-error {
+    font-size: var(--studio-description);
+    line-height: 1.8;
+    overflow-wrap: anywhere;
+  }
+  .confirmation strong, .check-line, .upload-zone strong { font-size: 13px; line-height: 1.7; }
+  .confirmation small, .input-kind small, .object-list small, .mini-benefits span,
+  .before-after small, .version-row small, .time-heading small {
+    font-size: 12px;
+    line-height: 1.7;
+  }
+  .input-kind strong, .field > span, .tracer-calibration label,
+  .face-detail summary, .opening-row, .trace-result strong { font-size: 13px; line-height: 1.7; }
+  .field em, .upload-zone > span:last-child, .sample-strip, .welcome-pills,
+  .simulation-stats em, .option-bottom > small, .before-after span,
+  .repair-summary span, .reference-panel summary { font-size: 12px; line-height: 1.7; }
+  .simulation-stats > div > span, .source-fact, .source-fact strong,
+  .stress-results > div > span:first-child, .handover-kpi > div { font-size: 13px; }
+  .option-metrics small, .result-strip span, .canvas-bottom > span { font-size: 12px; line-height: 1.7; }
+  .eyebrow, .welcome-label, .breadcrumb { font-size: 11px; line-height: 1.7; }
+  .stepper button { font-size: 12px; }
+  .welcome-card p { max-width: 440px; }
+  .option-card > p { min-height: 0; }
+  .activity-header, .card-heading, .tracer-heading { flex-wrap: wrap; }
+  .activity-header > div, .card-title, .version-row > div { min-width: 0; }
+}
+
+@media screen and (max-width: 760px) {
+  .studio-app { --studio-title: 24px; --studio-card-title: 16px; }
+  .welcome-card > div { max-width: 90%; }
+  .welcome-card > svg { opacity: .25; }
+  .welcome-card p { max-width: 340px; }
+  .stepper button { font-size: 11px; }
+  .welcome-pills { gap: 10px; }
+  .mini-benefits { grid-template-columns: 1fr; gap: 12px; }
+  .heading-line { flex-wrap: wrap; }
+  .activity-header p { max-width: 100%; }
+  .canvas-bottom > span { font-size: 11px; }
+  .history-modal h2 { font-size: 21px; }
+}

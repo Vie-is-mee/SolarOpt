@@ -1,7 +1,8 @@
 import type {Config,Panel,Obstacle,Design,Verification,Scene,Health,Vision,Stress,Repair,Version,Objective,Sun} from '../studioTypes'
 const base = import.meta.env.VITE_API_BASE || ''
 async function request<T>(path:string,body?:unknown,signal?:AbortSignal):Promise<T> {
-  const response = await fetch(base+path,{method:body===undefined?'GET':'POST',...(body===undefined?{}:body instanceof FormData?{body}:{headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),signal})
+  const timeout = AbortSignal.timeout(120_000)
+  const response = await fetch(base+path,{method:body===undefined?'GET':'POST',...(body===undefined?{}:body instanceof FormData?{body}:{headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),signal:signal ? AbortSignal.any([signal, timeout]) : timeout})
   if(!response.ok){let detail='';try{const data=await response.json();detail=typeof data.detail==='string'?data.detail:JSON.stringify(data.detail)}catch{}throw new Error(detail||`Yêu cầu chưa thành công (${response.status}).`)}
   return response.json()
 }

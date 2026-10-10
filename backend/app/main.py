@@ -5,6 +5,7 @@ from datetime import date
 import os
 from pathlib import Path
 from time import perf_counter
+from threading import BoundedSemaphore
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
@@ -32,6 +33,21 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 init_db()
 
 app = FastAPI(title="SolarOpt API", version="2.0.0", description="Bộ tính toán và trích xuất ảnh cho SolarOpt Studio")
+
+compute_slots = BoundedSemaphore(max(1, int(os.getenv("SOLAROPT_MAX_COMPUTE", "1"))))
+heavy_paths = {"/api/design/generate", "/api/design/repair", "/api/design/stress-test", "/api/uncertainty/evaluate", "/api/roof/trace", "/api/vision/analyze"}
+
+
+@app.middleware("http")
+async def bound_compute(request, call_next):
+    if request.method != "POST" or request.url.path not in heavy_paths:
+        return await call_next(request)
+    if not compute_slots.acquire(blocking=False):
+        return JSONResponse(status_code=429, headers={"Retry-After": "5"}, content={"detail": "Máy chủ đang xử lý tác vụ khác. Vui lòng thử lại sau vài giây."})
+    try:
+        return await call_next(request)
+    finally:
+        compute_slots.release()
 
 
 @app.exception_handler(ValueError)

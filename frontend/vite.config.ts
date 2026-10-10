@@ -6,10 +6,10 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     host: '127.0.0.1',
-    port: 5173,
+    port: Number(process.env.SOLAROPT_WEB_PORT || 5174),
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:8000',
+        target: process.env.SOLAROPT_API_URL || 'http://127.0.0.1:8001',
         changeOrigin: true,
       },
     },
@@ -17,6 +17,6 @@ export default defineConfig({
   preview: {
     host: '127.0.0.1',
     port: 4173,
-    proxy: { '/api': { target: 'http://127.0.0.1:8000', changeOrigin: true } },
+    proxy: { '/api': { target: process.env.SOLAROPT_API_URL || 'http://127.0.0.1:8001', changeOrigin: true } },
   },
 })
