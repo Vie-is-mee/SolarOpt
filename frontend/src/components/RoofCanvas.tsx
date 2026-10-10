@@ -9,12 +9,14 @@ type Tool='move'|'roof'|'face'|'opening'|'object'
 const rounded=(v:number)=>Math.round(v*100)/100
 export function RoofCanvas({config,obstacles,scene,design,selected,onSelect,onMove,onRoof,mode,setMode,editable,loading,sample,idPrefix='roof',onPatch,onGeometry,onAddPolygon,onEditStart,onEditEnd,referenceImage}:Props){
  const svg=useRef<SVGSVGElement>(null),drag=useRef<Drag|null>(null),pending=useRef<Partial<Config>|null>(null)
+ const [dragging,setDragging]=useState(false)
  const [tool,setTool]=useState<Tool>('move'),[points,setPoints]=useState<Point[]>([]),[draft,setDraft]=useState<Partial<Config>|null>(null),[zoom,setZoom]=useState(1),[opacity,setOpacity]=useState(.4),[selectedFace,setSelectedFace]=useState<string|null>(null)
  const c={...config,...draft},roof=outerRoof(c),faces=c.roof_faces||[],holes=c.roof_openings||[]
  const minX=Math.min(-2,...obstacles.map(o=>Math.max(-c.roof_width_m-12,o.x-1))),minY=Math.min(-2,...obstacles.map(o=>Math.max(-c.roof_height_m-12,o.y-1)))
  const maxX=Math.max(c.roof_width_m+2,...obstacles.map(o=>Math.min(c.roof_width_m*2+12,o.x+o.width_m+1))),maxY=Math.max(c.roof_height_m+2,...obstacles.map(o=>Math.min(c.roof_height_m*2+12,o.y+o.depth_m+1)))
- const scale=Math.min(740/(maxX-minX),460/(maxY-minY))*zoom,tx=450-(minX+maxX)/2*scale,ty=315+(minY+maxY)/2*scale
- const transform=useRef({scale,tx,ty});if(!drag.current)transform.current={scale,tx,ty}
+ const fitScale=Math.min(740/(maxX-minX),460/(maxY-minY))*zoom,fitTx=450-(minX+maxX)/2*fitScale,fitTy=315+(minY+maxY)/2*fitScale
+ const transform=useRef({scale:fitScale,tx:fitTx,ty:fitTy});if(!dragging&&!drag.current)transform.current={scale:fitScale,tx:fitTx,ty:fitTy}
+ const {scale,tx,ty}=transform.current
  const sx=(x:number)=>tx+x*scale,sy=(y:number)=>ty-y*scale
  const roofPath=pathOf(roof)+holes.map(pathOf).join('')
  const measurementLabel=c.dimensions_source==='measured'?'Theo số đo thực tế':c.dimensions_verified?'Đã đối chiếu số đo':c.dimensions_source==='reference'?'Đã hiệu chuẩn':'Kích thước giả định'
@@ -34,7 +36,7 @@ export function RoofCanvas({config,obstacles,scene,design,selected,onSelect,onMo
   }else if(object){const id=object.getAttribute('data-obstacle')!,o=obstacles.find(v=>v.id===id)!;onSelect(id);setSelectedFace(null)
    if(editable){onEditStart?.();drag.current={kind:target.hasAttribute('data-rotate')?'rotate':target.hasAttribute('data-resize')?'resize':target.hasAttribute('data-object-vertex')?'object-vertex':'move',start:point,object:structuredClone(o),id,corner:Number(target.getAttribute('data-resize')),index:Number(target.getAttribute('data-object-vertex')),points:footprint(o)}}
   }else{onSelect(null);const f=target.closest('[data-face]');setSelectedFace(f?.getAttribute('data-face')||null)}
-  if(drag.current)e.currentTarget.setPointerCapture(e.pointerId)
+  if(drag.current){e.preventDefault();setDragging(true);e.currentTarget.setPointerCapture(e.pointerId)}
  }
  function move(e:React.PointerEvent<SVGSVGElement>){const d=drag.current;if(!d)return;const p=cursor(e),o=d.object
   if(d.kind==='roof-vertex'||d.kind==='face-vertex'||d.kind==='opening-vertex'){
@@ -54,7 +56,7 @@ export function RoofCanvas({config,obstacles,scene,design,selected,onSelect,onMo
    }
   }
  }
- function up(){if(pending.current){onGeometry?.(pending.current);pending.current=null;setDraft(null)}drag.current=null;onEditEnd?.()}
+ function up(){if(pending.current){onGeometry?.(pending.current);pending.current=null;setDraft(null)}drag.current=null;setDragging(false);onEditEnd?.()}
  function finish(){if(points.length<3)return;onEditStart?.();if(tool==='roof')onRoof(points);else if(tool==='face')onGeometry?.({roof_faces:[...faces,{id:crypto.randomUUID(),label:`Phần mái ${faces.length+1}`,polygon:points,elevation_m:config.roof_elevation_m+2,tilt_deg:0,azimuth_deg:180,installable:true}]});else if(tool==='opening')onGeometry?.({roof_openings:[...holes,points]});else onAddPolygon?.(points);onEditEnd?.();setPoints([]);setTool('move')}
  return <section className="canvas-card">
   <div className="canvas-toolbar"><div className="segmented">{([['plan','Bản vẽ','layers'],['shadow','Bóng che','sun'],['heat','Bức xạ','bolt']] as const).map(([id,label,icon])=><button key={id} className={mode===id?'active':''} onClick={()=>setMode(id)}><Icon name={icon} size={15}/>{label}</button>)}</div><span className="canvas-live"><i className={loading?'busy':''}/>{loading?'Đang tính…':scene?'Dữ liệu mô phỏng':'Chờ bộ tính toán'}</span></div>
@@ -70,7 +72,7 @@ export function RoofCanvas({config,obstacles,scene,design,selected,onSelect,onMo
     {faces.map((f,i)=><path key={f.id} data-face={f.id} d={pathOf(f.polygon)} fill={['#b8d4da','#d9c8ad','#c7d6b2','#c8b9da'][i%4]} fillOpacity=".28" stroke={selectedFace===f.id?'#e5a03d':'#77928d'} strokeWidth=".045" strokeDasharray=".15 .08"/>)}
     {holes.map((h,i)=><path key={i} d={pathOf(h)} fill="#f5f7f3" stroke="#bc8473" strokeWidth=".045" strokeDasharray=".12 .08"/>)}
     {scene?.usable_polygons.map((p,i)=><polygon key={i} points={p.map(v=>v.join(',')).join(' ')} fill="none" stroke="#8aab91" strokeDasharray=".12 .12" strokeWidth=".025"/>)}
-    <g clipPath={`url(#${idPrefix}-roof-clip)`}>{mode==='heat'&&scene?.cells.map((v,i)=><rect key={i} x={v.x} y={v.y} width={v.width_m+.01} height={v.height_m+.01} fill={`hsl(${15+Math.min(1,v.irradiance_w_m2/1000)*40},87%,${v.shade_fraction>.8?45:68}%)`} opacity=".8"/>)}{mode!=='plan'&&scene?.shadows.flatMap(s=>s.polygons.map((p,i)=><polygon key={s.id+i} points={p.map(v=>v.join(',')).join(' ')} fill="#244a48" fillOpacity={mode==='heat'?.22:.3}/>))}{scene&&scene.sun.altitude_deg<=0&&mode!=='plan'&&<path d={roofPath} fillRule="evenodd" fill="#1d3548" opacity=".62"/>}</g>
+    <g clipPath={`url(#${idPrefix}-roof-clip)`}>{mode==='heat'&&scene?.cells.map((v,i)=><rect key={i} x={v.x} y={v.y} width={v.width_m+.01} height={v.height_m+.01} fill={`hsl(${15+Math.min(1,v.irradiance_w_m2/1000)*40},87%,${v.shade_fraction>.8?45:68}%)`} opacity=".8"/>)}{mode!=='plan'&&scene?.shadows.flatMap(s=>s.polygons.map((p,i)=><polygon key={s.id+i} data-shadow={s.id} points={p.map(v=>v.join(',')).join(' ')} fill="#244a48" fillOpacity={mode==='heat'?.22:.3}/>))}{scene&&scene.sun.altitude_deg<=0&&mode!=='plan'&&<path d={roofPath} fillRule="evenodd" fill="#1d3548" opacity=".62"/>}</g>
     {design?.panels.map(p=><g key={p.id}><rect x={p.x} y={p.y} width={p.width_m} height={p.height_m} rx=".035" fill={`url(#${idPrefix}-panel-fill)`} stroke={p.preserved?'#51d2ad':'#91b1c3'} strokeWidth=".035"/><rect x={p.x} y={p.y} width={p.width_m} height={p.height_m} fill={`url(#${idPrefix}-panel-grid)`}/></g>)}
     {obstacles.map(o=><g key={o.id} data-obstacle={o.id} className={editable?'obstacle-draggable':''} tabIndex={0} role="button" aria-label={`Chọn ${o.label}`} onKeyDown={e=>{if(e.key==='Enter')onSelect(o.id);if(editable&&['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)){e.preventDefault();onEditStart?.();onMove(o.id,rounded(o.x+(e.key==='ArrowRight'?.1:e.key==='ArrowLeft'?-.1:0)),rounded(o.y+(e.key==='ArrowUp'?.1:e.key==='ArrowDown'?-.1:0)));onEditEnd?.()}}}>
      <polygon points={footprint(o).map(p=>`${p.x},${p.y}`).join(' ')} fill={o.scope==='neighbor'?'#99afa6':o.shape==='ellipse'?'#d7e5e8':'#c4bcae'} stroke={selected===o.id?'#f4ad43':o.confirmed?'#718b7d':'#bd8b41'} strokeWidth={selected===o.id?.08:.035} strokeDasharray={o.confirmed?undefined:'.1 .07'}/>
@@ -90,6 +92,7 @@ export function RoofCanvas({config,obstacles,scene,design,selected,onSelect,onMo
    <g transform={`translate(835 87) rotate(${-c.north_rotation_deg})`}><circle r="31" fill="white" opacity=".85"/><path d="M0-22-7 9 0 5 7 9Z" fill="#2b6a51"/><text y="-39" textAnchor="middle" fill="#254f3c" fontSize="12" fontWeight="700">BẮC</text></g>
    {scene&&scene.sun.altitude_deg>0&&<g transform={`translate(${450+Math.sin((scene.sun.azimuth_deg-c.north_rotation_deg)*Math.PI/180)*320},${315-Math.cos((scene.sun.azimuth_deg-c.north_rotation_deg)*Math.PI/180)*240})`}><circle r="24" fill="#f5bd50" opacity=".16"/><circle r="15" fill="#f4b83c"/>{Array.from({length:8},(_,i)=><path key={i} transform={`rotate(${i*45})`} d="M0-21V-26" stroke="#e7a52c" strokeWidth="1.5"/>)}</g>}
   </svg><div className="canvas-legend"><span><i style={{background:'#244a48'}}/>Bóng che</span><span><i style={{background:'#2d6080'}}/>Tấm pin</span><span><i style={{background:'#bca06d'}}/>Chưa xác nhận</span></div><div className="canvas-zoom"><button aria-label="Thu nhỏ" onClick={()=>setZoom(v=>Math.max(.7,v-.15))}>−</button><span>{Math.round(zoom*100)}%</span><button aria-label="Phóng to" onClick={()=>setZoom(v=>Math.min(1.8,v+.15))}>+</button><button aria-label="Đặt lại góc nhìn" onClick={()=>setZoom(1)}><Icon name="grid" size={15}/></button></div></div>
+  {editable&&mode==='plan'&&<div className="canvas-measurement-note">Chế độ bản vẽ đang ẩn bóng che. <button className="text-button" onClick={()=>setMode('shadow')}>Hiện bóng che</button></div>}
   <div className="canvas-measurement-note">{c.dimensions_source==='measured'?'Mái đã quy đổi theo hai số đo người dùng nhập; cần kiểm tra phối cảnh và vị trí vật cản.':c.dimensions_verified?'Kích thước đã được kỹ sư đối chiếu số đo.':c.dimensions_source==='reference'?'Hiệu chuẩn theo đoạn tham chiếu; cần kiểm tra phối cảnh và đối chiếu số đo khác.':'Số đo ước lượng theo dữ liệu nhập/tỷ lệ ảnh; chưa dùng làm kích thước thi công.'}</div><div className="canvas-bottom"><span><Icon name={editable?'move':'compass'} size={14}/>{editable?'Kéo đỉnh để sửa mái · nút giữa cạnh thêm đỉnh · bấm đúp đỉnh để xóa · nút tím xoay vật thể':'Mặt bằng theo mét · các cao độ phải được kỹ sư kiểm tra'}</span></div>
  </section>
 }

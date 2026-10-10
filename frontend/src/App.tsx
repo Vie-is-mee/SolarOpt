@@ -70,6 +70,7 @@ export default function App(){
  useEffect(()=>{if(!health)return;const controller=new AbortController();const requestId=++requestVersion.current;setSceneLoading(true);const timer=setTimeout(()=>api.scene(config,obstacles,date,hour,controller.signal).then(s=>{if(requestId===requestVersion.current){setScene(s);setSceneError('')}}).catch(e=>{if(e.name!=='AbortError'&&requestId===requestVersion.current){setScene(null);setSceneError(e.message)}}).finally(()=>{if(requestId===requestVersion.current)setSceneLoading(false)}),180);return()=>{clearTimeout(timer);controller.abort()}},[config,obstacles,date,hour,health])
  useEffect(()=>{if(!playing)return;const id=setInterval(()=>setHour(v=>v>=18?6:Math.round((v+.25)*100)/100),800);return()=>clearInterval(id)},[playing])
  useEffect(()=>{if(step!==2)setPlaying(false)},[step])
+ useEffect(()=>{if(step===1)setMode('shadow')},[step])
  useEffect(()=>{setVerification(null);setStress(null);setApproved(null)},[date,hour])
  useEffect(()=>{setVerification(null);setStress(null);setApproved(null);setUncertainty('')},[currentKey])
  useEffect(()=>{if(!image?.startsWith('blob:'))return;return()=>URL.revokeObjectURL(image)},[image])

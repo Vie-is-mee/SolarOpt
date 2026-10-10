@@ -43,3 +43,12 @@ Kết luận: luồng prototype cục bộ hoạt động trên dữ liệu th�
 - Cao độ chân mặc định khi bật nhập tay: vật trên mái lấy cao độ mái cơ sở, nhà bên cạnh lấy 0 m từ mặt đất.
 - Ca nhà bên cạnh cao 18,25 m, chân cao 1,5 m, rộng 4 m được API mô phỏng thật chấp nhận (HTTP 200).
 - TypeScript và build frontend đạt. Hình mặt bằng cập nhật trực tiếp; bóng che/bức xạ cập nhật sau phản hồi bộ mô phỏng, có debounce 180 ms.
+
+
+## Kéo vật cản trên ảnh nền và hiển thị bóng — 10/10/2026
+
+- Tái hiện bằng ảnh mái Nhà A do người dùng cung cấp: nhập 15 × 20 m, trích biên OpenCV, áp dụng rồi thêm nhà bên cạnh.
+- Bước 2 mặc định hiển thị Bóng che. Chế độ Bản vẽ có lời nhắc và nút Hiện bóng che.
+- Giữ cố định phép biến đổi khung nhìn trong suốt thao tác kéo; kiểm tra tâm vật cản bám theo con trỏ trong sai số 3 pixel trước khi thả.
+- Kéo nhà phía Đông từ X = 18 m vào X = 5,2 m thành công; có đa giác bóng từ phản hồi mô phỏng thật, không có lỗi giao diện/API trong ca này.
+- TypeScript và build đạt. Bóng che vẫn phụ thuộc ngày/giờ, hướng và cao độ; vật thể có thể không đổ bóng vào mái ở một số thời điểm.
