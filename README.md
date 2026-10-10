@@ -91,3 +91,7 @@ Các kiểm thử gồm bóng nhà bên cạnh, xoay hướng Bắc, mái nghiê
 - `docs/legacy/App.v1.tsx`: giao diện cũ để tham khảo, không chạy trong ứng dụng hiện tại.
 
 Khóa AI chỉ được đọc ở máy chủ. `.env`, cơ sở dữ liệu, thư viện cài đặt và bản đóng gói được loại khỏi Git qua `.gitignore`.
+# Bản chạy web
+
+Hướng dẫn mới: [Chạy cục bộ và deploy VPS](docs/WEB_DEPLOYMENT.md).
+Frontend dùng cổng 5174, backend dùng cổng 8001 để tránh trùng bản SolarOpt cũ.

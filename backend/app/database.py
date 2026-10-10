@@ -1,15 +1,30 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 from pathlib import Path
 from typing import Any
+from contextlib import contextmanager
 
 DB_PATH = Path(__file__).resolve().parent.parent / "solaropt.db"
 
 
+@contextmanager
+def connect():
+    path = Path(os.getenv("SOLAROPT_DB_PATH") or DB_PATH)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(path, timeout=30)
+    conn.execute("PRAGMA busy_timeout=30000")
+    try:
+        with conn:
+            yield conn
+    finally:
+        conn.close()
+
+
 def init_db() -> None:
-    with sqlite3.connect(DB_PATH) as conn:
+    with connect() as conn:
         conn.execute("""
         CREATE TABLE IF NOT EXISTS project_versions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -24,7 +39,7 @@ def init_db() -> None:
 
 
 def save_version(project_name: str, version_label: str, reason: str, payload: dict[str, Any]) -> int:
-    with sqlite3.connect(DB_PATH) as conn:
+    with connect() as conn:
         cur = conn.execute(
             "INSERT INTO project_versions(project_name,version_label,reason,payload_json) VALUES(?,?,?,?)",
             (project_name, version_label, reason, json.dumps(payload, ensure_ascii=False)),
@@ -34,7 +49,7 @@ def save_version(project_name: str, version_label: str, reason: str, payload: di
 
 
 def list_versions(project_name: str) -> list[dict[str, Any]]:
-    with sqlite3.connect(DB_PATH) as conn:
+    with connect() as conn:
         conn.row_factory = sqlite3.Row
         rows = conn.execute(
             "SELECT id,project_name,version_label,reason,payload_json,created_at FROM project_versions WHERE project_name=? ORDER BY id DESC LIMIT 50",

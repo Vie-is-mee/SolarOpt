@@ -1,0 +1,78 @@
+name: solaropt-studio
+services:
+  backend:
+    image: solaropt-backend:${RELEASE_TAG:-local}
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.backend
+    environment:
+      AI_PROVIDER: ${AI_PROVIDER:-groq}
+      AI_MODEL: ${AI_MODEL:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash-lite}
+      GEMINI_TIMEOUT_SECONDS: 45
+      SOLAROPT_DB_PATH: /data/solaropt.db
+      SOLAROPT_MAX_COMPUTE: 1
+      SOLAROPT_SOLVER_WORKERS: 2
+      CORS_ORIGINS: https://${DOMAIN:?Set DOMAIN in .env}
+    volumes:
+      - database:/data
+    restart: unless-stopped
+    mem_limit: 2g
+    cpus: 1.5
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=5)"]
+      interval: 30s
+      timeout: 8s
+      start_period: 30s
+      retries: 3
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+  web:
+    image: solaropt-web:${RELEASE_TAG:-local}
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.web
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN in .env}
+      DEMO_USER: ${DEMO_USER:?Set DEMO_USER in .env}
+      DEMO_PASSWORD_HASH: ${DEMO_PASSWORD_HASH:?Set DEMO_PASSWORD_HASH in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      backend: {condition: service_healthy}
+    restart: unless-stopped
+    mem_limit: 256m
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+  backup:
+    image: solaropt-backend:${RELEASE_TAG:-local}
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.backend
+    command: ["python", "ops/backup.py", "--loop"]
+    environment:
+      SOLAROPT_DB_PATH: /data/solaropt.db
+      SOLAROPT_BACKUP_DIR: /backups
+    volumes:
+      - database:/data:ro
+      - backups:/backups
+    depends_on:
+      backend: {condition: service_healthy}
+    restart: unless-stopped
+    mem_limit: 128m
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+volumes:
+  database:
+  backups:
+  caddy_data:
+  caddy_config:
