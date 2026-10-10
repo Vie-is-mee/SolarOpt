@@ -32,3 +32,14 @@ Lỗi AI/PVGIS đầu phiên do backend được chạy trong môi trường h�
 - Thành công gọi AI không chứng minh độ chính xác nhận diện và đo kích thước; cần kỹ sư xác nhận hình học.
 
 Kết luận: luồng prototype cục bộ hoạt động trên dữ liệu thử. Có thể demo quy trình; chưa đủ bằng chứng để kết luận sẵn sàng sử dụng cho thi công hoặc vận hành công khai.
+
+
+## Kiểm tra chỉnh vật cản trực tiếp — 10/10/2026
+
+- Nhập rộng, sâu và góc xoay: hình mặt bằng đổi ngay khi ô nhập còn được chọn, không cần Enter hoặc chuyển sang ô khác.
+- Hai bảng chỉnh vật cản đồng bộ kích thước, vị trí và chiều cao; đổi kích thước đa giác co giãn các đỉnh theo đúng trục.
+- Chuyển chữ nhật/bầu dục/đa giác, nhân đôi, xóa và hoàn tác/làm lại: đã kiểm tra trong trình duyệt.
+- Giá trị ngoài giới hạn không được đưa vào mô hình; rời ô nhập sẽ trả lại giá trị hợp lệ trước đó.
+- Cao độ chân mặc định khi bật nhập tay: vật trên mái lấy cao độ mái cơ sở, nhà bên cạnh lấy 0 m từ mặt đất.
+- Ca nhà bên cạnh cao 18,25 m, chân cao 1,5 m, rộng 4 m được API mô phỏng thật chấp nhận (HTTP 200).
+- TypeScript và build frontend đạt. Hình mặt bằng cập nhật trực tiếp; bóng che/bức xạ cập nhật sau phản hồi bộ mô phỏng, có debounce 180 ms.
