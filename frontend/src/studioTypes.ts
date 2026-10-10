@@ -7,6 +7,8 @@ export type Obstacle = {
   shape?:'rect'|'ellipse'|'polygon';rotation_deg?:number;points?:Point[];base_elevation_m?:number|null;
 }
 export type Config = {
+  layout_edge_reserve_m?:number;
+  layout_angle_deg?:number|null;
   dimensions_source?: 'assumed'|'reference'|'measured'; dimensions_verified?: boolean; calibration_reference_m?: number|null;
   measurement_image_width_px?: number|null; measurement_image_height_px?: number|null;
   project_name:string; latitude:number; longitude:number; roof_width_m:number; roof_height_m:number;
@@ -24,10 +26,11 @@ export type Scene = {
   plane_irradiance_w_m2:number;irradiance_source:string;notes:string[];
   faces?:{id:string;label:string;polygons:number[][][];elevation_m:number;tilt_deg:number;irradiance_w_m2:number;area_m2:number;installable:boolean}[];
 }
-export type PlacedPanel = {id:string;x:number;y:number;width_m:number;height_m:number;annual_energy_kwh:number;shading_loss_pct:number;preserved:boolean}
-export type Design = {panels:PlacedPanel[]; metrics:{panel_count:number;peak_power_kwp:number;annual_energy_kwh:number;annual_energy_mwh:number;estimated_cost_vnd:number;average_shading_loss_pct:number;roof_utilization_pct:number;preserved_panel_count:number;layout_preservation_rate_pct:number}; warnings:string[];solver_status:string}
+export type PlacedPanel = {rotation_deg?:number;id:string;x:number;y:number;width_m:number;height_m:number;annual_energy_kwh:number;shading_loss_pct:number;preserved:boolean}
+export type LayoutTrial={search_stage?:'coarse'|'refined';angle_deg:number;offset_x_m:number;offset_y_m:number;candidate_count:number;panel_count:number;annual_energy_kwh:number;objective_score:number;selected:boolean}
+export type Design = {layout_trials?:LayoutTrial[];panels:PlacedPanel[]; metrics:{panel_count:number;peak_power_kwp:number;annual_energy_kwh:number;annual_energy_mwh:number;estimated_cost_vnd:number;average_shading_loss_pct:number;roof_utilization_pct:number;preserved_panel_count:number;layout_preservation_rate_pct:number}; warnings:string[];solver_status:string}
 export type Verification = {valid:boolean;checks:{id:string;label:string;status:'PASS'|'FAIL'|'WARN';detail:string}[]}
-export type Stress = {passed:number;total:number;scenarios:{id:string;name:string;status:'PASS'|'FAIL';panel_count:number;annual_energy_kwh:number;detail:string}[]}
+export type Stress = {passed:number;total:number;scenarios:{id:string;name:string;status:'PASS'|'FAIL';panel_count:number;annual_energy_kwh:number;detail:string;failed_checks?:{id:string;label:string;detail:string}[];recommendations?:string[];affected_panel_ids?:string[]}[]}
 export type Repair = {impact:{changed_input:string;affected_nodes:string[];reused_nodes:string[];recomputation_ratio_pct:number};design:Design;verification:Verification}
 export type Vision = {
   mode:'groq'|'ollama'|'gemini'|'manual';model:string;roof_width_m:number|null;roof_height_m:number|null;roof_confidence:number;

@@ -147,3 +147,17 @@
 
 .trace-section { scroll-margin-top: 24px; }
 .trace-section:focus { outline: none; }
+
+.layout-comparison h3 { font-size: 17px; margin: 0 0 12px; }
+.layout-comparison p { font-size: 14px; line-height: 1.7; }
+.layout-comparison summary { cursor: pointer; color: #28684f; padding: 10px 0; }
+.layout-table-wrap { overflow-x: auto; max-height: 360px; }
+.layout-comparison table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.layout-comparison th, .layout-comparison td { text-align: left; padding: 10px; border-bottom: 1px solid #e1e9dd; }
+.chosen-layout { background: #edf6e9; font-weight: 600; }
+
+.stress-advice { grid-column: 1 / -1; border-top: 1px solid #e1e9dd; padding-top: 12px; font-size: 13px; line-height: 1.7; }
+.stress-advice p, .stress-reserve p { margin: 8px 0; }
+.stress-advice ol { padding-left: 20px; }
+.stress-advice li { margin: 8px 0; }
+.stress-reserve { margin-top: 18px; padding: 18px; background: #f6f8ee; border: 1px solid #dce6cc; border-radius: 9px; font-size: 14px; line-height: 1.7; }

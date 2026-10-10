@@ -90,7 +90,7 @@ def test_openings_and_face_boundaries_constrain_optimizer_and_verifier():
     ctx=build_context(cfg,[],None)
     assert result.panels
     for panel in result.panels:
-        shape=panel_shape(panel.x,panel.y,panel.width_m,panel.height_m)
+        shape=panel_shape(panel.x,panel.y,panel.width_m,panel.height_m,panel.rotation_deg)
         assert any(s.polygon.covers(shape) for s in ctx.surfaces)
         assert not shape.intersection(box(1,1,3,4)).area
     assert verify_design(VerifyRequest(config=cfg,panel=PanelSpec(),design=result)).valid

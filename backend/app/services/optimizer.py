@@ -8,15 +8,14 @@ except Exception:  # Cho phép chạy demo tối thiểu trước khi cài OR-To
     cp_model = None
 
 from datetime import date
+from app.services.layout_search import search_layouts, same_position, score
 
 from app.schemas import CandidatePanel, DesignMetrics, DesignRequest, DesignResult, SunRequest
 from app.services.geometry import build_context, overlap_ratio, panel_shape
 from app.services.solar import sun_position
 
 
-def _same_position(a: CandidatePanel, b: CandidatePanel, tol: float = 0.02) -> bool:
-    return abs(a.x - b.x) <= tol and abs(a.y - b.y) <= tol and abs(a.width_m-b.width_m) <= tol and abs(a.height_m-b.height_m) <= tol
-
+_same_position = same_position
 
 def generate_design(req: DesignRequest) -> DesignResult:
     cfg, spec = req.config, req.panel
@@ -34,49 +33,7 @@ def generate_design(req: DesignRequest) -> DesignResult:
     pw, ph = spec.width_m, spec.height_m
     gap = cfg.panel_gap_m
 
-    # Tạo lưới ứng viên cố định để tối ưu 0/1 và dễ giải thích.
-    x0 = cfg.setback_m
-    y0 = cfg.setback_m
-    x_max = cfg.roof_width_m - cfg.setback_m - pw
-    y_max = cfg.roof_height_m - cfg.setback_m - ph
-
-    candidates: list[CandidatePanel] = []
-    row = 0
-    y = y0
-    while y <= y_max + 1e-6:
-        col = 0
-        x = x0
-        while x <= x_max + 1e-6:
-            shape = panel_shape(x, y, pw, ph)
-            surface=next((s for s in ctx.surfaces if s.installable and s.polygon.buffer(-cfg.setback_m,join_style=2).covers(shape)),None)
-            if ctx.usable_roof.covers(shape) and surface is not None:
-                obs_overlap = overlap_ratio(shape, ctx.obstacle_union)
-                if obs_overlap <= 1e-9:
-                    overlaps = [overlap_ratio(shape, sc.shadow_union) for sc in shade_contexts]
-                    mean_overlap = sum(overlaps) / max(1, len(overlaps))
-                    max_overlap = max(overlaps, default=0.0)
-                    # Tổn thất bóng là tổ hợp trung bình + tình huống bất lợi. Đây là mô hình MVP
-                    # có thể kiểm chứng, thay cho việc hard-code điểm số trong frontend.
-                    shading_loss = min(70.0, (0.72 * mean_overlap + 0.28 * max_overlap) * 78.0)
-                    loss_limit = 10.0 if req.objective == "durability" else 18.0 if req.objective == "balanced" else 70.0
-                    if mean_overlap < 0.55 and max_overlap < 0.50 and shading_loss <= loss_limit:
-                        annual_kwh = (
-                            spec.power_w / 1000.0
-                            * cfg.annual_irradiance_kwh_m2
-                            * cfg.performance_ratio
-                            * (1.0 - shading_loss / 100.0)
-                        )
-                        cid = f"r{row}c{col}"
-                        preserved = any(abs(p.x-x) < 0.02 and abs(p.y-y) < 0.02 for p in req.previous_panels)
-                        candidates.append(CandidatePanel(
-                            id=cid, x=round(x, 3), y=round(y, 3), width_m=pw, height_m=ph,
-                            annual_energy_kwh=round(annual_kwh, 2),
-                            shading_loss_pct=round(shading_loss, 2), preserved=preserved, face_id=surface.id,
-                        ))
-            col += 1
-            x += pw + gap
-        row += 1
-        y += ph + gap
+    candidates, layout_trials = search_layouts(req, ctx, shade_contexts)
 
     if not candidates:
         return DesignResult(
@@ -87,7 +44,7 @@ def generate_design(req: DesignRequest) -> DesignResult:
                 preserved_panel_count=0, layout_preservation_rate_pct=0,
             ),
             warnings=["Không có vị trí khả thi. Hãy giảm setback, chỉnh vật cản hoặc chọn tấm pin nhỏ hơn."],
-            solver_status="INFEASIBLE",
+            solver_status="INFEASIBLE", layout_trials=layout_trials,
         )
 
     # Ưu tiên CP-SAT. Nếu máy chưa cài OR-Tools, dùng greedy fallback để giao diện vẫn chạy;
@@ -100,14 +57,7 @@ def generate_design(req: DesignRequest) -> DesignResult:
 
         terms = []
         for var, c in zip(xs, candidates):
-            energy_score = int(round(c.annual_energy_kwh * 100))
-            if req.objective == "durability":
-                energy_score = int(round(energy_score * (1.0 - min(c.shading_loss_pct, 50) / 120.0)))
-            elif req.objective == "balanced":
-                # Cost/benefit penalty rather than a constant rescaling of all candidates.
-                energy_score = int(round(energy_score - (spec.power_w/1000*cfg.annual_irradiance_kwh_m2*cfg.performance_ratio)*35))
-            preserve_bonus = int(round(req.minimal_repair_weight * 100)) if c.preserved else 0
-            terms.append(var * (energy_score + preserve_bonus))
+            terms.append(var * score(req,c))
         model.Maximize(sum(terms))
 
         solver = cp_model.CpSolver()
@@ -120,16 +70,7 @@ def generate_design(req: DesignRequest) -> DesignResult:
         max_count = len(candidates)
         if spec.price_vnd > 0:
             max_count = min(max_count, int(cfg.budget_vnd // spec.price_vnd))
-        def score(c):
-            base = c.annual_energy_kwh
-            if req.objective == "durability":
-                base *= 1.0 - min(c.shading_loss_pct, 50) / 120.0
-            elif req.objective == "balanced":
-                base -= spec.power_w/1000*cfg.annual_irradiance_kwh_m2*cfg.performance_ratio*0.35
-            if c.preserved:
-                base += req.minimal_repair_weight
-            return base
-        selected = sorted(candidates, key=score, reverse=True)[:max_count]
+        selected = sorted((c for c in candidates if score(req,c)>0), key=lambda c:score(req,c), reverse=True)[:max_count]
         status_name = "GREEDY_FALLBACK"
 
     energy = sum(p.annual_energy_kwh for p in selected)
@@ -155,6 +96,7 @@ def generate_design(req: DesignRequest) -> DesignResult:
         layout_preservation_rate_pct=round(preservation_rate, 1),
     )
     warnings: list[str] = ["Chi phí chỉ gồm tấm pin, chưa gồm inverter, khung, dây và thi công.", "Sản lượng sơ bộ dùng 9 thời điểm bóng che đại diện; chưa phải mô phỏng năm theo giờ đã đối chuẩn."]
+    warnings.append(f"Đã so sánh {len(layout_trials)} lưới xoay/dịch; chọn tốt nhất theo điểm mục tiêu trong các lưới đã thử, chưa phải tối ưu mọi cách xếp.")
     if len(selected) == 0:
         warnings.append("Solver không chọn được panel trong ngân sách/ràng buộc hiện tại.")
-    return DesignResult(panels=selected, metrics=metrics, warnings=warnings, solver_status=status_name)
+    return DesignResult(panels=selected, metrics=metrics, warnings=warnings, solver_status=status_name, layout_trials=layout_trials)

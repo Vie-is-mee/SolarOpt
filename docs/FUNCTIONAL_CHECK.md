@@ -52,3 +52,25 @@ Kết luận: luồng prototype cục bộ hoạt động trên dữ liệu th�
 - Giữ cố định phép biến đổi khung nhìn trong suốt thao tác kéo; kiểm tra tâm vật cản bám theo con trỏ trong sai số 3 pixel trước khi thả.
 - Kéo nhà phía Đông từ X = 18 m vào X = 5,2 m thành công; có đa giác bóng từ phản hồi mô phỏng thật, không có lỗi giao diện/API trong ca này.
 - TypeScript và build đạt. Bóng che vẫn phụ thuộc ngày/giờ, hướng và cao độ; vật thể có thể không đổ bóng vào mái ở một số thời điểm.
+
+
+## Bố trí thích nghi với mái chéo — 10/10/2026
+
+- Tự động lấy tối đa hai hướng cạnh chủ đạo và hướng trục bản vẽ; thử hai chiều đặt pin cùng bốn pha dịch lưới. Các lưới là phương án độc lập, không trộn để tránh chồng tấm.
+- Mỗi tấm lưu rotation_deg, vẫn giữ kích thước vật lý. Hình học, kiểm chứng, stress test, sửa bố trí và bản vẽ SVG/PDF dùng cùng góc xoay.
+- Có cấu hình góc thủ công và bảng so sánh góc, pha dịch, số tấm, sản lượng ước tính của các lưới thực sự đã thử. Góc mặt bằng không thay hướng Bắc hoặc độ nghiêng mái.
+- Kiểm thử hồi quy: 44 tests đạt, gồm mái hẹp chéo 45° mà lưới 0° không đặt được tấm, ngân sách, kiểm chứng góc xoay, stress, giữ vị trí khi sửa và fallback.
+- Trình duyệt trên ảnh Nhà A: tự động thử 16 lưới, chọn 139,6°. Chuyển góc thủ công 45°, chạy kiểm chứng đều đạt; xuất SVG thành công; không tràn ngang ở 390 px.
+- TypeScript và build đạt. Backend đang chạy phiên bản mới ở cổng 8001.
+- Giới hạn: tối ưu theo điểm mục tiêu trong các lưới đã thử; chưa trộn nhiều hướng hoặc làm mô phỏng sản lượng từng giờ trong năm. Kết quả phụ thuộc biên mái, vật cản và số đo đã nhập.
+
+
+## Tinh chỉnh lưới và hướng dẫn xử lý stress — 10/10/2026
+
+- Giữ toàn bộ lưới ban đầu; thêm pha dịch ¼ bước và các góc ±1°/±2° quanh phương án tốt nhất ở chế độ tự động. Chế độ góc thủ công chỉ tinh chỉnh pha dịch, không đổi góc đã chọn.
+- Ca hồi quy mái chữ L xoay 37°, vật cản 2 × 2 m tại (5,6; 5): 7 → 8 tấm, điểm mục tiêu tăng và vẫn qua kiểm chứng. Ca thử theo ảnh không tăng điểm được giữ nguyên phương án đầu; không tuyên bố mọi mái đều tăng số tấm.
+- Phản hồi stress lưu các kiểm tra FAIL, ID tấm vi phạm và đề xuất xử lý cụ thể; giữ nguyên thiết kế đầu vào, không tự tối ưu để biến kết quả kiểm tra thành PASS.
+- Giao diện có đề xuất xử lý, nút đánh dấu tấm lỗi màu đỏ và tùy chọn đưa khoảng dự phòng vào cấu hình. Sau đó người dùng phải tính và kiểm chứng lại.
+- Dự phòng là biên thêm khi tìm vị trí pin, độc lập với lùi mép bắt buộc. Có thể giảm số tấm/sản lượng; không tự thay số đo mái hoặc thông số tấm pin.
+- Trình duyệt với ca hồi quy: 96 lưới; 5/8 trước sửa; 3 thẻ đề xuất; đánh dấu tấm lỗi hoạt động. Dự phòng 0,58 m rồi tính lại đạt 8/8 trong ca này. Không đảm bảo mọi đầu vào đạt cùng kết quả.
+- 47 backend tests đạt; TypeScript/build đạt; không có lỗi JS và không tràn ngang ở 390 px trong ca kiểm tra.

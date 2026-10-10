@@ -133,7 +133,9 @@ def build_context(config:ProjectConfig,obstacles:list[RectObstacle],sun:SunPosit
     pieces=[g for g in [obstacle_union,shadow_union] if g is not None and not g.is_empty]
     return GeometryContext(roof,usable,obstacle_union,shadow_union,unary_union(pieces) if pieces else None,planes,records)
 
-def panel_shape(x,y,width,height):return box(x,y,x+width,y+height)
+def panel_shape(x,y,width,height,rotation_deg=0):
+    shape=box(x,y,x+width,y+height)
+    return rotate(shape,rotation_deg,origin=(x+width/2,y+height/2)) if rotation_deg else shape
 
 def overlap_ratio(shape,other):
     if other is None or other.is_empty or shape.area<=0:return 0.0

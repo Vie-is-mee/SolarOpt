@@ -74,6 +74,8 @@ class ProjectConfig(StrictModel):
     roof_height_m: float = Field(default=8.0, gt=0, le=100)
     roof_azimuth_deg: float = Field(default=180.0, ge=0, le=360)
     roof_tilt_deg: float = Field(default=0.0, ge=0, le=60)
+    layout_edge_reserve_m: float = Field(default=0, ge=0, le=5, description="Additional packing reserve; independent of mandatory setback")
+    layout_angle_deg: float | None = Field(default=None, ge=-180, le=180, description="In-plane panel angle; None searches roof-edge directions")
     north_rotation_deg: float = Field(default=0.0, ge=0, lt=360, description="Azimuth of the drawing's +Y axis, clockwise from true north")
     roof_elevation_m: float = Field(default=6.0, ge=0, le=300)
     roof_polygon: list[Point] = Field(default_factory=list, max_length=50)
@@ -142,6 +144,7 @@ class CandidatePanel(BaseModel):
     y: float
     width_m: float
     height_m: float
+    rotation_deg: float = Field(default=0, ge=-180, le=180)
     annual_energy_kwh: float
     shading_loss_pct: float
     preserved: bool = False
@@ -170,11 +173,24 @@ class DesignMetrics(BaseModel):
     layout_preservation_rate_pct: float = 0.0
 
 
+class LayoutTrial(BaseModel):
+    search_stage: Literal["coarse", "refined"] = "coarse"
+    angle_deg: float
+    offset_x_m: float
+    offset_y_m: float
+    candidate_count: int
+    panel_count: int
+    annual_energy_kwh: float
+    objective_score: float
+    selected: bool = False
+
+
 class DesignResult(BaseModel):
     panels: list[CandidatePanel]
     metrics: DesignMetrics
     warnings: list[str] = []
     solver_status: str = "UNKNOWN"
+    layout_trials: list[LayoutTrial] = Field(default_factory=list)
 
 
 class VerifyRequest(BaseModel):
@@ -190,6 +206,7 @@ class CheckResult(BaseModel):
     label: str
     status: Literal["PASS", "FAIL", "WARN"]
     detail: str
+    affected_panel_ids: list[str] = Field(default_factory=list)
 
 
 class VerifyResult(BaseModel):
@@ -212,6 +229,9 @@ class StressScenarioResult(BaseModel):
     panel_count: int
     annual_energy_kwh: float
     detail: str
+    failed_checks: list[CheckResult] = Field(default_factory=list)
+    recommendations: list[str] = Field(default_factory=list)
+    affected_panel_ids: list[str] = Field(default_factory=list)
 
 
 class StressResult(BaseModel):

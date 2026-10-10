@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from app.services.stress_advice import recommendations
 
 from app.schemas import DesignRequest, StressRequest, StressResult, StressScenarioResult, VerifyRequest
 from app.services.geometry import build_context, panel_shape, overlap_ratio
@@ -15,12 +16,15 @@ def _run(name: str, sid: str, req: StressRequest, cfg, obstacles, panel, detail:
         p.width_m = panel.width_m
         p.height_m = panel.height_m
         if req.sun:
-            p.shading_loss_pct = 100*overlap_ratio(panel_shape(p.x,p.y,p.width_m,p.height_m),ctx.shadow_union)
+            p.shading_loss_pct = 100*overlap_ratio(panel_shape(p.x,p.y,p.width_m,p.height_m,p.rotation_deg),ctx.shadow_union)
         p.annual_energy_kwh = panel.power_w/1000*cfg.annual_irradiance_kwh_m2*cfg.performance_ratio*(1-p.shading_loss_pct/100)
     design.metrics.estimated_cost_vnd = len(design.panels)*panel.price_vnd
     design.metrics.annual_energy_kwh = sum(p.annual_energy_kwh for p in design.panels)
     ver = verify_design(VerifyRequest(config=cfg, panel=panel, obstacles=obstacles, design=design, sun=req.sun))
+    failed=[c for c in ver.checks if c.status=='FAIL']
     return StressScenarioResult(
+        failed_checks=failed,recommendations=recommendations(sid,req,cfg,panel,failed),
+        affected_panel_ids=sorted({id for c in failed for id in c.affected_panel_ids}),
         id=sid, name=name, status="PASS" if ver.valid else "FAIL",
         panel_count=design.metrics.panel_count,
         annual_energy_kwh=design.metrics.annual_energy_kwh,

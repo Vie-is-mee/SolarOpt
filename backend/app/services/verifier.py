@@ -16,7 +16,7 @@ def verify_design(req: VerifyRequest) -> VerifyResult:
     shadow_heavy = []
     shapes = []
     for p in panels:
-        s = panel_shape(p.x, p.y, p.width_m, p.height_m)
+        s = panel_shape(p.x, p.y, p.width_m, p.height_m, p.rotation_deg)
         shapes.append(s)
         if not ctx.usable_roof.covers(s) or not any(
             face.installable and face.polygon.buffer(-req.config.setback_m,join_style=2).covers(s)
@@ -41,9 +41,9 @@ def verify_design(req: VerifyRequest) -> VerifyResult:
 
     checks.extend([
         CheckResult(id="geometry_confirmation", label="Kỹ sư xác nhận dữ liệu", status="PASS" if req.config.geometry_confirmed and all(o.confirmed for o in req.obstacles) else "WARN", detail="Đã xác nhận dữ liệu đầu vào" if req.config.geometry_confirmed and all(o.confirmed for o in req.obstacles) else "Còn dữ liệu ước lượng/chưa xác nhận; chưa cho lưu bản duyệt."),
-        CheckResult(id="roof_boundary", label="Tấm pin nằm trong vùng mái hợp lệ", status="PASS" if not outside else "FAIL", detail="Đạt" if not outside else f"Ngoài mái: {', '.join(outside[:5])}"),
-        CheckResult(id="obstacle_clearance", label="Không giao vùng vật cản/an toàn", status="PASS" if not obstacle_hits else "FAIL", detail="Đạt" if not obstacle_hits else f"Va chạm: {', '.join(obstacle_hits[:5])}"),
-        CheckResult(id="panel_overlap", label="Không chồng lấn giữa các tấm pin", status="PASS" if not overlap_pairs else "FAIL", detail="Đạt" if not overlap_pairs else f"Có {len(overlap_pairs)} cặp chồng lấn"),
+        CheckResult(id="roof_boundary", label="Tấm pin nằm trong vùng mái hợp lệ", status="PASS" if not outside else "FAIL", detail="Đạt" if not outside else f"Ngoài mái: {', '.join(outside[:5])}", affected_panel_ids=outside),
+        CheckResult(id="obstacle_clearance", label="Không giao vùng vật cản/an toàn", status="PASS" if not obstacle_hits else "FAIL", detail="Đạt" if not obstacle_hits else f"Va chạm: {', '.join(obstacle_hits[:5])}", affected_panel_ids=obstacle_hits),
+        CheckResult(id="panel_overlap", label="Không chồng lấn giữa các tấm pin", status="PASS" if not overlap_pairs else "FAIL", detail="Đạt" if not overlap_pairs else f"Có {len(overlap_pairs)} cặp chồng lấn", affected_panel_ids=sorted({id for pair in overlap_pairs for id in pair})),
         CheckResult(id="shadow", label="Bóng che tại thời điểm kiểm tra" if req.sun else "Tổn thất bóng sơ bộ", status="PASS" if not shadow_heavy else "WARN", detail="Không vượt ngưỡng cảnh báo 40%" if not shadow_heavy else f"{len(shadow_heavy)} tấm vượt ngưỡng cảnh báo 40%"),
         CheckResult(id="budget", label="Chi phí tấm pin không vượt ngân sách", status="PASS" if cost_ok else "FAIL", detail=f"{actual_cost:,.0f} / {req.config.budget_vnd:,.0f} VND; chưa phải tổng mức đầu tư"),
         CheckResult(id="panel_data", label="Thông số điện tấm pin hợp lệ", status="PASS" if power_ok else "FAIL", detail=f"P={req.panel.power_w}W, Voc={req.panel.voc_v}V, Imp={req.panel.imp_a}A"),
