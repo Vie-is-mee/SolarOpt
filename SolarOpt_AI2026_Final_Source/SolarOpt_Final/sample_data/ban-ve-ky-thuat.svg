@@ -1,0 +1,193 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 720" width="1000" height="720">
+  <defs>
+    <!-- Blueprint grid pattern -->
+    <pattern id="grid-minor" width="10" height="10" patternUnits="userSpaceOnUse">
+      <path d="M 10 0 L 0 0 0 10" fill="none" stroke="#1a3a6e" stroke-width="0.3"/>
+    </pattern>
+    <pattern id="grid-major" width="50" height="50" patternUnits="userSpaceOnUse">
+      <rect width="50" height="50" fill="url(#grid-minor)"/>
+      <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#1e4080" stroke-width="0.8"/>
+    </pattern>
+    <!-- Hatch for obstacles -->
+    <pattern id="hatch" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="8" stroke="#7ab3e0" stroke-width="1.5"/>
+    </pattern>
+    <!-- Hatch fine -->
+    <pattern id="hatch2" patternUnits="userSpaceOnUse" width="5" height="5" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="5" stroke="#5a9fd4" stroke-width="1"/>
+    </pattern>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 Z" fill="#a0c8f0"/>
+    </marker>
+    <marker id="arr-r" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto-start-reverse">
+      <path d="M0,0 L8,4 L0,8 Z" fill="#a0c8f0"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1000" height="720" fill="#0a1f3d"/>
+  <rect width="1000" height="720" fill="url(#grid-major)"/>
+
+  <!-- Title border -->
+  <rect x="10" y="10" width="980" height="700" fill="none" stroke="#3a7abf" stroke-width="2"/>
+  <rect x="16" y="16" width="968" height="688" fill="none" stroke="#2a6aaf" stroke-width="0.8"/>
+
+  <!-- ======= MAIN ROOF PLAN ======= -->
+  <!-- Outer wall -->
+  <rect x="120" y="70" width="620" height="450" fill="none" stroke="#c8e0f8" stroke-width="3"/>
+  <!-- Inner roof boundary (setback) -->
+  <rect x="140" y="90" width="580" height="410" fill="none" stroke="#7ab3e0" stroke-width="1" stroke-dasharray="6 3"/>
+
+  <!-- Hip roof ridge lines -->
+  <!-- Diagonal ridges from corners to center -->
+  <line x1="120" y1="70" x2="430" y2="295" stroke="#e0f0ff" stroke-width="1.5" stroke-dasharray="4 2"/>
+  <line x1="740" y1="70" x2="430" y2="295" stroke="#e0f0ff" stroke-width="1.5" stroke-dasharray="4 2"/>
+  <line x1="120" y1="520" x2="430" y2="295" stroke="#e0f0ff" stroke-width="1.5" stroke-dasharray="4 2"/>
+  <line x1="740" y1="520" x2="430" y2="295" stroke="#e0f0ff" stroke-width="1.5" stroke-dasharray="4 2"/>
+  <!-- Ridge line horizontal -->
+  <line x1="300" y1="295" x2="560" y2="295" stroke="#e0f0ff" stroke-width="2"/>
+
+  <!-- Annex wing (right) -->
+  <rect x="740" y="220" width="140" height="200" fill="none" stroke="#c8e0f8" stroke-width="2.5"/>
+  <line x1="740" y1="220" x2="810" y2="320" stroke="#e0f0ff" stroke-width="1.5" stroke-dasharray="4 2"/>
+  <line x1="880" y1="220" x2="810" y2="320" stroke="#e0f0ff" stroke-width="1.5" stroke-dasharray="4 2"/>
+  <line x1="740" y1="420" x2="810" y2="320" stroke="#e0f0ff" stroke-width="1.5" stroke-dasharray="4 2"/>
+  <line x1="880" y1="420" x2="810" y2="320" stroke="#e0f0ff" stroke-width="1.5" stroke-dasharray="4 2"/>
+
+  <!-- ======= OBSTACLES ======= -->
+
+  <!-- Bồn nước (water tank) - circle top view -->
+  <circle cx="560" cy="170" r="42" fill="url(#hatch)" stroke="#ffd080" stroke-width="2"/>
+  <circle cx="560" cy="170" r="42" fill="none" stroke="#ffd080" stroke-width="1.5"/>
+  <circle cx="560" cy="170" r="28" fill="none" stroke="#ffd080" stroke-width="1" stroke-dasharray="4 2"/>
+  <circle cx="560" cy="170" r="4" fill="#ffd080"/>
+  <!-- Label -->
+  <rect x="460" y="220" width="110" height="20" fill="#0a1f3d" fill-opacity="0.8"/>
+  <text x="515" y="234" font-family="Arial, sans-serif" font-size="12" fill="#ffd080" text-anchor="middle" font-weight="bold">BỒN NƯỚC</text>
+  <text x="515" y="248" font-family="Arial, sans-serif" font-size="10" fill="#a0c8f0" text-anchor="middle">Ø1.75m · H=1.20m</text>
+  <!-- Leader line -->
+  <line x1="515" y1="220" x2="540" y2="200" stroke="#ffd080" stroke-width="0.8"/>
+
+  <!-- Ống thông gió (ventilation) - small square -->
+  <rect x="224" y="248" width="52" height="52" fill="url(#hatch2)" stroke="#80d0a0" stroke-width="2"/>
+  <line x1="224" y1="248" x2="276" y2="300" stroke="#80d0a0" stroke-width="1"/>
+  <line x1="276" y1="248" x2="224" y2="300" stroke="#80d0a0" stroke-width="1"/>
+  <text x="250" y="318" font-family="Arial, sans-serif" font-size="11" fill="#80d0a0" text-anchor="middle" font-weight="bold">ỐNG THÔNG GIÓ</text>
+  <text x="250" y="332" font-family="Arial, sans-serif" font-size="10" fill="#a0c8f0" text-anchor="middle">0.6 × 0.6m</text>
+
+  <!-- Vật thể A? (unknown object) -->
+  <rect x="380" y="380" width="100" height="60" fill="none" stroke="#ffb060" stroke-width="1.5" stroke-dasharray="6 3"/>
+  <text x="430" y="408" font-family="Arial, sans-serif" font-size="12" fill="#ffb060" text-anchor="middle" font-weight="bold">VẬT THỂ A?</text>
+  <text x="430" y="424" font-family="Arial, sans-serif" font-size="9" fill="#a0c8f0" text-anchor="middle">~0.8 × 0.5m</text>
+
+  <!-- Dàn nóng in annex -->
+  <rect x="760" y="262" width="88" height="66" fill="url(#hatch)" stroke="#ffd080" stroke-width="2"/>
+  <text x="804" y="290" font-family="Arial, sans-serif" font-size="11" fill="#ffd080" text-anchor="middle" font-weight="bold">DÀN NÓNG</text>
+  <text x="804" y="305" font-family="Arial, sans-serif" font-size="9" fill="#a0c8f0" text-anchor="middle">0.9 × 0.7m</text>
+
+  <!-- ======= DIMENSION LINES ======= -->
+
+  <!-- Width dimension (top) -->
+  <line x1="120" y1="45" x2="740" y2="45" stroke="#a0c8f0" stroke-width="1" marker-end="url(#arr)" marker-start="url(#arr-r)"/>
+  <line x1="120" y1="38" x2="120" y2="58" stroke="#a0c8f0" stroke-width="0.8"/>
+  <line x1="740" y1="38" x2="740" y2="58" stroke="#a0c8f0" stroke-width="0.8"/>
+  <rect x="375" y="36" width="90" height="18" fill="#0a1f3d"/>
+  <text x="420" y="49" font-family="Arial, sans-serif" font-size="13" fill="#c8e0f8" text-anchor="middle" font-weight="bold">12,400</text>
+
+  <!-- Height dimension (left) -->
+  <line x1="90" y1="70" x2="90" y2="520" stroke="#a0c8f0" stroke-width="1" marker-end="url(#arr)" marker-start="url(#arr-r)"/>
+  <line x1="82" y1="70" x2="104" y2="70" stroke="#a0c8f0" stroke-width="0.8"/>
+  <line x1="82" y1="520" x2="104" y2="520" stroke="#a0c8f0" stroke-width="0.8"/>
+  <rect x="54" y="277" width="24" height="90" fill="#0a1f3d"/>
+  <text x="66" y="310" font-family="Arial, sans-serif" font-size="13" fill="#c8e0f8" text-anchor="middle" font-weight="bold" transform="rotate(-90 66 310)">10,200</text>
+
+  <!-- Annex width -->
+  <line x1="740" y1="206" x2="880" y2="206" stroke="#a0c8f0" stroke-width="0.8" marker-end="url(#arr)" marker-start="url(#arr-r)"/>
+  <text x="810" y="200" font-family="Arial, sans-serif" font-size="10" fill="#a0c8f0" text-anchor="middle">3,200</text>
+
+  <!-- Annex height -->
+  <line x1="896" y1="220" x2="896" y2="420" stroke="#a0c8f0" stroke-width="0.8" marker-end="url(#arr)" marker-start="url(#arr-r)"/>
+  <text x="920" y="325" font-family="Arial, sans-serif" font-size="10" fill="#a0c8f0" text-anchor="middle" transform="rotate(-90 920 325)">4,600</text>
+
+  <!-- Reference segment A-B -->
+  <circle cx="140" cy="90" r="5" fill="none" stroke="#ffdd44" stroke-width="1.5"/>
+  <text x="128" y="82" font-family="Arial, sans-serif" font-size="11" fill="#ffdd44" text-anchor="middle" font-weight="bold">A</text>
+  <line x1="140" y1="90" x2="413" y2="90" stroke="#ffdd44" stroke-width="1.5" stroke-dasharray="none"/>
+  <circle cx="413" cy="90" r="5" fill="none" stroke="#ffdd44" stroke-width="1.5"/>
+  <text x="425" y="82" font-family="Arial, sans-serif" font-size="11" fill="#ffdd44" text-anchor="middle" font-weight="bold">B</text>
+  <!-- A-B label -->
+  <rect x="245" y="75" width="70" height="18" fill="#0a1f3d" fill-opacity="0.9"/>
+  <text x="280" y="88" font-family="Arial, sans-serif" font-size="11" fill="#ffdd44" text-anchor="middle" font-weight="bold">A – B = 5.40m</text>
+
+  <!-- Edge clearance note -->
+  <line x1="140" y1="94" x2="140" y2="126" stroke="#80c0ff" stroke-width="0.8" stroke-dasharray="3 2"/>
+  <line x1="120" y1="100" x2="165" y2="100" stroke="#80c0ff" stroke-width="0.8"/>
+  <text x="170" y="104" font-family="Arial, sans-serif" font-size="9" fill="#80c0ff">0.45m</text>
+
+  <!-- North arrow -->
+  <g transform="translate(900,130)">
+    <circle cx="0" cy="0" r="28" fill="#0d2a50" stroke="#3a7abf" stroke-width="1.5"/>
+    <polygon points="0,-22 6,4 0,0 -6,4" fill="#ffffff"/>
+    <polygon points="0,22 6,-4 0,0 -6,-4" fill="#4a8abf"/>
+    <text y="-26" font-family="Arial, sans-serif" font-size="12" fill="#ffffff" text-anchor="middle" font-weight="bold">N</text>
+  </g>
+
+  <!-- Scale bar -->
+  <g transform="translate(120,560)">
+    <text x="0" y="-6" font-family="Arial, sans-serif" font-size="10" fill="#a0c8f0">Tỷ lệ 1:100</text>
+    <rect x="0" y="0" width="50" height="8" fill="#a0c8f0"/>
+    <rect x="50" y="0" width="50" height="8" fill="#0a1f3d" stroke="#a0c8f0" stroke-width="0.5"/>
+    <rect x="100" y="0" width="50" height="8" fill="#a0c8f0"/>
+    <rect x="150" y="0" width="50" height="8" fill="#0a1f3d" stroke="#a0c8f0" stroke-width="0.5"/>
+    <text x="0" y="20" font-family="Arial, sans-serif" font-size="9" fill="#a0c8f0">0</text>
+    <text x="47" y="20" font-family="Arial, sans-serif" font-size="9" fill="#a0c8f0">5m</text>
+    <text x="97" y="20" font-family="Arial, sans-serif" font-size="9" fill="#a0c8f0">10m</text>
+    <text x="197" y="20" font-family="Arial, sans-serif" font-size="9" fill="#a0c8f0">20m</text>
+  </g>
+
+  <!-- ======= TITLE BLOCK ======= -->
+  <rect x="10" y="596" width="980" height="114" fill="#0d2a50" stroke="#3a7abf" stroke-width="1"/>
+  <line x1="10" y1="596" x2="990" y2="596" stroke="#3a7abf" stroke-width="1.5"/>
+
+  <!-- Title block columns -->
+  <line x1="600" y1="596" x2="600" y2="710" stroke="#3a7abf" stroke-width="0.8"/>
+  <line x1="750" y1="596" x2="750" y2="710" stroke="#3a7abf" stroke-width="0.8"/>
+  <line x1="600" y1="645" x2="990" y2="645" stroke="#3a7abf" stroke-width="0.8"/>
+  <line x1="600" y1="675" x2="990" y2="675" stroke="#3a7abf" stroke-width="0.8"/>
+
+  <!-- Main title -->
+  <text x="305" y="628" font-family="Arial, sans-serif" font-size="18" fill="#e0f0ff" text-anchor="middle" font-weight="bold">MẶT BẰNG MÁI NHÀ – BẢN VẼ KỸ THUẬT</text>
+  <text x="305" y="648" font-family="Arial, sans-serif" font-size="12" fill="#a0c8f0" text-anchor="middle">Nhà ở tư nhân – TP.HCM · Diện tích mái: ~120 m²</text>
+  <text x="305" y="666" font-family="Arial, sans-serif" font-size="11" fill="#80a8d0" text-anchor="middle">Độ nghiêng mái: 15° · Hướng: 178° (Nam) · Vật cản: 3 đã xác định, 1 chưa rõ</text>
+  <text x="305" y="684" font-family="Arial, sans-serif" font-size="10" fill="#607090" text-anchor="middle">Tọa độ: 10.776°N, 106.701°E</text>
+  <text x="305" y="700" font-family="Arial, sans-serif" font-size="10" fill="#607090" text-anchor="middle">Khoảng cách tham chiếu A – B = 5.40 m thực tế</text>
+
+  <!-- Right block: project info -->
+  <text x="612" y="618" font-family="Arial, sans-serif" font-size="10" fill="#a0c8f0">Dự án:</text>
+  <text x="612" y="632" font-family="Arial, sans-serif" font-size="11" fill="#e0f0ff" font-weight="bold">SolarOpt Demo Project</text>
+  <text x="612" y="654" font-family="Arial, sans-serif" font-size="10" fill="#a0c8f0">Bản vẽ số:</text>
+  <text x="612" y="668" font-family="Arial, sans-serif" font-size="11" fill="#e0f0ff" font-weight="bold">BV-MAI-001</text>
+  <text x="612" y="688" font-family="Arial, sans-serif" font-size="10" fill="#a0c8f0">Ngày:</text>
+  <text x="612" y="702" font-family="Arial, sans-serif" font-size="10" fill="#e0f0ff">18/04/2024</text>
+
+  <!-- Scale/revision block -->
+  <text x="762" y="618" font-family="Arial, sans-serif" font-size="10" fill="#a0c8f0">Tỷ lệ:</text>
+  <text x="762" y="632" font-family="Arial, sans-serif" font-size="11" fill="#e0f0ff" font-weight="bold">1 : 100</text>
+  <text x="762" y="654" font-family="Arial, sans-serif" font-size="10" fill="#a0c8f0">Đơn vị:</text>
+  <text x="762" y="668" font-family="Arial, sans-serif" font-size="10" fill="#e0f0ff">mm</text>
+  <text x="762" y="688" font-family="Arial, sans-serif" font-size="10" fill="#a0c8f0">Bản:</text>
+  <text x="762" y="702" font-family="Arial, sans-serif" font-size="10" fill="#e0f0ff">Rev. A</text>
+
+  <!-- Legend -->
+  <g transform="translate(400,570)">
+    <text x="0" y="0" font-family="Arial, sans-serif" font-size="10" fill="#80a8d0" font-weight="bold">CHÚ THÍCH:</text>
+    <rect x="0" y="8" width="14" height="10" fill="none" stroke="#ffd080" stroke-width="1.5"/>
+    <text x="18" y="18" font-family="Arial, sans-serif" font-size="9" fill="#a0c8f0">Vật cản đã xác định</text>
+    <rect x="130" y="8" width="14" height="10" fill="none" stroke="#ffb060" stroke-width="1.5" stroke-dasharray="4 2"/>
+    <text x="148" y="18" font-family="Arial, sans-serif" font-size="9" fill="#a0c8f0">Vật thể chưa rõ</text>
+    <line x1="0" y1="32" x2="14" y2="32" stroke="#e0f0ff" stroke-width="1.5" stroke-dasharray="4 2"/>
+    <text x="18" y="36" font-family="Arial, sans-serif" font-size="9" fill="#a0c8f0">Đường bờ mái (setback)</text>
+    <line x1="130" y1="32" x2="144" y2="32" stroke="#ffdd44" stroke-width="1.5"/>
+    <text x="148" y="36" font-family="Arial, sans-serif" font-size="9" fill="#a0c8f0">Đoạn tham chiếu A-B</text>
+  </g>
+</svg>

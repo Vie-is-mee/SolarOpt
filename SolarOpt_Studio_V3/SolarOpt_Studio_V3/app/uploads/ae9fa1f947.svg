@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 820">
+  <rect width="1200" height="820" fill="#f7f8f4"/>
+  <g stroke="#50645a" fill="none" stroke-width="4">
+    <path d="M130 140 H1010 V690 H650 V600 H130 Z" fill="#eef2ed"/>
+  </g>
+  <g font-family="Arial, sans-serif" fill="#26352d">
+    <text x="130" y="115" font-size="28" font-weight="700">MẶT BẰNG MÁI — DEMO SOLAROPT</text>
+    <text x="135" y="730" font-size="18">Tỷ lệ tham chiếu: A–B = 5.40 m</text>
+    <text x="1020" y="120" font-size="20">N ↑</text>
+  </g>
+  <g stroke="#1d8b52" stroke-width="3">
+    <line x1="155" y1="624" x2="426" y2="624"/>
+    <circle cx="155" cy="624" r="7" fill="#1d8b52"/>
+    <circle cx="426" cy="624" r="7" fill="#1d8b52"/>
+  </g>
+  <g font-family="Arial, sans-serif" fill="#1d8b52" font-size="18" font-weight="700">
+    <text x="142" y="652">A</text><text x="417" y="652">B</text><text x="255" y="610">5.40 m</text>
+  </g>
+  <g fill="#f3cf75" stroke="#c48c27" stroke-width="3" font-family="Arial, sans-serif" font-size="16">
+    <rect x="430" y="405" width="145" height="116" rx="8"/><text x="455" y="465" fill="#6b4b12">BỒN NƯỚC</text>
+    <rect x="787" y="295" width="52" height="52" rx="8"/><text x="771" y="280" fill="#6b4b12">ỐNG THOÁT KHÍ</text>
+    <rect x="270" y="275" width="105" height="70" rx="8"/><text x="261" y="260" fill="#6b4b12">CỬA THÔNG GIÓ</text>
+    <rect x="865" y="518" width="42" height="42" rx="8" fill="#f7e7bb" stroke-dasharray="7 5"/><text x="838" y="500" fill="#8a6a27">VẬT THỂ ?</text>
+  </g>
+  <g stroke="#99a9a0" stroke-width="2" fill="none" stroke-dasharray="8 6">
+    <line x1="130" y1="706" x2="1010" y2="706"/><line x1="110" y1="140" x2="110" y2="690"/>
+  </g>
+  <g font-family="Arial, sans-serif" fill="#677a70" font-size="17">
+    <text x="520" y="760">12.80 m</text><text x="62" y="430" transform="rotate(-90 62 430)">9.40 m</text>
+    <text x="135" y="790">Độ nghiêng mái: 15° · Phương vị: 178° · Vị trí demo: TP.HCM</text>
+  </g>
+</svg>

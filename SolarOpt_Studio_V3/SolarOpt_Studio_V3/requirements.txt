@@ -1,0 +1,6 @@
+fastapi==0.116.1
+uvicorn[standard]==0.35.0
+shapely==2.1.1
+pydantic==2.11.7
+python-multipart==0.0.20
+pytest==8.4.1

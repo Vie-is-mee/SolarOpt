@@ -3,52 +3,117 @@ from __future__ import annotations
 from datetime import date
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 
 
-class Point(BaseModel):
+class StrictModel(BaseModel):
+    model_config = ConfigDict(allow_inf_nan=False)
+
+
+class Point(StrictModel):
     x: float
     y: float
 
 
-class RectObstacle(BaseModel):
+class RectObstacle(StrictModel):
     id: str
     label: str = "Vật cản"
     x: float = Field(description="Tọa độ x theo mét, gốc trái dưới của mái")
     y: float = Field(description="Tọa độ y theo mét, gốc trái dưới của mái")
-    width_m: float = 1.0
-    depth_m: float = 1.0
-    height_m: float = 1.0
-    confidence: float = 1.0
-    source: Literal["manual", "gemini", "demo"] = "manual"
+    width_m: float = Field(default=1.0, gt=0, le=200)
+    depth_m: float = Field(default=1.0, gt=0, le=200)
+    height_m: float = Field(default=1.0, ge=0, le=500)
+    confidence: float = Field(default=1.0, ge=0, le=1)
+    source: Literal["manual", "gemini", "groq", "ollama", "demo"] = "manual"
+    scope: Literal["roof", "neighbor"] = "roof"
+    confirmed: bool = True
+    floors: int | None = Field(default=None, ge=1, le=100)
+    shape: Literal["rect", "ellipse", "polygon"] = "rect"
+    rotation_deg: float = Field(default=0, ge=-360, le=360)
+    points: list[Point] = Field(default_factory=list, max_length=80, description="Local footprint coordinates before rotation")
+    base_elevation_m: float | None = Field(default=None, ge=0, le=500)
+
+    @model_validator(mode="after")
+    def validate_footprint(self):
+        if self.shape == "polygon":
+            from shapely.geometry import Polygon
+            if len(self.points)<3 or not Polygon([(p.x,p.y) for p in self.points]).is_valid:
+                raise ValueError("Vật cản đa giác cần ít nhất 3 điểm, không tự cắt.")
+            if Polygon([(p.x,p.y) for p in self.points]).area<0.001:
+                raise ValueError("Vật cản không có diện tích.")
+        return self
 
 
-class PanelSpec(BaseModel):
+class RoofFace(StrictModel):
+    id: str
+    label: str = "Phần mái"
+    polygon: list[Point] = Field(min_length=3, max_length=80)
+    elevation_m: float = Field(default=6, ge=0, le=300)
+    tilt_deg: float = Field(default=0, ge=0, le=60)
+    azimuth_deg: float = Field(default=180, ge=0, le=360)
+    installable: bool = True
+
+
+class PanelSpec(StrictModel):
     manufacturer: str = "LONGi"
     model: str = "Hi-MO 6 580W"
-    width_m: float = 1.134
-    height_m: float = 2.278
-    power_w: float = 580.0
-    price_vnd: float = 4_200_000
+    width_m: float = Field(default=1.134, gt=0, le=10)
+    height_m: float = Field(default=2.278, gt=0, le=10)
+    power_w: float = Field(default=580.0, gt=0, le=2000)
+    price_vnd: float = Field(default=4_200_000, ge=1)
     voc_v: float = 52.1
     vmp_v: float = 43.6
     imp_a: float = 13.3
 
 
-class ProjectConfig(BaseModel):
+class ProjectConfig(StrictModel):
     project_name: str = "SolarOpt Demo"
-    latitude: float = 10.7769
-    longitude: float = 106.7009
-    roof_width_m: float = 10.0
-    roof_height_m: float = 8.0
-    roof_azimuth_deg: float = 180.0
-    roof_tilt_deg: float = 10.0
-    setback_m: float = 0.35
-    panel_gap_m: float = 0.08
-    obstacle_clearance_m: float = 0.25
-    annual_irradiance_kwh_m2: float = 1581.0
-    performance_ratio: float = 0.82
-    budget_vnd: float = 100_000_000
+    latitude: float = Field(default=10.7769, ge=-89, le=89)
+    longitude: float = Field(default=106.7009, ge=-180, le=180)
+    roof_width_m: float = Field(default=10.0, gt=0, le=100)
+    roof_height_m: float = Field(default=8.0, gt=0, le=100)
+    roof_azimuth_deg: float = Field(default=180.0, ge=0, le=360)
+    roof_tilt_deg: float = Field(default=0.0, ge=0, le=60)
+    north_rotation_deg: float = Field(default=0.0, ge=0, lt=360, description="Azimuth of the drawing's +Y axis, clockwise from true north")
+    roof_elevation_m: float = Field(default=6.0, ge=0, le=300)
+    roof_polygon: list[Point] = Field(default_factory=list, max_length=50)
+    roof_faces: list[RoofFace] = Field(default_factory=list, max_length=24)
+    roof_openings: list[list[Point]] = Field(default_factory=list, max_length=24)
+    geometry_confirmed: bool = False
+    setback_m: float = Field(default=0.35, ge=0, le=10)
+    panel_gap_m: float = Field(default=0.08, ge=0.02, le=5)
+    obstacle_clearance_m: float = Field(default=0.25, ge=0, le=10)
+    annual_irradiance_kwh_m2: float = Field(default=1581.0, gt=0, le=4000)
+    performance_ratio: float = Field(default=0.82, gt=0, le=1)
+    budget_vnd: float = Field(default=100_000_000, ge=0)
+
+    @model_validator(mode="after")
+    def validate_polygon(self):
+        from shapely.geometry import Polygon, box
+        boundary = box(0,0,self.roof_width_m,self.roof_height_m)
+        if self.roof_polygon:
+            poly = Polygon([(p.x, p.y) for p in self.roof_polygon]) if len(self.roof_polygon) >= 3 else None
+            if poly is None or not poly.is_valid or poly.area < 0.1:
+                raise ValueError("Đường viền mái cần ít nhất 3 điểm, không tự cắt và có diện tích dương.")
+            if any(p.x < 0 or p.y < 0 or p.x > self.roof_width_m or p.y > self.roof_height_m for p in self.roof_polygon):
+                raise ValueError("Điểm biên mái phải nằm trong kích thước khung mái.")
+            boundary = poly
+        faces=[]
+        ids=set()
+        for face in self.roof_faces:
+            poly=Polygon([(p.x,p.y) for p in face.polygon])
+            if not poly.is_valid or poly.area<0.01 or not boundary.buffer(1e-7).covers(poly):
+                raise ValueError("Phần mái phải có diện tích, không tự cắt và nằm trong biên mái.")
+            if face.id in ids or any(poly.intersection(old).area>1e-5 for old in faces):
+                raise ValueError("Các phần mái không được trùng tên định danh hoặc chồng diện tích.")
+            faces.append(poly);ids.add(face.id)
+        for points in self.roof_openings:
+            if len(points)<3 or len(points)>80:
+                raise ValueError("Khoảng trống mái cần 3–80 điểm.")
+            poly=Polygon([(p.x,p.y) for p in points])
+            if not poly.is_valid or poly.area<.01 or not boundary.buffer(1e-7).covers(poly):
+                raise ValueError("Khoảng trống phải nằm trong biên mái và không tự cắt.")
+        return self
 
 
 class SunRequest(BaseModel):
@@ -63,6 +128,7 @@ class SunPosition(BaseModel):
     altitude_deg: float
     azimuth_deg: float
     zenith_deg: float
+    source: str = "pvlib"
 
 
 class CandidatePanel(BaseModel):
@@ -74,12 +140,13 @@ class CandidatePanel(BaseModel):
     annual_energy_kwh: float
     shading_loss_pct: float
     preserved: bool = False
+    face_id: str = "base"
 
 
 class DesignRequest(BaseModel):
     config: ProjectConfig
     panel: PanelSpec
-    obstacles: list[RectObstacle] = []
+    obstacles: list[RectObstacle] = Field(default_factory=list, max_length=100)
     sun: SunPosition | None = None
     objective: Literal["max_energy", "balanced", "durability"] = "balanced"
     previous_panels: list[CandidatePanel] = []
@@ -151,6 +218,8 @@ class StressResult(BaseModel):
 class RepairRequest(BaseModel):
     config: ProjectConfig
     panel: PanelSpec
+    previous_config: ProjectConfig | None = None
+    previous_panel: PanelSpec | None = None
     obstacles_before: list[RectObstacle]
     obstacles_after: list[RectObstacle]
     previous_design: DesignResult
@@ -172,25 +241,62 @@ class RepairResult(BaseModel):
     verification: VerifyResult
 
 
-class VisionObstacle(BaseModel):
+class NormalizedPoint(StrictModel):
+    x: float = Field(ge=0, le=100)
+    y: float = Field(ge=0, le=100)
+
+
+class VisionObstacle(StrictModel):
     id: str
     label: str
     x_pct: float = Field(ge=0, le=100)
     y_pct: float = Field(ge=0, le=100)
     width_pct: float = Field(ge=0, le=100)
     depth_pct: float = Field(ge=0, le=100)
-    height_m: float = 1.0
+    height_m: float | None = Field(default=None, ge=0, le=500)
     confidence: float = Field(ge=0, le=1)
+    observation: str = ""
+    requires_placement: bool = False
 
 
-class VisionResult(BaseModel):
-    mode: Literal["gemini", "demo"]
-    roof_width_m: float
-    roof_height_m: float
-    roof_confidence: float
+class VisionResult(StrictModel):
+    mode: Literal["gemini", "groq", "ollama", "manual", "demo"]
+    model: str = ""
+    roof_width_m: float | None = Field(default=None, gt=0, le=100)
+    roof_height_m: float | None = Field(default=None, gt=0, le=100)
+    roof_confidence: float = Field(default=0, ge=0, le=1)
     obstacles: list[VisionObstacle]
     extracted_text: list[str] = []
     notes: list[str] = []
+    roof_polygon_pct: list[NormalizedPoint] = Field(default_factory=list, max_length=50)
+    events: list[dict] = []
+    cached: bool = False
+    elapsed_ms: float = 0
+    input_kind: str = "drone"
+    preview_data_url: str | None = None
+    roof_polygon_image_pct: list[NormalizedPoint] = Field(default_factory=list, max_length=80)
+    roof_crop_data_url: str | None = None
+    roof_aspect_ratio: float | None = None
+    coordinate_version: int = 1
+
+    @model_validator(mode="after")
+    def validate_extraction(self):
+        if self.roof_polygon_pct:
+            from shapely.geometry import Polygon
+            if len(self.roof_polygon_pct) < 3:
+                raise ValueError("Đường biên AI thiếu điểm.")
+            polygon = Polygon([(p.x, p.y) for p in self.roof_polygon_pct])
+            if not polygon.is_valid or polygon.area <= 0:
+                raise ValueError("Đường biên AI tự cắt hoặc không có diện tích.")
+        return self
+
+
+class SceneRequest(BaseModel):
+    config: ProjectConfig
+    obstacles: list[RectObstacle] = Field(default_factory=list, max_length=100)
+    date: date
+    hour_local: float = Field(ge=0, le=23.99)
+    heatmap: bool = True
 
 
 class IrradianceResult(BaseModel):

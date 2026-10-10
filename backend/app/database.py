@@ -37,7 +37,7 @@ def list_versions(project_name: str) -> list[dict[str, Any]]:
     with sqlite3.connect(DB_PATH) as conn:
         conn.row_factory = sqlite3.Row
         rows = conn.execute(
-            "SELECT id,project_name,version_label,reason,payload_json,created_at FROM project_versions WHERE project_name=? ORDER BY id DESC",
+            "SELECT id,project_name,version_label,reason,payload_json,created_at FROM project_versions WHERE project_name=? ORDER BY id DESC LIMIT 50",
             (project_name,),
         ).fetchall()
     out = []

@@ -1,0 +1,40 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap');
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'DM Mono', monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: #f4f6f3;
+  color: #111827;
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100dvh;
+  font-size: 14px;
+}
+
+.font-mono { font-family: 'DM Mono', monospace; }
+
+::selection { background: #bbf7d0; color: #14532d; }
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 2px; }
+
+input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+input[type=range] { accent-color: #1a5c35; }
+
+@keyframes fade-up { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+@keyframes fade-in  { from { opacity:0; } to { opacity:1; } }
+@keyframes pulse-dot { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+@keyframes slide-right { from { width:0; } to { width:100%; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.animate-fade-up  { animation: fade-up 0.35s cubic-bezier(0.22,1,0.36,1) both; }
+.animate-fade-in  { animation: fade-in 0.25s ease both; }
+.animate-spin     { animation: spin 1s linear infinite; }

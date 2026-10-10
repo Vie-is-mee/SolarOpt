@@ -3,21 +3,28 @@ from __future__ import annotations
 from copy import deepcopy
 
 from app.schemas import DesignRequest, StressRequest, StressResult, StressScenarioResult, VerifyRequest
-from app.services.optimizer import generate_design
+from app.services.geometry import build_context, panel_shape, overlap_ratio
 from app.services.verifier import verify_design
 
 
 def _run(name: str, sid: str, req: StressRequest, cfg, obstacles, panel, detail: str) -> StressScenarioResult:
-    design = generate_design(DesignRequest(
-        config=cfg, panel=panel, obstacles=obstacles, sun=req.sun,
-        objective="durability", previous_panels=req.design.panels, minimal_repair_weight=180,
-    ))
+    # Test the ORIGINAL layout; do not optimize a different design and call it robust.
+    design = req.design.model_copy(deep=True)
+    ctx = build_context(cfg,obstacles,req.sun)
+    for p in design.panels:
+        p.width_m = panel.width_m
+        p.height_m = panel.height_m
+        if req.sun:
+            p.shading_loss_pct = 100*overlap_ratio(panel_shape(p.x,p.y,p.width_m,p.height_m),ctx.shadow_union)
+        p.annual_energy_kwh = panel.power_w/1000*cfg.annual_irradiance_kwh_m2*cfg.performance_ratio*(1-p.shading_loss_pct/100)
+    design.metrics.estimated_cost_vnd = len(design.panels)*panel.price_vnd
+    design.metrics.annual_energy_kwh = sum(p.annual_energy_kwh for p in design.panels)
     ver = verify_design(VerifyRequest(config=cfg, panel=panel, obstacles=obstacles, design=design, sun=req.sun))
     return StressScenarioResult(
         id=sid, name=name, status="PASS" if ver.valid else "FAIL",
         panel_count=design.metrics.panel_count,
         annual_energy_kwh=design.metrics.annual_energy_kwh,
-        detail=detail,
+        detail=detail + "; kiểm tra bố trí gốc, không tự bố trí lại. " + "; ".join(c.label for c in ver.checks if c.status == "FAIL"),
     )
 
 
@@ -39,6 +46,18 @@ def run_stress_tests(req: StressRequest) -> StressResult:
     cfg_small = deepcopy(req.config)
     cfg_small.roof_width_m *= 0.98
     cfg_small.roof_height_m *= 0.98
+    # Shrink the surveyed geometry while keeping original panel positions.
+    for point in cfg_small.roof_polygon:
+        point.x *= .98
+        point.y *= .98
+    for face in cfg_small.roof_faces:
+        for point in face.polygon:
+            point.x *= .98
+            point.y *= .98
+    for opening in cfg_small.roof_openings:
+        for point in opening:
+            point.x *= .98
+            point.y *= .98
     scenarios.append(_run("Roof measurement -2%", "roof2", req, cfg_small, deepcopy(req.obstacles), deepcopy(req.panel), "Sai số đo mái -2%"))
 
     panel_plus = deepcopy(req.panel)

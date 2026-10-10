@@ -1,6 +1,6 @@
 @echo off
-cd /d %~dp0frontend
+cd /d "%~dp0frontend"
 if not exist node_modules (
-  npm install
+  call npm install
 )
-npm run dev
+call npm run dev -- --host 127.0.0.1

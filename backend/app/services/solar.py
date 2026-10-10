@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from functools import lru_cache
+from zoneinfo import ZoneInfo
+import math
 
 import requests
 
@@ -8,36 +11,37 @@ from app.schemas import IrradianceResult, SunPosition, SunRequest
 
 
 def sun_position(req: SunRequest) -> SunPosition:
+    return _sun_position(req.latitude, req.longitude, req.date.isoformat(), req.hour_local, req.timezone).model_copy()
+
+
+@lru_cache(maxsize=4096)
+def _sun_position(latitude: float, longitude: float, date_string: str, hour_local: float, timezone: str) -> SunPosition:
+    instant = datetime.fromisoformat(date_string) + timedelta(hours=hour_local)
+    instant = instant.replace(tzinfo=ZoneInfo(timezone))
     try:
         import pandas as pd
         import pvlib
-
-        hour = int(req.hour_local)
-        minute = int(round((req.hour_local - hour) * 60))
-        ts = pd.DatetimeIndex([
-            datetime(req.date.year, req.date.month, req.date.day, hour, minute)
-        ]).tz_localize(req.timezone)
-        pos = pvlib.solarposition.get_solarposition(ts, req.latitude, req.longitude).iloc[0]
+        ts = pd.DatetimeIndex([instant])
+        pos = pvlib.solarposition.get_solarposition(ts, latitude, longitude).iloc[0]
         return SunPosition(
             altitude_deg=float(pos["apparent_elevation"]),
             azimuth_deg=float(pos["azimuth"]),
             zenith_deg=float(pos["apparent_zenith"]),
         )
-    except Exception:
-        # Fallback nhẹ: đủ cho demo nếu pvlib chưa cài.
-        import math
-        day_of_year = req.date.timetuple().tm_yday
-        decl = 23.45 * math.sin(math.radians(360 * (284 + day_of_year) / 365))
-        lat = math.radians(req.latitude)
-        dec = math.radians(decl)
-        hour_angle = math.radians(15 * (req.hour_local - 12))
+    except ImportError:
+        # Approximation with longitude, equation of time and actual UTC offset.
+        day_of_year = instant.timetuple().tm_yday
+        gamma = 2*math.pi/365*(day_of_year-1+(hour_local-12)/24)
+        equation = 229.18*(0.000075+0.001868*math.cos(gamma)-0.032077*math.sin(gamma)-0.014615*math.cos(2*gamma)-0.040849*math.sin(2*gamma))
+        decl = 0.006918-0.399912*math.cos(gamma)+0.070257*math.sin(gamma)-0.006758*math.cos(2*gamma)+0.000907*math.sin(2*gamma)-0.002697*math.cos(3*gamma)+0.00148*math.sin(3*gamma)
+        lat = math.radians(latitude)
+        dec = decl
+        offset = instant.utcoffset().total_seconds()/3600
+        hour_angle = math.radians((hour_local*60 + equation + 4*longitude - 60*offset)/4 - 180)
         sin_alt = math.sin(lat) * math.sin(dec) + math.cos(lat) * math.cos(dec) * math.cos(hour_angle)
         alt = math.degrees(math.asin(max(-1, min(1, sin_alt))))
-        cos_az = (math.sin(dec) - math.sin(math.radians(alt)) * math.sin(lat)) / max(1e-6, math.cos(math.radians(alt)) * math.cos(lat))
-        az = math.degrees(math.acos(max(-1, min(1, cos_az))))
-        if req.hour_local > 12:
-            az = 360 - az
-        return SunPosition(altitude_deg=alt, azimuth_deg=az, zenith_deg=90-alt)
+        az = (math.degrees(math.atan2(math.sin(hour_angle), math.cos(hour_angle)*math.sin(lat)-math.tan(dec)*math.cos(lat))) + 180) % 360
+        return SunPosition(altitude_deg=alt, azimuth_deg=az, zenith_deg=90-alt, source="approximation")
 
 
 def fetch_pvgis(lat: float, lon: float, tilt: float = 10.0, azimuth: float = 180.0) -> IrradianceResult:
