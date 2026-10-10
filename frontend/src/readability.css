@@ -42,6 +42,9 @@
 @media print{html,body,.print-report{background:white}.print-report h3{break-after:avoid}.print-drawing .canvas-surface{aspect-ratio:auto;min-height:0}.print-drawing .roof-svg{height:300px;min-height:0;max-height:300px}.print-drawing{background:white}}
 
 /* A consistent title/description scale across all five studio steps. */
+.heading-actions { flex-wrap: wrap; }
+.reset-project { color: #936047; border-color: #e4d6cd; }
+.reset-project:hover { background: #fff5ed; }
 .measurement-check { padding: 14px; border: 1px solid #dce6d8; border-radius: 9px; background: #f8faf4; margin-bottom: 18px; }
 .measurement-check > strong { font-size: 14px; color: #3a614b; }
 .measurement-check .muted-note { margin: 9px 0; }
@@ -141,3 +144,6 @@
   .canvas-bottom > span { font-size: 11px; }
   .history-modal h2 { font-size: 21px; }
 }
+
+.trace-section { scroll-margin-top: 24px; }
+.trace-section:focus { outline: none; }
