@@ -161,3 +161,19 @@
 .stress-advice ol { padding-left: 20px; }
 .stress-advice li { margin: 8px 0; }
 .stress-reserve { margin-top: 18px; padding: 18px; background: #f6f8ee; border: 1px solid #dce6cc; border-radius: 9px; font-size: 14px; line-height: 1.7; }
+
+.option-card:disabled { cursor: default; }
+.option-shading { display: grid; gap: 8px; margin: 12px 0 20px; font-size: 14px; line-height: 1.5; }
+.option-explanation { background: #f1f6ed; border: 1px solid #dce6d4; border-radius: 12px; padding: 16px 20px; margin-bottom: 24px; line-height: 1.7; }
+.option-explanation span { display: block; margin-top: 6px; color: #65796e; }
+.energy-target-card { margin-bottom: 24px; }
+.energy-target-card .field { max-width: 460px; }
+.goal-status { display: grid; gap: 6px; padding: 12px; margin: 12px 0; border-radius: 8px; font-size: 14px; line-height: 1.6; }
+.goal-status.met { background: #eef5e9; color: #356246; }
+.goal-status.unmet { background: #fff0e8; color: #9d4424; }
+.option-card { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; }
+.option-heading { min-height: 48px; }
+.option-card > p { min-height: 88px; }
+.option-card .option-bottom { margin-top: auto; }
+.goal-status { min-height: 100px; }
+@media (max-width:760px) { .option-heading, .option-card > p, .goal-status { min-height: 0; } }

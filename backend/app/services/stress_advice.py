@@ -26,6 +26,8 @@ def recommendations(sid, req, cfg, panel, checks):
         advice.append('Đối chiếu model, kích thước, đơn giá và thông số điện tấm pin; nhập dữ liệu đúng rồi tính lại toàn bộ phương án.')
     if {'energy','solver'} & failures:
         advice.append('Kiểm tra dữ liệu nắng, vật cản và vùng mái khả dụng. Nếu không còn vị trí phù hợp, báo không khả thi thay vì giảm ràng buộc bắt buộc.')
+    if 'energy_target' in failures:
+        advice.append('Sản lượng trong tình huống này chưa đủ nhu cầu đã nhập. Kiểm tra nguồn nắng và tăng công suất trong giới hạn mái/ngân sách, hoặc xác nhận lại nhu cầu thực; không tự hạ mục tiêu để đổi thành Đạt.')
     if advice:
         advice.append('Sau khi chỉnh, chạy lại kiểm chứng và cả 8 tình huống. Đề xuất này chưa chứng minh phương án mới sẽ đạt.')
     return advice

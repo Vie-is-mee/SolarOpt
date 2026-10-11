@@ -5,6 +5,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, ConfigDict, model_validator
 
+Objective = Literal["max_energy", "min_cost", "robust", "balanced", "durability"]
+
 
 class StrictModel(BaseModel):
     model_config = ConfigDict(allow_inf_nan=False)
@@ -93,6 +95,7 @@ class ProjectConfig(StrictModel):
     annual_irradiance_kwh_m2: float = Field(default=1581.0, gt=0, le=4000)
     performance_ratio: float = Field(default=0.82, gt=0, le=1)
     budget_vnd: float = Field(default=100_000_000, ge=0)
+    target_energy_kwh_year: float | None = Field(default=None, gt=0, le=10_000_000)
 
     @model_validator(mode="after")
     def validate_polygon(self):
@@ -156,9 +159,15 @@ class DesignRequest(BaseModel):
     panel: PanelSpec
     obstacles: list[RectObstacle] = Field(default_factory=list, max_length=100)
     sun: SunPosition | None = None
-    objective: Literal["max_energy", "balanced", "durability"] = "balanced"
+    objective: Objective = "balanced"
     previous_panels: list[CandidatePanel] = []
     minimal_repair_weight: float = 0.0
+
+    @model_validator(mode="after")
+    def require_energy_target(self):
+        if self.objective == "min_cost" and self.config.target_energy_kwh_year is None:
+            raise ValueError("Nhập điện năng mục tiêu (kWh/năm) để tính phương án giảm chi phí.")
+        return self
 
 
 class DesignMetrics(BaseModel):
@@ -168,6 +177,7 @@ class DesignMetrics(BaseModel):
     annual_energy_mwh: float
     estimated_cost_vnd: float
     average_shading_loss_pct: float
+    maximum_shading_loss_pct: float = 0
     roof_utilization_pct: float
     preserved_panel_count: int = 0
     layout_preservation_rate_pct: float = 0.0
@@ -179,10 +189,21 @@ class LayoutTrial(BaseModel):
     offset_x_m: float
     offset_y_m: float
     candidate_count: int
+    geometry_candidate_count: int = 0
+    shading_rejected_count: int = 0
+    robustness_rejected_count: int = 0
+    target_met: bool | None = None
     panel_count: int
     annual_energy_kwh: float
     objective_score: float
     selected: bool = False
+
+
+class RobustnessCheck(BaseModel):
+    id: str
+    name: str
+    status: Literal["PASS", "FAIL"]
+    detail: str
 
 
 class DesignResult(BaseModel):
@@ -191,6 +212,10 @@ class DesignResult(BaseModel):
     warnings: list[str] = []
     solver_status: str = "UNKNOWN"
     layout_trials: list[LayoutTrial] = Field(default_factory=list)
+    objective: Objective | None = None
+    target_energy_kwh_year: float | None = None
+    target_met: bool | None = None
+    robustness_checks: list[RobustnessCheck] = Field(default_factory=list)
 
 
 class VerifyRequest(BaseModel):
@@ -249,7 +274,7 @@ class RepairRequest(BaseModel):
     obstacles_after: list[RectObstacle]
     previous_design: DesignResult
     sun: SunPosition | None = None
-    objective: Literal["max_energy", "balanced", "durability"] = "balanced"
+    objective: Objective = "balanced"
     minimal_repair_weight: float = 250.0
 
 
@@ -337,7 +362,7 @@ class UncertaintyRequest(BaseModel):
     obstacle_id: str
     low_height_m: float
     high_height_m: float
-    objective: Literal["max_energy", "balanced", "durability"] = "balanced"
+    objective: Objective = "balanced"
 
 
 class UncertaintyResult(BaseModel):

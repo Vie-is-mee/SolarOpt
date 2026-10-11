@@ -53,5 +53,10 @@ def verify_design(req: VerifyRequest) -> VerifyResult:
     consistent = req.design.metrics.panel_count == len(panels) and abs(req.design.metrics.estimated_cost_vnd-actual_cost)<=1
     consistent = consistent and all(abs(p.width_m-req.panel.width_m)<1e-5 and abs(p.height_m-req.panel.height_m)<1e-5 for p in panels)
     checks.append(CheckResult(id="result_consistency",label="Kết quả khớp dữ liệu tấm pin",status="PASS" if consistent else "FAIL",detail="Số lượng, kích thước và chi phí được đối chiếu lại." if consistent else "Kết quả không khớp số lượng/kích thước/đơn giá hiện tại; cần tính lại."))
+    if req.design.objective=='min_cost':
+        target=req.config.target_energy_kwh_year
+        actual=sum(p.annual_energy_kwh for p in panels)
+        met=target is not None and actual+1e-7>=target
+        checks.append(CheckResult(id='energy_target',label='Đáp ứng điện năng mục tiêu',status='PASS' if met else 'FAIL',detail=f'{actual:,.2f} / {target:,.2f} kWh/năm' if target is not None else 'Chưa nhập điện năng mục tiêu.'))
     valid = all(c.status != "FAIL" for c in checks)
     return VerifyResult(valid=valid, checks=checks)

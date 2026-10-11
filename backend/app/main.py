@@ -165,7 +165,7 @@ def design_repair(req: RepairRequest):
             "roof_orientation": ("north_rotation_deg", "roof_azimuth_deg", "roof_tilt_deg", "latitude", "longitude", "roof_elevation_m"),
             "irradiance": ("annual_irradiance_kwh_m2", "performance_ratio"),
             "budget": ("budget_vnd",),
-            "design_rules": ("setback_m", "obstacle_clearance_m", "panel_gap_m", "layout_angle_deg", "layout_edge_reserve_m"),
+            "design_rules": ("setback_m", "obstacle_clearance_m", "panel_gap_m", "layout_angle_deg", "layout_edge_reserve_m", "target_energy_kwh_year"),
         }.items():
             if any(getattr(req.previous_config, field) != getattr(req.config, field) for field in fields):
                 changed.append(node)
