@@ -75,7 +75,7 @@ def test_robust_rotated_roof_and_obstacles_pass_fixed_layout_geometry_tests():
     from shapely.affinity import rotate,translate
     poly=rotate(Polygon([(0,0),(12,0),(12,4),(8,4),(8,12),(0,12)]),35,origin=(0,0))
     poly=translate(poly,xoff=1-poly.bounds[0],yoff=1-poly.bounds[1])
-    cfg=ProjectConfig(roof_width_m=20,roof_height_m=20,budget_vnd=500_000_000,panel_gap_m=.02,
+    cfg=ProjectConfig(roof_width_m=20,roof_height_m=20,budget_vnd=500_000_000,panel_gap_m=.02,geometry_confirmed=True,
         roof_polygon=[{'x':x,'y':y} for x,y in list(poly.exterior.coords)[:-1]])
     obstacles=[RectObstacle(id='tank',x=8,y=6,width_m=1.5,depth_m=1.5,height_m=1)]
     req=DesignRequest(config=cfg,panel=PanelSpec(),obstacles=obstacles,objective='robust')

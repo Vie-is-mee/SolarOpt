@@ -3,32 +3,34 @@ from __future__ import annotations
 from copy import deepcopy
 from app.services.stress_advice import recommendations
 
-from app.schemas import DesignRequest, StressRequest, StressResult, StressScenarioResult, VerifyRequest
-from app.services.geometry import build_context, panel_shape, overlap_ratio
+from app.schemas import StressRequest, StressResult, StressScenarioResult, VerifyRequest
 from app.services.verifier import verify_design
+from app.services.energy import recalculate_panels, summarize
 
 
 def _run(name: str, sid: str, req: StressRequest, cfg, obstacles, panel, detail: str) -> StressScenarioResult:
     # Test the ORIGINAL layout; do not optimize a different design and call it robust.
     design = req.design.model_copy(deep=True)
-    ctx = build_context(cfg,obstacles,req.sun)
     for p in design.panels:
         p.width_m = panel.width_m
         p.height_m = panel.height_m
-        if req.sun:
-            p.shading_loss_pct = 100*overlap_ratio(panel_shape(p.x,p.y,p.width_m,p.height_m,p.rotation_deg),ctx.shadow_union)
-        p.annual_energy_kwh = panel.power_w/1000*cfg.annual_irradiance_kwh_m2*cfg.performance_ratio*(1-p.shading_loss_pct/100)
-    design.metrics.estimated_cost_vnd = len(design.panels)*panel.price_vnd
-    design.metrics.annual_energy_kwh = sum(p.annual_energy_kwh for p in design.panels)
+    context, _ = recalculate_panels(cfg, panel, obstacles, design.panels)
+    design.metrics = summarize(cfg, panel, design.panels, context.geometry.roof.area)
     ver = verify_design(VerifyRequest(config=cfg, panel=panel, obstacles=obstacles, design=design, sun=req.sun))
     failed=[c for c in ver.checks if c.status=='FAIL']
+    warnings=[c for c in ver.checks if c.status=='WARN']
+    # Recalculating scenario numbers must not silently legitimize a forged input.
+    if sid=='base':
+        original=verify_design(VerifyRequest(config=cfg,panel=panel,obstacles=obstacles,design=req.design,sun=req.sun))
+        failed.extend(c for c in original.checks if c.id=='result_consistency' and c.status=='FAIL')
+    relevant=failed+warnings
     return StressScenarioResult(
-        failed_checks=failed,recommendations=recommendations(sid,req,cfg,panel,failed),
-        affected_panel_ids=sorted({id for c in failed for id in c.affected_panel_ids}),
-        id=sid, name=name, status="PASS" if ver.valid else "FAIL",
+        failed_checks=failed,warning_checks=warnings,recommendations=recommendations(sid,req,cfg,panel,relevant),
+        affected_panel_ids=sorted({id for c in relevant for id in c.affected_panel_ids}),
+        id=sid, name=name, status="FAIL" if failed else "WARN" if warnings else "PASS",
         panel_count=design.metrics.panel_count,
         annual_energy_kwh=design.metrics.annual_energy_kwh,
-        detail=detail + "; kiểm tra bố trí gốc, không tự bố trí lại. " + "; ".join(c.label for c in ver.checks if c.status == "FAIL"),
+        detail=detail + "; giữ vị trí/góc của bố trí gốc, tính lại bóng đại diện và điện năng. " + "; ".join(c.label for c in relevant),
     )
 
 
@@ -82,4 +84,5 @@ def run_stress_tests(req: StressRequest) -> StressResult:
     scenarios.append(_run("Budget -15%", "budget", req, cfg_budget, deepcopy(req.obstacles), deepcopy(req.panel), "Giảm ngân sách 15%"))
 
     passed = sum(1 for s in scenarios if s.status == "PASS")
-    return StressResult(passed=passed, total=len(scenarios), scenarios=scenarios)
+    return StressResult(passed=passed, warned=sum(s.status=='WARN' for s in scenarios),
+                        failed=sum(s.status=='FAIL' for s in scenarios), total=len(scenarios), scenarios=scenarios)

@@ -163,7 +163,7 @@ def design_repair(req: RepairRequest):
         for node, fields in {
             "roof_dimensions": ("roof_width_m", "roof_height_m", "roof_polygon", "roof_faces", "roof_openings"),
             "roof_orientation": ("north_rotation_deg", "roof_azimuth_deg", "roof_tilt_deg", "latitude", "longitude", "roof_elevation_m"),
-            "irradiance": ("annual_irradiance_kwh_m2", "performance_ratio"),
+            "irradiance": ("annual_irradiance_kwh_m2", "irradiance_reference_tilt_deg", "irradiance_reference_azimuth_deg", "performance_ratio"),
             "budget": ("budget_vnd",),
             "design_rules": ("setback_m", "obstacle_clearance_m", "panel_gap_m", "layout_angle_deg", "layout_edge_reserve_m", "target_energy_kwh_year"),
         }.items():

@@ -5,6 +5,10 @@ import math
 def recommendations(sid, req, cfg, panel, checks):
     failures={c.id for c in checks}
     advice=[]
+    if 'geometry_confirmation' in failures:
+        advice.append('Đối chiếu và xác nhận biên mái, hướng Bắc cùng vị trí/chiều cao vật cản trước khi kết luận phương án đạt.')
+    if {'shadow','shadow_samples'} & failures:
+        advice.append('Kiểm tra tấm bị bóng được đánh dấu, xác nhận chiều cao vật cản và so các giờ/ngày khác. Cân nhắc chuyển hoặc bỏ tấm, rồi tính lại; cảnh báo bóng không được tính là đạt không cảnh báo.')
     if 'roof_boundary' in failures:
         if sid=='roof2':
             advice.append('Đo lại biên và hai kích thước mái. Nếu số đo nhỏ hơn, cập nhật ở bước Dữ liệu rồi tính lại; không sửa số đo để giữ bố trí cũ.')
@@ -16,7 +20,7 @@ def recommendations(sid, req, cfg, panel, checks):
             advice.append('Kiểm tra lại biên mái và các tấm được đánh dấu; di chuyển hoặc bỏ các tấm vượt vùng cho phép, rồi tính và kiểm chứng lại.')
     if 'obstacle_clearance' in failures:
         advice.append('Đo và xác nhận lại vị trí, mặt bằng vật cản; tăng khoảng cách tránh vật cản nếu cần, rồi tính lại bố trí.')
-    if 'panel_overlap' in failures:
+    if {'panel_overlap','panel_gap'} & failures:
         advice.append('Tăng khe giữa tấm theo kích thước lớn nhất thực tế; tính lại để các tấm không chồng nhau.')
     if 'budget' in failures:
         cost=len(req.design.panels)*panel.price_vnd

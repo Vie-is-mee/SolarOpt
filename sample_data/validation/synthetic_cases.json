@@ -1,0 +1,69 @@
+{
+  "format": "solaropt-validation-v1",
+  "cases": [
+    {
+      "id": "synthetic-flat",
+      "label": "Mái phẳng — bóng khối đứng và kiểm tra đơn vị điện năng",
+      "kind": "synthetic",
+      "stage": "simulation",
+      "reference_source": "Hình học nhân tạo tự định nghĩa. Khối 1 × 1 m cao 2 m trên mái phẳng; mặt trời cao 45° phía Đông, bóng kéo về Tây 2 m. Không phải mái khảo sát.",
+      "project": {
+        "config": {"roof_width_m": 12, "roof_height_m": 9, "geometry_confirmed": true},
+        "panel": {},
+        "obstacles": [{"id": "block", "x": 5, "y": 4, "width_m": 1, "depth_m": 1, "height_m": 2}]
+      },
+      "reference_roof": {"boundary": [{"x": 0,"y": 0},{"x": 12,"y": 0},{"x": 12,"y": 9},{"x": 0,"y": 9}]},
+      "shadow_references": [{
+        "label": "Bóng về Tây: chiều dài từ mép Đông 3 m, diện tích 3 m²",
+        "source": "Công thức độc lập: độ kéo bóng = 2/tan(45°) = 2 m; vùng che gồm chân khối và bóng kéo.",
+        "analytical_sun": {"altitude_deg": 45,"azimuth_deg": 90,"zenith_deg": 45},
+        "regions": [{"boundary": [{"x": 3,"y": 4},{"x": 6,"y": 4},{"x": 6,"y": 5},{"x": 3,"y": 5}]}]
+      }],
+      "panels": [{"id": "unit-check", "x": 1,"y": 1,"width_m": 1.134,"height_m": 2.278,"annual_energy_kwh": 0,"shading_loss_pct": 0}],
+      "energy_reference": {"annual_energy_kwh": 751.9236,"source": "Kiểm tra công thức sơ bộ, không phải điện thực: 0,58 × 1581 × 0,82 = 751,9236 kWh/năm; tấm không bị bóng tại 9 mốc đại diện.","same_layout_confirmed": true,"same_weather_inputs_confirmed": true},
+      "tolerances": {"roof_iou_min": 0.99999,"boundary_error_m_max": 0.001,"shadow_iou_min": 0.99999,"energy_error_pct_max": 0.001}
+    },
+    {
+      "id": "synthetic-concave",
+      "label": "Mái lõm chữ L — giữ góc thụt và sân trong",
+      "kind": "synthetic",
+      "stage": "simulation",
+      "reference_source": "Mặt bằng nhân tạo: hình 12 × 10 m trừ góc 5 × 6 m và sân trong 2 × 2 m. Diện tích chuẩn 86 m². Không đánh giá nhận diện từ ảnh.",
+      "project": {
+        "config": {"roof_width_m": 12,"roof_height_m": 10,"geometry_confirmed": true,
+          "roof_polygon": [{"x": 0,"y": 0},{"x": 12,"y": 0},{"x": 12,"y": 4},{"x": 7,"y": 4},{"x": 7,"y": 10},{"x": 0,"y": 10}],
+          "roof_openings": [[{"x": 1,"y": 6},{"x": 3,"y": 6},{"x": 3,"y": 8},{"x": 1,"y": 8}]]},
+        "panel": {}
+      },
+      "reference_roof": {
+        "boundary": [{"x": 0,"y": 0},{"x": 12,"y": 0},{"x": 12,"y": 4},{"x": 7,"y": 4},{"x": 7,"y": 10},{"x": 0,"y": 10}],
+        "openings": [[{"x": 1,"y": 6},{"x": 3,"y": 6},{"x": 3,"y": 8},{"x": 1,"y": 8}]]
+      },
+      "shadow_references": [{"source": "Mái phẳng không vật cản và không nhà bên cạnh; vùng bóng phải rỗng khi mặt trời trên chân trời.","analytical_sun": {"altitude_deg": 45,"azimuth_deg": 90,"zenith_deg": 45},"regions": []}],
+      "tolerances": {"roof_iou_min": 0.99999,"boundary_error_m_max": 0.001,"shadow_iou_min": 0.99999}
+    },
+    {
+      "id": "synthetic-stepped",
+      "label": "Mái cao/thấp — có nhà lân cận phía Đông",
+      "kind": "synthetic",
+      "stage": "simulation",
+      "reference_source": "Mặt bằng nhân tạo 12 × 9 m. Nửa phải cao 8 m, nửa trái cao 6 m. Nhà phía Đông có mặt bằng x=14..17, y=2..5 và cao 14 m từ đất.",
+      "project": {
+        "config": {"roof_width_m": 12,"roof_height_m": 9,"roof_elevation_m": 6,"geometry_confirmed": true,
+          "roof_faces": [{"id": "upper","label": "Mái cao 8 m","polygon": [{"x": 6,"y": 0},{"x": 12,"y": 0},{"x": 12,"y": 9},{"x": 6,"y": 9}],"elevation_m": 8}]},
+        "panel": {},
+        "obstacles": [{"id": "east-house","scope": "neighbor","x": 14,"y": 2,"width_m": 3,"depth_m": 3,"height_m": 14}]
+      },
+      "reference_roof": {"boundary": [{"x": 0,"y": 0},{"x": 12,"y": 0},{"x": 12,"y": 9},{"x": 0,"y": 9}]},
+      "shadow_references": [{
+        "source": "Tính tay ở góc 45°: bậc mái kéo 2 m về Tây, che 18 m². Nhà cao hơn mái 8 m là 6 m nên kéo tới x=8, che thêm 4 × 3=12 m². Tổng 30 m².",
+        "analytical_sun": {"altitude_deg": 45,"azimuth_deg": 90,"zenith_deg": 45},
+        "regions": [
+          {"boundary": [{"x": 4,"y": 0},{"x": 6,"y": 0},{"x": 6,"y": 9},{"x": 4,"y": 9}]},
+          {"boundary": [{"x": 8,"y": 2},{"x": 12,"y": 2},{"x": 12,"y": 5},{"x": 8,"y": 5}]}
+        ]
+      }],
+      "tolerances": {"roof_iou_min": 0.99999,"boundary_error_m_max": 0.001,"shadow_iou_min": 0.99999}
+    }
+  ]
+}

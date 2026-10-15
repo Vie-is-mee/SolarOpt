@@ -1,0 +1,18 @@
+{
+  "format": "solaropt-validation-v1",
+  "cases": [{
+    "id": "field-roof-pending",
+    "label": "Mái thật — chưa có bộ dữ liệu đối chiếu",
+    "kind": "field",
+    "stage": "engineer_corrected",
+    "reference_source": "Mẫu chờ đội bổ sung ảnh, số đo và hồ sơ được phép sử dụng. Các kích thước bên dưới chỉ là ví dụ, không phải số đo mái thật.",
+    "reviewed_by": null,
+    "evidence_files": [],
+    "project": {"config": {"roof_width_m": 12,"roof_height_m": 9},"panel": {},"obstacles": []},
+    "reference_roof": null,
+    "shadow_references": [],
+    "panels": [],
+    "energy_reference": null,
+    "tolerances": {"roof_iou_min": null,"boundary_error_m_max": null,"shadow_iou_min": null,"energy_error_pct_max": null,"agreed_by": null}
+  }]
+}

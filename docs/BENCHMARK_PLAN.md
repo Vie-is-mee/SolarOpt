@@ -1,5 +1,7 @@
 # Kế hoạch benchmark SolarOpt
 
+**Cập nhật 15/10/2026:** đã có [công cụ đối chiếu hình học, bóng và điện năng](STEP2_REFERENCE_VALIDATION.md), tách ca nhân tạo và ca mái thật. Đội chưa có bộ đối chiếu hiện trường. Kế hoạch hiệu năng bên dưới là công việc khác; tỷ lệ nút đồ thị phụ thuộc không phải thời gian tiết kiệm đã đo. Repair hiện chạy lại bố trí có ưu tiên giữ vị trí, chưa triển khai tính lại chọn lọc.
+
 ## Bộ scenario tối thiểu
 
 - 5 mái × 5 thay đổi = 25 scenario (tối thiểu trước deadline).

@@ -22,8 +22,8 @@ def test_clear_roof_can_legitimately_have_identical_options():
 
 def test_shaded_roof_objectives_really_filter_and_change_layout(monkeypatch):
     # Controlled sun isolates policy differences from seasonal sampling.
-    import app.services.optimizer as optimizer
-    monkeypatch.setattr(optimizer,'sun_position',lambda _:SunPosition(altitude_deg=60,azimuth_deg=90,zenith_deg=30))
+    import app.services.energy as energy
+    monkeypatch.setattr(energy,'sun_position',lambda _:SunPosition(altitude_deg=60,azimuth_deg=90,zenith_deg=30))
     cfg=ProjectConfig(roof_width_m=10,roof_height_m=8,setback_m=.1,obstacle_clearance_m=0,
                       layout_angle_deg=0,panel_gap_m=.1,budget_vnd=500_000_000)
     panel=PanelSpec(width_m=1,height_m=2)

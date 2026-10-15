@@ -63,8 +63,8 @@ def fetch_pvgis(lat: float, lon: float, tilt: float = 10.0, azimuth: float = 180
         totals = data.get("outputs", {}).get("totals", {}).get("fixed", {})
         annual_irrad = float(totals.get("H(i)_y", 0) or 0)
         specific = float(totals.get("E_y", 0) or 0)
-        if annual_irrad <= 0:
-            annual_irrad = max(1200.0, specific / 0.82 if specific > 0 else 1581.0)
+        if not math.isfinite(annual_irrad) or annual_irrad <= 0:
+            raise ValueError("PVGIS thiếu bức xạ năm hợp lệ; không thay bằng giá trị giả định dưới nhãn PVGIS.")
         if specific <= 0:
             specific = annual_irrad * 0.82
         return IrradianceResult(
@@ -72,6 +72,7 @@ def fetch_pvgis(lat: float, lon: float, tilt: float = 10.0, azimuth: float = 180
             annual_irradiance_kwh_m2=round(annual_irrad, 1),
             specific_yield_kwh_kwp=round(specific, 1),
             detail="PVGIS PVcalc, hệ 1 kWp với tổn thất mặc định 14%.",
+            reference_tilt_deg=tilt, reference_azimuth_deg=azimuth,
         )
     except Exception as exc:
         return IrradianceResult(

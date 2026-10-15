@@ -1,5 +1,7 @@
 # SolarOpt Studio — hiện trạng công nghệ và kịch bản demo
 
+**Bổ sung 15/10/2026:** đã sửa cách tính điện năng theo từng mặt mái, kiểm tra khe giữa tấm và tính lại số liệu trên máy chủ; thử sai số tách PASS/WARN/FAIL, hỗ trợ mái rời nhau. Chi tiết và giới hạn mới tại [STEP1_LOGIC_FIXES.md](STEP1_LOGIC_FIXES.md). Bảng dưới đây mô tả mốc triển khai 10/10.
+
 Cập nhật 10/10/2026. Tài liệu này mô tả bản đang chạy trong `frontend/src/App.tsx` và `backend/app`. Giao diện cũ được lưu tham khảo trong `docs/legacy/App.v1.tsx`; những mô tả Gemini/fallback trong tài liệu phiên bản cũ không còn phản ánh luồng hiện tại.
 
 ## Các phần đã triển khai

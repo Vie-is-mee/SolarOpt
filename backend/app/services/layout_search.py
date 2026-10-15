@@ -7,7 +7,8 @@ Grids are alternatives, never combined into overlapping candidate sets.
 import math
 from shapely.affinity import rotate
 from app.schemas import CandidatePanel
-from app.services.geometry import panel_shape, overlap_ratio
+from app.services.geometry import panel_shape, overlap_ratio, _parts
+from app.services.energy import EnergyContext
 from app.services.design_policy import capacity, select_for_target, robust_contexts, robust_position
 
 
@@ -33,16 +34,18 @@ def score(req, candidate):
 
 def search_layouts(req, ctx, shade_contexts):
     cfg, spec = req.config, req.panel
+    energy_context = EnergyContext(cfg, req.obstacles, ctx, shade_contexts)
     # Directions modulo 90 identify both portrait and landscape orientations.
     directions={0.0:0.0}
     if cfg.layout_angle_deg is None:
-        coords=list(ctx.roof.exterior.coords)
         weights={}
-        for a,b in zip(coords,coords[1:]):
-            dx,dy=b[0]-a[0],b[1]-a[1]
-            direction=round(math.degrees(math.atan2(dy,dx))%90,1)
-            if direction>=89.9 or direction<.1:direction=0.0
-            weights[direction]=weights.get(direction,0)+math.hypot(dx,dy)
+        for part in _parts(ctx.roof):
+            coords=list(part.exterior.coords)
+            for a,b in zip(coords,coords[1:]):
+                dx,dy=b[0]-a[0],b[1]-a[1]
+                direction=round(math.degrees(math.atan2(dy,dx))%90,1)
+                if direction>=89.9 or direction<.1:direction=0.0
+                weights[direction]=weights.get(direction,0)+math.hypot(dx,dy)
         for angle in sorted(weights,key=weights.get,reverse=True)[:2]:
             directions[angle]=weights[angle]
         angles=sorted({round((a+d)%180,3) for a in directions for d in (0,90)})
@@ -89,14 +92,13 @@ def search_layouts(req, ctx, shade_contexts):
                             robust_rejected+=1
                             col+=1;x=anchorx+fx*sx+col*sx
                             continue
-                        overlaps=[overlap_ratio(shape,c.shadow_union) for c in shade_contexts]
-                        mean=sum(overlaps)/max(1,len(overlaps));worst=max(overlaps,default=0)
-                        loss=min(70,(.72*mean+.28*worst)*78)
+                        value=energy_context.evaluate(shape,spec.power_w,surface)
+                        mean,worst,loss=value.mean_cover,value.worst_cover,value.loss_pct
                         limit=SHADING_LIMITS[req.objective]
                         if mean<.55 and worst<.50 and loss<=limit:
                             candidate=CandidatePanel(id=f'g{index}r{row}c{col}',x=px,y=py,width_m=spec.width_m,height_m=spec.height_m,
                                 rotation_deg=angle,face_id=surface.id,shading_loss_pct=round(loss,2),
-                                annual_energy_kwh=round(spec.power_w/1000*cfg.annual_irradiance_kwh_m2*cfg.performance_ratio*(1-loss/100),2))
+                                annual_energy_kwh=value.annual_kwh)
                             candidate.preserved=any(same_position(candidate,p) for p in req.previous_panels)
                             candidates.append(candidate)
                         else:

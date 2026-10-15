@@ -8,13 +8,12 @@ try:
 except Exception:  # Cho phép chạy demo tối thiểu trước khi cài OR-Tools
     cp_model = None
 
-from datetime import date
 from app.services.layout_search import search_layouts, same_position, score
 from app.services.design_policy import capacity, select_for_target
+from app.services.energy import representative_contexts, summarize, MODEL_NOTE
 
-from app.schemas import CandidatePanel, DesignMetrics, DesignRequest, DesignResult, SunRequest
-from app.services.geometry import build_context, overlap_ratio, panel_shape
-from app.services.solar import sun_position
+from app.schemas import DesignMetrics, DesignRequest, DesignResult
+from app.services.geometry import build_context
 
 
 _same_position = same_position
@@ -32,7 +31,7 @@ def describe_goal(req, result):
         from app.services.stress import run_stress_tests
         stress=run_stress_tests(StressRequest(config=req.config,panel=req.panel,obstacles=req.obstacles,design=result,sun=req.sun))
         result.robustness_checks=[RobustnessCheck(id=s.id,name=s.name,status=s.status,detail=s.detail) for s in stress.scenarios]
-        result.warnings.append(f'Dự phòng: giữ nguyên bố trí và kiểm tra {stress.passed}/{stress.total} tình huống đạt. Có xét mái -2%, tấm +1%, lùi mép +15 cm và ngân sách -15%; chưa bảo đảm mọi sai số ngoài các tình huống đã thử.')
+        result.warnings.append(f'Dự phòng: {stress.passed}/{stress.total} tình huống đạt không cảnh báo; {stress.warned} có cảnh báo, {stress.failed} không đạt. Có xét mái -2%, tấm +1%, lùi mép +15 cm và ngân sách -15%; chưa bảo đảm mọi sai số ngoài các tình huống đã thử.')
     return result
 
 def generate_design(req: DesignRequest) -> DesignResult:
@@ -42,15 +41,7 @@ def generate_design(req: DesignRequest) -> DesignResult:
     # Hình học vật cản là ràng buộc cứng. Bóng che dùng nhiều thời điểm đại diện trong năm,
     # không phụ thuộc riêng thanh kéo giờ trên giao diện (thanh kéo chỉ để trực quan hóa).
     ctx = build_context(cfg, req.obstacles, None)
-    shade_contexts = []
-    for d in (date(2026, 3, 21), date(2026, 6, 21), date(2026, 12, 21)):
-        for hour in (9.0, 12.0, 15.0):
-            sp = sun_position(SunRequest(latitude=cfg.latitude, longitude=cfg.longitude, date=d, hour_local=hour))
-            if sp.altitude_deg > 3:
-                shade_contexts.append(build_context(cfg, req.obstacles, sp))
-    pw, ph = spec.width_m, spec.height_m
-    gap = cfg.panel_gap_m
-
+    shade_contexts = representative_contexts(cfg, req.obstacles)
     candidates, layout_trials = search_layouts(req, ctx, shade_contexts)
 
     if not candidates:
@@ -97,30 +88,15 @@ def generate_design(req: DesignRequest) -> DesignResult:
         if req.objective=='min_cost':selected,_=select_for_target(req,candidates)
         status_name = "GREEDY_FALLBACK"
 
-    energy = sum(p.annual_energy_kwh for p in selected)
-    shading = sum(p.shading_loss_pct for p in selected) / max(1, len(selected))
     preserved = 0
     if req.previous_panels:
         for old in req.previous_panels:
             if any(_same_position(old, new) for new in selected):
                 preserved += 1
-    preservation_rate = 100.0 * preserved / max(1, len(req.previous_panels)) if req.previous_panels else 0.0
-    used_area = len(selected) * pw * ph
     roof_area = ctx.roof.area
 
-    metrics = DesignMetrics(
-        panel_count=len(selected),
-        peak_power_kwp=round(len(selected) * spec.power_w / 1000.0, 3),
-        annual_energy_kwh=round(energy, 1),
-        annual_energy_mwh=round(energy / 1000.0, 3),
-        estimated_cost_vnd=round(len(selected) * spec.price_vnd, 0),
-        average_shading_loss_pct=round(shading, 2),
-        maximum_shading_loss_pct=max((p.shading_loss_pct for p in selected), default=0),
-        roof_utilization_pct=round(100 * used_area / max(1e-6, roof_area), 1),
-        preserved_panel_count=preserved,
-        layout_preservation_rate_pct=round(preservation_rate, 1),
-    )
-    warnings: list[str] = ["Chi phí chỉ gồm tấm pin, chưa gồm inverter, khung, dây và thi công.", "Sản lượng sơ bộ dùng 9 thời điểm bóng che đại diện; chưa phải mô phỏng năm theo giờ đã đối chuẩn."]
+    metrics = summarize(cfg, spec, selected, roof_area, preserved, len(req.previous_panels))
+    warnings: list[str] = ["Chi phí chỉ gồm tấm pin, chưa gồm inverter, khung, dây và thi công.", MODEL_NOTE]
     warnings.append(f"Đã so sánh {len(layout_trials)} lưới xoay/dịch; chọn theo mục tiêu trong các lưới đã thử, chưa phải tối ưu mọi cách xếp.")
     if len(selected) == 0:
         warnings.append("Solver không chọn được panel trong ngân sách/ràng buộc hiện tại.")

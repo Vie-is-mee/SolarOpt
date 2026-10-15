@@ -200,7 +200,7 @@ SolarOpt là công cụ **hỗ trợ đánh giá sơ bộ**. Khi sử dụng k�
 - Chưa tự tái dựng chính xác mô hình ba chiều của mái và công trình xung quanh từ ảnh; kích thước và cao độ cần được đo, nhập hoặc xác nhận.
 - Chưa hợp nhất tọa độ từ nhiều ảnh chụp thành một mô hình hình học hoàn chỉnh.
 - Bức xạ tại thời điểm dựa trên mô hình trời quang, không phải dữ liệu đo hiện trường hoặc dự báo mây.
-- Điện năng năm là ước tính sơ bộ từ chín thời điểm bóng đại diện, chưa mô phỏng theo từng giờ trong cả năm hoặc đối chuẩn với hệ thống thực.
+- Điện năng năm được quy đổi theo hướng/độ dốc riêng từng mặt mái từ 12 ngày trời quang đại diện; bóng dùng chín thời điểm. Chưa mô phỏng thời tiết từng giờ cả năm hoặc đối chuẩn với hệ thống thực. Mặt tham chiếu dữ liệu nắng phải được khai báo đúng.
 - Bố trí được tối ưu trong phạm vi lưới vị trí ứng viên và hướng đặt tấm đang hỗ trợ; chưa khảo sát mọi cấu hình khả thi.
 - Giá trong các phương án hiện chỉ tính phần tấm pin, chưa phản ánh đầy đủ chi phí đầu tư và thi công.
 - Các kiểm tra trong ứng dụng không thay thế đánh giá kết cấu mái, an toàn điện, thiết kế chuỗi điện và yêu cầu phòng cháy chữa cháy.
@@ -212,6 +212,9 @@ SolarOpt là công cụ **hỗ trợ đánh giá sơ bộ**. Khi sử dụng k�
 | --- | --- |
 | [Hiện trạng kỹ thuật](docs/MVP_TECH_STATUS.md) | Chức năng đã triển khai, giới hạn và ưu tiên phát triển tiếp theo. |
 | [Biên bản kiểm thử](docs/MVP_VALIDATION.md) | Các trường hợp kiểm tra và kết quả đã ghi nhận. |
+| [Sửa logic bước 1 — 15/10/2026](docs/STEP1_LOGIC_FIXES.md) | Năm vấn đề đã sửa, 100 kiểm thử và kế hoạch đối chiếu mái thật. |
+| [Đối chiếu bước 2 — 15/10/2026](docs/STEP2_REFERENCE_VALIDATION.md) | Bộ đánh giá, ba ca tính tay và mẫu chờ dữ liệu mái thật. |
+| [Ảnh drone công khai — bước 3](docs/STEP3_PUBLIC_ROOF_BENCHMARK.md) | Đối chiếu 50 mái Nacala, kết quả biên mái và giới hạn kiểm chứng. |
 | [Quy trình xử lý ảnh mái](docs/ROOF_IMAGE_PIPELINE.md) | Tiếp nhận ảnh, tách biên và hiệu chỉnh hình học. |
 | [Hướng dẫn cấu hình AI](docs/SETUP_AI_FREE.md) | Cấu hình nhà cung cấp và lưu ý khi sử dụng. |
 | [Kịch bản trình diễn](docs/DEMO_SCRIPT_5MIN.md) | Trình tự giới thiệu các chức năng chính. |

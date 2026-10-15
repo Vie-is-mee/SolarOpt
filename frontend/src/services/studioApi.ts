@@ -19,6 +19,6 @@ export const studioApi={
   repair:(config:Config,panel:Panel,before:Obstacle[],after:Obstacle[],previous_design:Design,objective:Objective,previous_config:Config,previous_panel:Panel)=>request<Repair>('/api/design/repair',{config,panel,previous_config,previous_panel,obstacles_before:before,obstacles_after:after,previous_design,objective,minimal_repair_weight:250}),
   versions:(name:string)=>request<Version[]>(`/api/projects/${encodeURIComponent(name)}/versions`),
   approve:(config:Config,panel:Panel,obstacles:Obstacle[],design:Design,sun:Sun|null)=>request<{version_id:number;scope:string}>('/api/projects/approve',{config,panel,obstacles,design,sun}),
-  irradiance:(config:Config)=>request<{source:string;annual_irradiance_kwh_m2:number;detail:string}>(`/api/solar/irradiance?lat=${config.latitude}&lon=${config.longitude}&tilt=${config.roof_tilt_deg}&azimuth=${config.roof_azimuth_deg}`),
+  irradiance:(config:Config)=>request<{source:string;annual_irradiance_kwh_m2:number;detail:string;reference_tilt_deg:number;reference_azimuth_deg:number}>(`/api/solar/irradiance?lat=${config.latitude}&lon=${config.longitude}&tilt=0&azimuth=180`),
   uncertainty:(config:Config,panel:Panel,obstacles:Obstacle[],obstacle_id:string,low_height_m:number,high_height_m:number)=>request<{layout_difference_pct:number;energy_difference_pct:number;action:string;explanation:string}>('/api/uncertainty/evaluate',{config,panel,obstacles,obstacle_id,low_height_m,high_height_m}),
 }

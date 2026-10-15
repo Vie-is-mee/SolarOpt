@@ -8,3 +8,5 @@
 **/*.db
 **/*.db-*
 **/.venv/
+output/validation/
+data/public/

@@ -1,5 +1,7 @@
 # Biên bản kiểm tra SolarOpt Studio
 
+**Cập nhật 15/10/2026:** bước sửa logic đã đạt 100/100 kiểm thử Python, kiểm tra kiểu/đóng gói và luồng trình duyệt. Xem [biên bản bước 1](STEP1_LOGIC_FIXES.md). Nội dung bên dưới là bằng chứng lịch sử ngày 10/10, không thay cho trạng thái mới.
+
 Ngày 10/10/2026, kiểm tra tại máy phát triển Windows, bằng trình duyệt Microsoft Edge không mở cửa sổ.
 
 ## Các kết quả đã kiểm tra

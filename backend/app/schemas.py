@@ -93,6 +93,8 @@ class ProjectConfig(StrictModel):
     panel_gap_m: float = Field(default=0.08, ge=0.02, le=5)
     obstacle_clearance_m: float = Field(default=0.25, ge=0, le=10)
     annual_irradiance_kwh_m2: float = Field(default=1581.0, gt=0, le=4000)
+    irradiance_reference_tilt_deg: float = Field(default=0, ge=0, le=60)
+    irradiance_reference_azimuth_deg: float = Field(default=180, ge=0, le=360)
     performance_ratio: float = Field(default=0.82, gt=0, le=1)
     budget_vnd: float = Field(default=100_000_000, ge=0)
     target_energy_kwh_year: float | None = Field(default=None, gt=0, le=10_000_000)
@@ -141,15 +143,15 @@ class SunPosition(BaseModel):
     source: str = "pvlib"
 
 
-class CandidatePanel(BaseModel):
+class CandidatePanel(StrictModel):
     id: str
     x: float
     y: float
-    width_m: float
-    height_m: float
+    width_m: float = Field(gt=0, le=10)
+    height_m: float = Field(gt=0, le=10)
     rotation_deg: float = Field(default=0, ge=-180, le=180)
-    annual_energy_kwh: float
-    shading_loss_pct: float
+    annual_energy_kwh: float = Field(ge=0)
+    shading_loss_pct: float = Field(ge=0, le=100)
     preserved: bool = False
     face_id: str = "base"
 
@@ -170,7 +172,7 @@ class DesignRequest(BaseModel):
         return self
 
 
-class DesignMetrics(BaseModel):
+class DesignMetrics(StrictModel):
     panel_count: int
     peak_power_kwp: float
     annual_energy_kwh: float
@@ -202,7 +204,7 @@ class LayoutTrial(BaseModel):
 class RobustnessCheck(BaseModel):
     id: str
     name: str
-    status: Literal["PASS", "FAIL"]
+    status: Literal["PASS", "WARN", "FAIL"]
     detail: str
 
 
@@ -250,11 +252,12 @@ class StressRequest(BaseModel):
 class StressScenarioResult(BaseModel):
     id: str
     name: str
-    status: Literal["PASS", "FAIL"]
+    status: Literal["PASS", "WARN", "FAIL"]
     panel_count: int
     annual_energy_kwh: float
     detail: str
     failed_checks: list[CheckResult] = Field(default_factory=list)
+    warning_checks: list[CheckResult] = Field(default_factory=list)
     recommendations: list[str] = Field(default_factory=list)
     affected_panel_ids: list[str] = Field(default_factory=list)
 
@@ -262,6 +265,8 @@ class StressScenarioResult(BaseModel):
 class StressResult(BaseModel):
     passed: int
     total: int
+    warned: int = 0
+    failed: int = 0
     scenarios: list[StressScenarioResult]
 
 
@@ -354,6 +359,8 @@ class IrradianceResult(BaseModel):
     annual_irradiance_kwh_m2: float
     specific_yield_kwh_kwp: float
     detail: str
+    reference_tilt_deg: float = 0
+    reference_azimuth_deg: float = 180
 
 class UncertaintyRequest(BaseModel):
     config: ProjectConfig

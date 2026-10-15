@@ -103,7 +103,7 @@ def test_stress_failures_identify_panels_and_give_actions_without_mutation():
 
 def test_edge_reserve_is_packing_margin_not_a_new_verification_constraint():
     from app.services.geometry import panel_shape,build_context
-    cfg=ProjectConfig(roof_width_m=12,roof_height_m=9,setback_m=.35,layout_edge_reserve_m=.5,budget_vnd=500_000_000)
+    cfg=ProjectConfig(roof_width_m=12,roof_height_m=9,setback_m=.35,layout_edge_reserve_m=.5,budget_vnd=500_000_000,geometry_confirmed=True)
     result=generate_design(DesignRequest(config=cfg,panel=PanelSpec()))
     region=build_context(cfg,[],None).roof.buffer(-.85,join_style=2)
     assert result.panels
