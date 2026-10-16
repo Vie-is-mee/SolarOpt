@@ -2,7 +2,12 @@ import type {Config,Panel,Obstacle,Design,Verification,Scene,Health,Vision,Stres
 const base = import.meta.env.VITE_API_BASE || ''
 async function request<T>(path:string,body?:unknown,signal?:AbortSignal):Promise<T> {
   const timeout = AbortSignal.timeout(120_000)
-  const response = await fetch(base+path,{method:body===undefined?'GET':'POST',...(body===undefined?{}:body instanceof FormData?{body}:{headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),signal:signal ? AbortSignal.any([signal, timeout]) : timeout})
+  let response:Response
+  try {response = await fetch(base+path,{method:body===undefined?'GET':'POST',...(body===undefined?{}:body instanceof FormData?{body}:{headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),signal:signal ? AbortSignal.any([signal, timeout]) : timeout})}
+  catch(error){
+    if(timeout.aborted&&!signal?.aborted)throw new Error('Máy chủ tính quá thời gian chờ. Các phương án đã hoàn tất vẫn được giữ lại. Với mái lớn, chọn góc xếp thủ công hoặc giảm phạm vi mái rồi tính lại.')
+    throw error
+  }
   if(!response.ok){let detail='';try{const data=await response.json();detail=typeof data.detail==='string'?data.detail:JSON.stringify(data.detail)}catch{}throw new Error(detail||`Yêu cầu chưa thành công (${response.status}).`)}
   return response.json()
 }
