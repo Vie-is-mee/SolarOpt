@@ -68,7 +68,7 @@ def test_fallback_agrees_on_best_grid(monkeypatch):
     assert fallback.metrics.annual_energy_kwh==exact.metrics.annual_energy_kwh
 
 
-def test_refinement_improves_a_concave_rotated_roof():
+def test_face_origins_and_refinement_preserve_best_concave_layout():
     from shapely.geometry import Polygon
     from shapely.affinity import translate
     from app.schemas import RectObstacle
@@ -80,8 +80,11 @@ def test_refinement_improves_a_concave_rotated_roof():
     result=generate_design(DesignRequest(config=cfg,panel=PanelSpec(),obstacles=[obstacle]))
     coarse=max((t for t in result.layout_trials if t.search_stage=='coarse'),key=lambda t:t.objective_score)
     chosen=next(t for t in result.layout_trials if t.selected)
-    assert coarse.panel_count==7 and chosen.panel_count==8
-    assert chosen.objective_score>coarse.objective_score
+    # Face-aligned origins now find more than the former eight-panel winner
+    # even in the coarse stage. Refinement must retain that better solution.
+    assert chosen.panel_count>=10
+    assert chosen.objective_score>=coarse.objective_score
+    assert any(t.search_stage=='refined' for t in result.layout_trials)
     assert verify_design(VerifyRequest(config=cfg,panel=PanelSpec(),obstacles=[obstacle],design=result)).valid
 
 

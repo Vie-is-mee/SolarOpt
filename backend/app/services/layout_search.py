@@ -73,6 +73,14 @@ def search_layouts(req, ctx, shade_contexts, *, budget_seconds=25., diagnostics=
             sx,sy=spec.width_m+cfg.panel_gap_m,spec.height_m+cfg.panel_gap_m
             if robust:sx+=spec.width_m*.01;sy+=spec.height_m*.01
             phases=([(0,0),(.5,0),(0,.5),(.5,.5)] if not refined else [(x,y) for x in (0,.25,.5,.75) for y in (0,.25,.5,.75)])
+            # A narrow face may fit panels only at a phase absent from the
+            # whole-roof grid. Try face-aligned origins, still as separate grids.
+            for _, region in surfaces[:8]:
+                if region.is_empty:continue
+                left,bottom,_,_=rotate(region,-angle,origin=(0,0)).bounds
+                phase=(((left+1e-6-anchorx)%sx)/sx,((bottom+1e-6-anchory)%sy)/sy)
+                if not any(abs(phase[0]-x)<1e-7 and abs(phase[1]-y)<1e-7 for x,y in phases):
+                    phases.append(phase)
             # Also test the original grid phase when repairing a rotated layout.
             for p in req.previous_panels:
                 if abs((p.rotation_deg-angle+90)%180-90)<.01:
