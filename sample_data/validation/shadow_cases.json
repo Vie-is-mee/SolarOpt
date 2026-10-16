@@ -1,0 +1,680 @@
+{
+  "format": "solaropt-validation-v1",
+  "cases": [
+    {
+      "id": "shadow-east",
+      "label": "Mái phẳng: nắng Đông, bóng Tây",
+      "kind": "synthetic",
+      "stage": "simulation",
+      "reference_source": "Khối 1×2 m cao 2 m: bóng kéo 2/tan(45°)=2 m; vùng che rộng 3 m, diện tích 6 m². Đây là ca hình học nhân tạo, không phải mái khảo sát.",
+      "project": {
+        "config": {
+          "roof_width_m": 12,
+          "roof_height_m": 8,
+          "roof_elevation_m": 6,
+          "geometry_confirmed": true
+        },
+        "panel": {},
+        "obstacles": [
+          {
+            "id": "block",
+            "x": 5,
+            "y": 4,
+            "width_m": 1,
+            "depth_m": 2,
+            "height_m": 2
+          }
+        ]
+      },
+      "reference_roof": {
+        "boundary": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 12,
+            "y": 0
+          },
+          {
+            "x": 12,
+            "y": 8
+          },
+          {
+            "x": 0,
+            "y": 8
+          }
+        ]
+      },
+      "shadow_references": [
+        {
+          "label": "Bóng theo công thức đối chiếu",
+          "source": "Khối 1×2 m cao 2 m: bóng kéo 2/tan(45°)=2 m; vùng che rộng 3 m, diện tích 6 m².",
+          "analytical_sun": {
+            "altitude_deg": 45,
+            "azimuth_deg": 90,
+            "zenith_deg": 45
+          },
+          "regions": [
+            {
+              "boundary": [
+                {
+                  "x": 3,
+                  "y": 4
+                },
+                {
+                  "x": 6,
+                  "y": 4
+                },
+                {
+                  "x": 6,
+                  "y": 6
+                },
+                {
+                  "x": 3,
+                  "y": 6
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "tolerances": {
+        "roof_iou_min": 0.99999,
+        "boundary_error_m_max": 0.001,
+        "shadow_iou_min": 0.99999
+      }
+    },
+    {
+      "id": "shadow-north",
+      "label": "Mái phẳng: nắng Bắc, bóng Nam",
+      "kind": "synthetic",
+      "stage": "simulation",
+      "reference_source": "Nắng Bắc: bóng kéo về Nam 2 m; vùng che 1×4 m, diện tích 4 m². Đây là ca hình học nhân tạo, không phải mái khảo sát.",
+      "project": {
+        "config": {
+          "roof_width_m": 12,
+          "roof_height_m": 8,
+          "roof_elevation_m": 6,
+          "geometry_confirmed": true
+        },
+        "panel": {},
+        "obstacles": [
+          {
+            "id": "block",
+            "x": 5,
+            "y": 4,
+            "width_m": 1,
+            "depth_m": 2,
+            "height_m": 2
+          }
+        ]
+      },
+      "reference_roof": {
+        "boundary": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 12,
+            "y": 0
+          },
+          {
+            "x": 12,
+            "y": 8
+          },
+          {
+            "x": 0,
+            "y": 8
+          }
+        ]
+      },
+      "shadow_references": [
+        {
+          "label": "Bóng theo công thức đối chiếu",
+          "source": "Nắng Bắc: bóng kéo về Nam 2 m; vùng che 1×4 m, diện tích 4 m².",
+          "analytical_sun": {
+            "altitude_deg": 45,
+            "azimuth_deg": 0,
+            "zenith_deg": 45
+          },
+          "regions": [
+            {
+              "boundary": [
+                {
+                  "x": 5,
+                  "y": 2
+                },
+                {
+                  "x": 6,
+                  "y": 2
+                },
+                {
+                  "x": 6,
+                  "y": 6
+                },
+                {
+                  "x": 5,
+                  "y": 6
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "tolerances": {
+        "roof_iou_min": 0.99999,
+        "boundary_error_m_max": 0.001,
+        "shadow_iou_min": 0.99999
+      }
+    },
+    {
+      "id": "shadow-rotated",
+      "label": "Bản vẽ xoay 90°: nắng Đông, bóng xuống dưới",
+      "kind": "synthetic",
+      "stage": "simulation",
+      "reference_source": "Hướng trên bản vẽ là Đông: nắng Đông chiếu từ trên, bóng xuống dưới 2 m; diện tích 4 m². Đây là ca hình học nhân tạo, không phải mái khảo sát.",
+      "project": {
+        "config": {
+          "roof_width_m": 12,
+          "roof_height_m": 8,
+          "roof_elevation_m": 6,
+          "geometry_confirmed": true,
+          "north_rotation_deg": 90
+        },
+        "panel": {},
+        "obstacles": [
+          {
+            "id": "block",
+            "x": 5,
+            "y": 4,
+            "width_m": 1,
+            "depth_m": 2,
+            "height_m": 2
+          }
+        ]
+      },
+      "reference_roof": {
+        "boundary": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 12,
+            "y": 0
+          },
+          {
+            "x": 12,
+            "y": 8
+          },
+          {
+            "x": 0,
+            "y": 8
+          }
+        ]
+      },
+      "shadow_references": [
+        {
+          "label": "Bóng theo công thức đối chiếu",
+          "source": "Hướng trên bản vẽ là Đông: nắng Đông chiếu từ trên, bóng xuống dưới 2 m; diện tích 4 m².",
+          "analytical_sun": {
+            "altitude_deg": 45,
+            "azimuth_deg": 90,
+            "zenith_deg": 45
+          },
+          "regions": [
+            {
+              "boundary": [
+                {
+                  "x": 5,
+                  "y": 2
+                },
+                {
+                  "x": 6,
+                  "y": 2
+                },
+                {
+                  "x": 6,
+                  "y": 6
+                },
+                {
+                  "x": 5,
+                  "y": 6
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "tolerances": {
+        "roof_iou_min": 0.99999,
+        "boundary_error_m_max": 0.001,
+        "shadow_iou_min": 0.99999
+      }
+    },
+    {
+      "id": "shadow-neighbor",
+      "label": "Nhà bên cạnh: dùng cao độ đỉnh so với mái",
+      "kind": "synthetic",
+      "stage": "simulation",
+      "reference_source": "Nhà cao 12 m từ đất, mái nhận cao 6 m: kéo 6 m. Bóng cắt trong mái x=8..12, y=2..4; diện tích 8 m². Đây là ca hình học nhân tạo, không phải mái khảo sát.",
+      "project": {
+        "config": {
+          "roof_width_m": 12,
+          "roof_height_m": 8,
+          "roof_elevation_m": 6,
+          "geometry_confirmed": true
+        },
+        "panel": {},
+        "obstacles": [
+          {
+            "id": "neighbor",
+            "scope": "neighbor",
+            "x": 14,
+            "y": 2,
+            "width_m": 2,
+            "depth_m": 2,
+            "height_m": 12
+          }
+        ]
+      },
+      "reference_roof": {
+        "boundary": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 12,
+            "y": 0
+          },
+          {
+            "x": 12,
+            "y": 8
+          },
+          {
+            "x": 0,
+            "y": 8
+          }
+        ]
+      },
+      "shadow_references": [
+        {
+          "label": "Bóng theo công thức đối chiếu",
+          "source": "Nhà cao 12 m từ đất, mái nhận cao 6 m: kéo 6 m. Bóng cắt trong mái x=8..12, y=2..4; diện tích 8 m².",
+          "analytical_sun": {
+            "altitude_deg": 45,
+            "azimuth_deg": 90,
+            "zenith_deg": 45
+          },
+          "regions": [
+            {
+              "boundary": [
+                {
+                  "x": 8,
+                  "y": 2
+                },
+                {
+                  "x": 12,
+                  "y": 2
+                },
+                {
+                  "x": 12,
+                  "y": 4
+                },
+                {
+                  "x": 8,
+                  "y": 4
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "tolerances": {
+        "roof_iou_min": 0.99999,
+        "boundary_error_m_max": 0.001,
+        "shadow_iou_min": 0.99999
+      }
+    },
+    {
+      "id": "shadow-roof-step",
+      "label": "Phần mái cao đổ xuống phần mái thấp",
+      "kind": "synthetic",
+      "stage": "simulation",
+      "reference_source": "Mái bên phải cao 8 m, bên trái 6 m: chênh 2 m tạo dải bóng 2×8=16 m² trên mái thấp. Đây là ca hình học nhân tạo, không phải mái khảo sát.",
+      "project": {
+        "config": {
+          "roof_width_m": 12,
+          "roof_height_m": 8,
+          "roof_elevation_m": 6,
+          "geometry_confirmed": true,
+          "roof_faces": [
+            {
+              "id": "upper",
+              "label": "Mái cao",
+              "polygon": [
+                {
+                  "x": 6,
+                  "y": 0
+                },
+                {
+                  "x": 12,
+                  "y": 0
+                },
+                {
+                  "x": 12,
+                  "y": 8
+                },
+                {
+                  "x": 6,
+                  "y": 8
+                }
+              ],
+              "elevation_m": 8
+            }
+          ]
+        },
+        "panel": {},
+        "obstacles": []
+      },
+      "reference_roof": {
+        "boundary": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 12,
+            "y": 0
+          },
+          {
+            "x": 12,
+            "y": 8
+          },
+          {
+            "x": 0,
+            "y": 8
+          }
+        ]
+      },
+      "shadow_references": [
+        {
+          "label": "Bóng theo công thức đối chiếu",
+          "source": "Mái bên phải cao 8 m, bên trái 6 m: chênh 2 m tạo dải bóng 2×8=16 m² trên mái thấp.",
+          "analytical_sun": {
+            "altitude_deg": 45,
+            "azimuth_deg": 90,
+            "zenith_deg": 45
+          },
+          "regions": [
+            {
+              "boundary": [
+                {
+                  "x": 4,
+                  "y": 0
+                },
+                {
+                  "x": 6,
+                  "y": 0
+                },
+                {
+                  "x": 6,
+                  "y": 8
+                },
+                {
+                  "x": 4,
+                  "y": 8
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "tolerances": {
+        "roof_iou_min": 0.99999,
+        "boundary_error_m_max": 0.001,
+        "shadow_iou_min": 0.99999
+      }
+    },
+    {
+      "id": "shadow-buried",
+      "label": "Không tạo bóng từ phần khối thấp hơn mặt mái",
+      "kind": "synthetic",
+      "stage": "simulation",
+      "reference_source": "Mái z=6+0,5x, đỉnh vật z=8: chỉ x≤4 còn cao hơn mái. Nắng Tây, vùng che x=2..4, y=2..3; diện tích 2 m². Đây là ca hình học nhân tạo, không phải mái khảo sát.",
+      "project": {
+        "config": {
+          "roof_width_m": 12,
+          "roof_height_m": 8,
+          "roof_elevation_m": 6,
+          "geometry_confirmed": true,
+          "roof_tilt_deg": 26.56505117707799,
+          "roof_azimuth_deg": 270
+        },
+        "panel": {},
+        "obstacles": [
+          {
+            "id": "buried",
+            "scope": "neighbor",
+            "x": 2,
+            "y": 2,
+            "width_m": 4,
+            "depth_m": 1,
+            "height_m": 8
+          }
+        ]
+      },
+      "reference_roof": {
+        "boundary": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 12,
+            "y": 0
+          },
+          {
+            "x": 12,
+            "y": 8
+          },
+          {
+            "x": 0,
+            "y": 8
+          }
+        ]
+      },
+      "shadow_references": [
+        {
+          "label": "Bóng theo công thức đối chiếu",
+          "source": "Mái z=6+0,5x, đỉnh vật z=8: chỉ x≤4 còn cao hơn mái. Nắng Tây, vùng che x=2..4, y=2..3; diện tích 2 m².",
+          "analytical_sun": {
+            "altitude_deg": 45,
+            "azimuth_deg": 270,
+            "zenith_deg": 45
+          },
+          "regions": [
+            {
+              "boundary": [
+                {
+                  "x": 2,
+                  "y": 2
+                },
+                {
+                  "x": 4,
+                  "y": 2
+                },
+                {
+                  "x": 4,
+                  "y": 3
+                },
+                {
+                  "x": 2,
+                  "y": 3
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "tolerances": {
+        "roof_iou_min": 0.99999,
+        "boundary_error_m_max": 0.001,
+        "shadow_iou_min": 0.99999
+      }
+    },
+    {
+      "id": "shadow-raised",
+      "label": "Khối có chân nâng cao: giữ đúng khoảng hở",
+      "kind": "synthetic",
+      "stage": "simulation",
+      "reference_source": "Mái cao 6 m; chân khối 10 m, đỉnh 12 m: chân chiếu lệch 4 m, đỉnh lệch 6 m. Vùng che x=2..6, y=3..5; diện tích 8 m². Đây là ca hình học nhân tạo, không phải mái khảo sát.",
+      "project": {
+        "config": {
+          "roof_width_m": 12,
+          "roof_height_m": 8,
+          "roof_elevation_m": 6,
+          "geometry_confirmed": true
+        },
+        "panel": {},
+        "obstacles": [
+          {
+            "id": "raised",
+            "x": 8,
+            "y": 3,
+            "width_m": 2,
+            "depth_m": 2,
+            "height_m": 2,
+            "base_elevation_m": 10
+          }
+        ]
+      },
+      "reference_roof": {
+        "boundary": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 12,
+            "y": 0
+          },
+          {
+            "x": 12,
+            "y": 8
+          },
+          {
+            "x": 0,
+            "y": 8
+          }
+        ]
+      },
+      "shadow_references": [
+        {
+          "label": "Bóng theo công thức đối chiếu",
+          "source": "Mái cao 6 m; chân khối 10 m, đỉnh 12 m: chân chiếu lệch 4 m, đỉnh lệch 6 m. Vùng che x=2..6, y=3..5; diện tích 8 m².",
+          "analytical_sun": {
+            "altitude_deg": 45,
+            "azimuth_deg": 90,
+            "zenith_deg": 45
+          },
+          "regions": [
+            {
+              "boundary": [
+                {
+                  "x": 2,
+                  "y": 3
+                },
+                {
+                  "x": 6,
+                  "y": 3
+                },
+                {
+                  "x": 6,
+                  "y": 5
+                },
+                {
+                  "x": 2,
+                  "y": 5
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "tolerances": {
+        "roof_iou_min": 0.99999,
+        "boundary_error_m_max": 0.001,
+        "shadow_iou_min": 0.99999
+      }
+    },
+    {
+      "id": "shadow-back-facing",
+      "label": "Mái quay lưng với nắng không thành bóng của vật",
+      "kind": "synthetic",
+      "stage": "simulation",
+      "reference_source": "Mái tăng cao về Đông với góc 60°, nắng Đông chỉ cao 20°: không có nắng trực tiếp tới mặt mái; không gán cả mái thành bóng của vật nhỏ. Ánh sáng tán xạ tính riêng. Đây là ca hình học nhân tạo, không phải mái khảo sát.",
+      "project": {
+        "config": {
+          "roof_width_m": 12,
+          "roof_height_m": 8,
+          "roof_elevation_m": 6,
+          "geometry_confirmed": true,
+          "roof_tilt_deg": 60,
+          "roof_azimuth_deg": 270
+        },
+        "panel": {},
+        "obstacles": [
+          {
+            "id": "small",
+            "x": 2,
+            "y": 2,
+            "width_m": 1,
+            "depth_m": 1,
+            "height_m": 1
+          }
+        ]
+      },
+      "reference_roof": {
+        "boundary": [
+          {
+            "x": 0,
+            "y": 0
+          },
+          {
+            "x": 12,
+            "y": 0
+          },
+          {
+            "x": 12,
+            "y": 8
+          },
+          {
+            "x": 0,
+            "y": 8
+          }
+        ]
+      },
+      "shadow_references": [
+        {
+          "label": "Bóng theo công thức đối chiếu",
+          "source": "Mái tăng cao về Đông với góc 60°, nắng Đông chỉ cao 20°: không có nắng trực tiếp tới mặt mái; không gán cả mái thành bóng của vật nhỏ. Ánh sáng tán xạ tính riêng.",
+          "analytical_sun": {
+            "altitude_deg": 20,
+            "azimuth_deg": 90,
+            "zenith_deg": 70
+          },
+          "regions": []
+        }
+      ],
+      "tolerances": {
+        "roof_iou_min": 0.99999,
+        "boundary_error_m_max": 0.001,
+        "shadow_iou_min": 0.99999
+      }
+    }
+  ]
+}
