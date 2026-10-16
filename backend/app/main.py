@@ -13,7 +13,7 @@ from starlette.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.database import init_db, list_versions, save_version
+from app.database import init_db, list_versions, save_version, get_version
 from app.schemas import (
     DesignRequest, DesignResult, RepairRequest, RepairResult, StressRequest, StressResult,
     SunPosition, SunRequest, VerifyRequest, VerifyResult, VisionResult, IrradianceResult,
@@ -127,7 +127,7 @@ def get_irradiance(
 @app.post("/api/design/generate", response_model=DesignResult)
 def design_generate(req: DesignRequest):
     result = generate_design(req)
-    save_version(req.config.project_name, "design", f"Thiết kế: {req.objective}", {"config":req.config.model_dump(),"panel":req.panel.model_dump(),"obstacles": [o.model_dump() for o in req.obstacles],"design":result.model_dump()})
+    save_version(req.config.project_name, "design", f"Thiết kế: {req.objective}", {"config":req.config.model_dump(),"panel":req.panel.model_dump(),"obstacles": [o.model_dump() for o in req.obstacles],"design":result.model_dump(),"evidence":req.evidence.model_dump(mode='json') if req.evidence else None})
     return result
 
 
@@ -188,7 +188,7 @@ def design_repair(req: RepairRequest):
         config=req.config, panel=req.panel, obstacles=req.obstacles_after, design=design, sun=req.sun
     ))
     save_version(req.config.project_name, "repair", f"Self-heal after {changed_input}", {
-        "config":req.config.model_dump(),"panel":req.panel.model_dump(),"obstacles":[o.model_dump() for o in req.obstacles_after],"impact": impact.model_dump(), "design": design.model_dump(), "verification": verification.model_dump()
+        "config":req.config.model_dump(),"panel":req.panel.model_dump(),"obstacles":[o.model_dump() for o in req.obstacles_after],"impact": impact.model_dump(), "design": design.model_dump(), "verification": verification.model_dump(),"evidence":req.evidence.model_dump(mode='json') if req.evidence else None
     })
     return RepairResult(impact=impact, design=design, verification=verification)
 
@@ -206,6 +206,13 @@ def project_versions(project_name: str):
     return list_versions(project_name)
 
 
+@app.get('/api/projects/{project_name}/versions/{version_id}')
+def project_version(project_name:str,version_id:int):
+    version=get_version(project_name,version_id)
+    if version is None:raise HTTPException(404,'Không tìm thấy phiên bản của dự án này.')
+    return version
+
+
 @app.post("/api/projects/approve")
 def approve_project(req: VerifyRequest):
     if not req.config.geometry_confirmed or any(not o.confirmed for o in req.obstacles):
@@ -213,5 +220,5 @@ def approve_project(req: VerifyRequest):
     verification = verify_design(req)
     if not verification.valid:
         raise HTTPException(409, "Phương án chưa đạt các kiểm tra bắt buộc.")
-    version_id = save_version(req.config.project_name,"approved","Kỹ sư xác nhận trong phạm vi kiểm tra MVP",{**req.model_dump(),"verification":verification.model_dump()})
+    version_id = save_version(req.config.project_name,"approved","Kỹ sư xác nhận trong phạm vi kiểm tra MVP",{**req.model_dump(mode='json'),"verification":verification.model_dump()})
     return {"version_id":version_id,"verification":verification,"scope":"Xác nhận nội bộ bản sơ bộ; không phải chứng nhận đủ điều kiện thi công."}

@@ -59,5 +59,18 @@ def list_versions(project_name: str) -> list[dict[str, Any]]:
     for r in rows:
         item = dict(r)
         item["payload"] = json.loads(item.pop("payload_json"))
+        evidence=item['payload'].get('evidence')
+        item['has_evidence']=bool(evidence and (evidence.get('source_image') or evidence.get('reference_image')))
+        if evidence:
+            item['payload']['evidence']={**evidence,'source_image':None,'reference_image':None}
         out.append(item)
     return out
+
+
+def get_version(project_name:str,version_id:int):
+    with connect() as conn:
+        conn.row_factory=sqlite3.Row
+        row=conn.execute('SELECT id,project_name,version_label,reason,payload_json,created_at FROM project_versions WHERE project_name=? AND id=?',(project_name,version_id)).fetchone()
+    if row is None:return None
+    item=dict(row);item['payload']=json.loads(item.pop('payload_json'))
+    return item

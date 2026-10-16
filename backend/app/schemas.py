@@ -4,6 +4,7 @@ from datetime import date
 from typing import Literal
 
 from pydantic import BaseModel, Field, ConfigDict, model_validator
+from app.evidence import ProjectEvidence
 
 Objective = Literal["max_energy", "min_cost", "robust", "balanced", "durability"]
 
@@ -157,6 +158,7 @@ class CandidatePanel(StrictModel):
 
 
 class DesignRequest(BaseModel):
+    evidence: ProjectEvidence | None = None
     config: ProjectConfig
     panel: PanelSpec
     obstacles: list[RectObstacle] = Field(default_factory=list, max_length=100)
@@ -221,6 +223,7 @@ class DesignResult(BaseModel):
 
 
 class VerifyRequest(BaseModel):
+    evidence: ProjectEvidence | None = None
     config: ProjectConfig
     panel: PanelSpec
     obstacles: list[RectObstacle] = []
@@ -271,6 +274,7 @@ class StressResult(BaseModel):
 
 
 class RepairRequest(BaseModel):
+    evidence: ProjectEvidence | None = None
     config: ProjectConfig
     panel: PanelSpec
     previous_config: ProjectConfig | None = None
