@@ -24,6 +24,7 @@ class TraceRequest(StrictModel):
     foreground: list[NormalizedPoint] = Field(default_factory=list,max_length=100)
     background: list[NormalizedPoint] = Field(default_factory=list,max_length=100)
     polygon: list[NormalizedPoint] = Field(default_factory=list,max_length=100)
+    openings: list[list[NormalizedPoint]] = Field(default_factory=list,max_length=24)
     quad: list[NormalizedPoint] = Field(default_factory=list,max_length=4)
     quad_aspect_ratio: float | None = Field(default=None,ge=.02,le=50)
     detail: float = Field(default=.003,ge=.0005,le=.02)
@@ -88,6 +89,15 @@ def extract_roof(req:TraceRequest):
         from shapely.geometry import Polygon
         if not Polygon(pts).is_valid:raise ValueError("Biên chọn không được tự cắt.")
         cv2.fillPoly(mask,[pts],1)
+        holes=[]
+        for ring in req.openings:
+            if len(ring)<3 or len(ring)>100:raise ValueError("Khoảng trống cần từ 3 đến 100 đỉnh.")
+            hole=np.int32([[p.x*w/100,p.y*h/100] for p in ring])
+            shape=Polygon(hole)
+            if not shape.is_valid or shape.area<1 or not Polygon(pts).contains(shape):
+                raise ValueError("Khoảng trống phải hợp lệ và nằm hoàn toàn bên trong biên mái.")
+            if any(shape.intersects(previous) for previous in holes):raise ValueError("Các khoảng trống không được chồng hoặc chạm nhau.")
+            holes.append(shape);cv2.fillPoly(mask,[hole],0)
         algorithm='manual_image_trace'
     elif req.method=='plan':
         gray=cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
@@ -116,9 +126,12 @@ def extract_roof(req:TraceRequest):
         algorithm='opencv_grabcut'
         notes.append("Tách vùng theo màu và cạnh; bóng, cây hoặc mái cùng màu có thể làm sai biên. Thêm điểm giữ/loại hoặc chấm biên để sửa.")
     else:raise ValueError("Phương pháp tách biên không hợp lệ.")
-    contours,hierarchy=cv2.findContours(mask,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
+    contours,hierarchy=cv2.findContours(mask,cv2.RETR_CCOMP,cv2.CHAIN_APPROX_SIMPLE)
     if not contours:raise ValueError("Không tìm được vùng mái. Khoanh lại hoặc thêm điểm giữ mái.")
-    contour=max(contours,key=cv2.contourArea)
+    external=[i for i,entry in enumerate(hierarchy[0]) if entry[3]==-1]
+    main=max(external,key=lambda i:cv2.contourArea(contours[i]));contour=contours[main]
+    significant=[i for i in external if i!=main and cv2.contourArea(contours[i])>=.003*h*w]
+    if significant:notes.append(f"Có {len(significant)} vùng rời khác chưa đưa vào biên. Hãy trích riêng từng phần mái; không tự nối qua khoảng trống.")
     if cv2.contourArea(contour)<.003*h*w:raise ValueError("Vùng tìm được quá nhỏ; cần chọn lại mái.")
     tolerance=req.detail*cv2.arcLength(contour,True)
     approx=cv2.approxPolyDP(contour,tolerance,True).reshape(-1,2)
@@ -130,9 +143,33 @@ def extract_roof(req:TraceRequest):
     ex,ey=max(1,bw-1),max(1,bh-1)
     polygon_image=[{'x':round(float(px)/w*100,5),'y':round(float(py)/h*100,5)} for px,py in approx]
     polygon_roof=[{'x':round(float(px-bx)/ex*100,5),'y':round((1-float(py-by)/ey)*100,5)} for px,py in approx]
+    # Preserve interior rings, and check simplified topology before returning.
+    from shapely.geometry import Polygon
+    outer_shape=Polygon(approx)
+    if not outer_shape.is_valid:raise ValueError("Biên đơn giản hóa bị tự cắt; chọn nhiều chi tiết hơn hoặc sửa biên thủ công.")
+    opening_image=[];opening_roof=[];accepted=[]
+    for i,entry in enumerate(hierarchy[0]):
+        if entry[3]!=main or cv2.contourArea(contours[i])<max(4,.0005*h*w):continue
+        epsilon=max(.5,req.detail*cv2.arcLength(contours[i],True))
+        ring=cv2.approxPolyDP(contours[i],epsilon,True).reshape(-1,2)
+        while len(ring)>80:
+            epsilon*=1.3;ring=cv2.approxPolyDP(contours[i],epsilon,True).reshape(-1,2)
+        shape=Polygon(ring) if len(ring)>=3 else None
+        if shape is None or not shape.is_valid or not outer_shape.contains(shape) or any(shape.intersects(p) for p in accepted):
+            notes.append("Một khoảng trống có biên chưa hợp lệ; hãy kiểm tra và vẽ lại trước khi xác nhận.");continue
+        if len(accepted)>=24:notes.append("Chỉ giữ tối đa 24 khoảng trống; cần kiểm tra phần còn lại.");break
+        accepted.append(shape)
+        opening_image.append([{'x':round(float(px)/w*100,5),'y':round(float(py)/h*100,5)} for px,py in ring])
+        opening_roof.append([{'x':round(float(px-bx)/ex*100,5),'y':round((1-float(py-by)/ey)*100,5)} for px,py in ring])
+    if opening_image:notes.append(f"Giữ {len(opening_image)} khoảng trống từ mặt nạ. Vùng tối cũng có thể bị nhận nhầm; kỹ sư phải kiểm tra trên ảnh.")
     overlay=image.copy();cv2.drawContours(overlay,[approx],-1,(60,190,245),2)
     tint=overlay.copy();cv2.fillPoly(tint,[approx],(70,180,90));overlay=cv2.addWeighted(overlay,.78,tint,.22,0)
-    return {'algorithm':algorithm,'polygon_image_pct':polygon_image,'roof_polygon_pct':polygon_roof,'roof_bbox_image_pct':[bx/w*100,by/h*100,ex/w*100,ey/h*100],
+    for shape in accepted:
+        ring=np.int32(shape.exterior.coords)
+        hole_mask=np.zeros((h,w),np.uint8);cv2.fillPoly(hole_mask,[ring],1)
+        overlay[hole_mask.astype(bool)]=image[hole_mask.astype(bool)]
+        cv2.polylines(overlay,[ring],True,(70,90,230),2)
+    return {'algorithm':algorithm,'polygon_image_pct':polygon_image,'roof_polygon_pct':polygon_roof,'openings_image_pct':opening_image,'roof_openings_pct':opening_roof,'discarded_regions':len(significant),'roof_bbox_image_pct':[bx/w*100,by/h*100,ex/w*100,ey/h*100],
         'roof_aspect_ratio':ex/ey,'roof_width_px':ex,'roof_height_px':ey,'image_width_px':w,'image_height_px':h,
         'roof_crop_data_url':data_url(image[by:by+bh,bx:bx+bw],'.jpg'),'overlay_data_url':data_url(overlay,'.jpg'),
         'elapsed_ms':round((perf_counter()-start)*1000,1),'notes':notes+['Độ dài theo mét chỉ xác định sau khi hiệu chuẩn bằng số đo thật. Đây chưa phải kiểm chứng độ chính xác hình học ngoài hiện trường.']}

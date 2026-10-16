@@ -40,7 +40,7 @@ export type Vision = {
   roof_polygon_pct:Point[];extracted_text:string[];notes:string[];events:{stage:string;status:string;detail:string}[];cached:boolean;elapsed_ms:number;preview_data_url:string|null;
   roof_polygon_image_pct?:Point[];roof_aspect_ratio?:number|null;roof_crop_data_url?:string|null;coordinate_version?:number;
 }
-export type TraceResult={algorithm:string;polygon_image_pct:Point[];roof_polygon_pct:Point[];roof_bbox_image_pct:number[];roof_aspect_ratio:number;roof_width_px:number;roof_height_px:number;image_width_px:number;image_height_px:number;roof_crop_data_url:string;overlay_data_url:string;elapsed_ms:number;notes:string[];rectified?:boolean;image_data_url?:string;width_px?:number;height_px?:number}
+export type TraceResult={algorithm:string;polygon_image_pct:Point[];roof_polygon_pct:Point[];openings_image_pct?:Point[][];roof_openings_pct?:Point[][];discarded_regions?:number;roof_bbox_image_pct:number[];roof_aspect_ratio:number;roof_width_px:number;roof_height_px:number;image_width_px:number;image_height_px:number;roof_crop_data_url:string;overlay_data_url:string;elapsed_ms:number;notes:string[];rectified?:boolean;image_data_url?:string;width_px?:number;height_px?:number}
 export type Health = {status:string;ai:{provider:string;model:string;configured:boolean;local:boolean;status_detail:string}}
 export type Version = {id:number;version_label:string;reason:string;created_at:string;payload:{config:Config;panel:Panel;obstacles:Obstacle[];design:Design;verification?:Verification}}
 export type Objective = 'balanced'|'max_energy'|'durability'|'min_cost'|'robust'

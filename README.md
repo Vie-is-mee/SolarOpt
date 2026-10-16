@@ -215,6 +215,7 @@ SolarOpt là công cụ **hỗ trợ đánh giá sơ bộ**. Khi sử dụng k�
 | [Sửa logic bước 1 — 15/10/2026](docs/STEP1_LOGIC_FIXES.md) | Năm vấn đề đã sửa, 100 kiểm thử và kế hoạch đối chiếu mái thật. |
 | [Đối chiếu bước 2 — 15/10/2026](docs/STEP2_REFERENCE_VALIDATION.md) | Bộ đánh giá, ba ca tính tay và mẫu chờ dữ liệu mái thật. |
 | [Ảnh drone công khai — bước 3](docs/STEP3_PUBLIC_ROOF_BENCHMARK.md) | Đối chiếu 50 mái Nacala, kết quả biên mái và giới hạn kiểm chứng. |
+| [Chỉnh biên và hiệu chuẩn — bước 4](docs/STEP4_IMAGE_TO_CONFIRMED_GEOMETRY.md) | Sửa biên trên ảnh, giữ sân trong, đối chiếu tỷ lệ và kiểm tra kết quả phụ thuộc. |
 | [Quy trình xử lý ảnh mái](docs/ROOF_IMAGE_PIPELINE.md) | Tiếp nhận ảnh, tách biên và hiệu chỉnh hình học. |
 | [Hướng dẫn cấu hình AI](docs/SETUP_AI_FREE.md) | Cấu hình nhà cung cấp và lưu ý khi sử dụng. |
 | [Kịch bản trình diễn](docs/DEMO_SCRIPT_5MIN.md) | Trình tự giới thiệu các chức năng chính. |

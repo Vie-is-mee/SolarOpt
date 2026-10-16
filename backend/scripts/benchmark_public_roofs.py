@@ -101,6 +101,9 @@ def run(root, out):
             result = extract_roof(TraceRequest(image_data_url=data_url(crop), rect=rect))
             vertices = np.array([[p['x']*w/100,p['y']*h/100] for p in result['polygon_image_pct']])
             cv2.fillPoly(pred, [np.rint(vertices).astype(np.int32)], 1)
+            for ring in result.get('openings_image_pct', []):
+                hole=np.array([[p['x']*w/100,p['y']*h/100] for p in ring])
+                cv2.fillPoly(pred,[np.rint(hole).astype(np.int32)],0)
             row.update(status='evaluated',elapsed_ms=result['elapsed_ms'])
         except ValueError as exc:
             row.update(status='failed',reason=str(exc))

@@ -25,7 +25,7 @@ export function RoofCanvas({config,obstacles,scene,design,selected,onSelect,onMo
  function cursor(e:React.PointerEvent<SVGSVGElement>){const p=svg.current!.createSVGPoint();p.x=e.clientX;p.y=e.clientY;const v=p.matrixTransform(svg.current!.getScreenCTM()!.inverse()),t=transform.current;return{x:(v.x-t.tx)/t.scale,y:(t.ty-v.y)/t.scale}}
  function preview(p:Partial<Config>){pending.current=p;setDraft(p)}
  function down(e:React.PointerEvent<SVGSVGElement>){const point=cursor(e),target=e.target as Element
-  if(editable&&tool!=='move'){setPoints(a=>[...a,{x:rounded(Math.max(0,Math.min(100,point.x))),y:rounded(Math.max(0,Math.min(100,point.y)))}]);return}
+  if(editable&&tool!=='move'){setPoints(a=>[...a,{x:rounded(Math.max(0,Math.min(tool==='object'?100:config.roof_width_m,point.x))),y:rounded(Math.max(0,Math.min(tool==='object'?100:config.roof_height_m,point.y)))}]);return}
   const vertex=target.closest('[data-roof-vertex]'),edge=target.closest('[data-roof-edge]'),faceVertex=target.closest('[data-face-vertex]'),opening=target.closest('[data-opening-vertex]'),object=target.closest('[data-obstacle]')
   if(editable&&(vertex||edge)){
    onEditStart?.();let list=outerRoof(config).map(p=>({...p})),index=Number((vertex||edge)!.getAttribute(vertex?'data-roof-vertex':'data-roof-edge'))
@@ -40,8 +40,8 @@ export function RoofCanvas({config,obstacles,scene,design,selected,onSelect,onMo
  }
  function move(e:React.PointerEvent<SVGSVGElement>){const d=drag.current;if(!d)return;const p=cursor(e),o=d.object
   if(d.kind==='roof-vertex'||d.kind==='face-vertex'||d.kind==='opening-vertex'){
-   const list=d.points!.map((v,i)=>i===d.index?{x:rounded(Math.max(0,Math.min(100,p.x))),y:rounded(Math.max(0,Math.min(100,p.y)))}:v)
-   if(d.kind==='roof-vertex')preview({roof_polygon:list,roof_width_m:Math.max(config.roof_width_m,...list.map(p=>p.x)),roof_height_m:Math.max(config.roof_height_m,...list.map(p=>p.y))})
+   const list=d.points!.map((v,i)=>i===d.index?{x:Math.min(config.roof_width_m,rounded(Math.max(0,Math.min(config.roof_width_m,p.x)))),y:Math.min(config.roof_height_m,rounded(Math.max(0,Math.min(config.roof_height_m,p.y))))}:v)
+   if(d.kind==='roof-vertex')preview({roof_polygon:list})
    else if(d.kind==='face-vertex')preview({roof_faces:faces.map(f=>f.id===d.id?{...f,polygon:list}:f)})
    else preview({roof_openings:holes.map((h,i)=>i===d.opening?list:h)})
   }else if(o){
