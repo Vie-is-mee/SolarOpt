@@ -84,10 +84,12 @@ def generate_design(req: DesignRequest) -> DesignResult:
         status = solver.Solve(model)
         status_name = solver.StatusName(status)
         selected = [c for var, c in zip(xs, candidates) if solver.Value(var) == 1] if status in (cp_model.OPTIMAL, cp_model.FEASIBLE) else []
-    else:
+    if cp_model is None or status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
         max_count = min(len(candidates),capacity(req))
         selected = sorted((c for c in candidates if score(req,c)>0), key=lambda c:score(req,c), reverse=True)[:max_count]
         if req.objective=='min_cost':selected,_=select_for_target(req,candidates)
+        if cp_model is not None:
+            search_warnings.append(f'Bộ chọn kết thúc với trạng thái {status_name}; dùng bố trí khả thi theo thứ tự điện năng trên lưới đã chọn.')
         status_name = "GREEDY_FALLBACK"
 
     preserved = 0

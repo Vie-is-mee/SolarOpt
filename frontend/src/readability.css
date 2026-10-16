@@ -178,3 +178,13 @@
 .option-card .option-bottom { margin-top: auto; }
 .goal-status { min-height: 100px; }
 @media (max-width:760px) { .option-heading, .option-card > p, .goal-status { min-height: 0; } }
+
+/* Keep project actions together; move the group below the title when space is limited. */
+.project-heading>div:first-child{min-width:0;flex:1}
+.heading-actions{flex-wrap:nowrap;flex-shrink:0;gap:8px}
+.heading-actions .button{white-space:nowrap}
+.design-action-card{margin-bottom:0;border:1px solid #b5cdb0;background:#f4f8ef}
+.design-action-card .field{max-width:none}
+.design-action-card .button{margin-top:12px;white-space:normal}
+@media(min-width:761px) and (max-width:1450px){.project-heading{flex-direction:column;align-items:stretch;gap:16px}.heading-actions{align-self:flex-end}}
+@media(max-width:760px){.heading-actions{display:grid;grid-template-columns:1fr 1fr;width:100%}.heading-actions .primary{grid-column:1/-1}.heading-actions .button{min-width:0;padding-left:10px;padding-right:10px}}
