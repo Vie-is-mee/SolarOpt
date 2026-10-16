@@ -252,6 +252,12 @@ class StressRequest(BaseModel):
     sun: SunPosition | None = None
 
 
+class StressPreviewRequest(StressRequest):
+    scenario_id: Literal['base','obs20','obs30','roof2','panel1','irr15','setback','budget']
+    date: date
+    hour_local: float = Field(ge=0, le=23.99)
+
+
 class StressScenarioResult(BaseModel):
     id: str
     name: str

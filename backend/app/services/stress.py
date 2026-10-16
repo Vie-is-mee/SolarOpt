@@ -34,55 +34,49 @@ def _run(name: str, sid: str, req: StressRequest, cfg, obstacles, panel, detail:
     )
 
 
+SCENARIOS = {
+    'base':'Điều kiện cơ sở', 'obs20':'Vật cản cao hơn 20%', 'obs30':'Vật cản cao hơn 30%',
+    'roof2':'Kích thước mái giảm 2%', 'panel1':'Kích thước tấm tăng 1%',
+    'irr15':'Nắng năm giảm 15%', 'setback':'Lùi mép tăng 15 cm', 'budget':'Ngân sách giảm 15%',
+}
+
+
+def scenario_inputs(req, sid):
+    if sid not in SCENARIOS:raise ValueError('Tình huống không hợp lệ.')
+    cfg, obstacles, panel=deepcopy(req.config),deepcopy(req.obstacles),deepcopy(req.panel)
+    if sid in ('obs20','obs30'):
+        for o in obstacles:o.height_m*=1.2 if sid=='obs20' else 1.3
+    elif sid=='roof2':
+        cfg.roof_width_m*=.98;cfg.roof_height_m*=.98
+        for point in cfg.roof_polygon:point.x*=.98;point.y*=.98
+        for face in cfg.roof_faces:
+            for point in face.polygon:point.x*=.98;point.y*=.98
+        for opening in cfg.roof_openings:
+            for point in opening:point.x*=.98;point.y*=.98
+    elif sid=='panel1':panel.width_m*=1.01;panel.height_m*=1.01
+    elif sid=='irr15':cfg.annual_irradiance_kwh_m2*=.85
+    elif sid=='setback':cfg.setback_m+=.15
+    elif sid=='budget':cfg.budget_vnd*=.85
+    return cfg,obstacles,panel
+
+
 def run_stress_tests(req: StressRequest) -> StressResult:
-    scenarios: list[StressScenarioResult] = []
+    scenarios=[_run(name,sid,req,*scenario_inputs(req,sid),name) for sid,name in SCENARIOS.items()]
+    return StressResult(passed=sum(s.status=='PASS' for s in scenarios),
+        warned=sum(s.status=='WARN' for s in scenarios),failed=sum(s.status=='FAIL' for s in scenarios),
+        total=len(scenarios),scenarios=scenarios)
 
-    scenarios.append(_run("Base geometry", "base", req, deepcopy(req.config), deepcopy(req.obstacles), deepcopy(req.panel), "Điều kiện cơ sở"))
 
-    obs20 = deepcopy(req.obstacles)
-    for o in obs20:
-        o.height_m *= 1.2
-    scenarios.append(_run("Obstacle height +20%", "obs20", req, deepcopy(req.config), obs20, deepcopy(req.panel), "Tăng 20% chiều cao vật cản"))
-
-    obs30 = deepcopy(req.obstacles)
-    for o in obs30:
-        o.height_m *= 1.3
-    scenarios.append(_run("Obstacle height +30%", "obs30", req, deepcopy(req.config), obs30, deepcopy(req.panel), "Tăng 30% chiều cao vật cản"))
-
-    cfg_small = deepcopy(req.config)
-    cfg_small.roof_width_m *= 0.98
-    cfg_small.roof_height_m *= 0.98
-    # Shrink the surveyed geometry while keeping original panel positions.
-    for point in cfg_small.roof_polygon:
-        point.x *= .98
-        point.y *= .98
-    for face in cfg_small.roof_faces:
-        for point in face.polygon:
-            point.x *= .98
-            point.y *= .98
-    for opening in cfg_small.roof_openings:
-        for point in opening:
-            point.x *= .98
-            point.y *= .98
-    scenarios.append(_run("Roof measurement -2%", "roof2", req, cfg_small, deepcopy(req.obstacles), deepcopy(req.panel), "Sai số đo mái -2%"))
-
-    panel_plus = deepcopy(req.panel)
-    panel_plus.width_m *= 1.01
-    panel_plus.height_m *= 1.01
-    scenarios.append(_run("Panel dimension +1%", "panel1", req, deepcopy(req.config), deepcopy(req.obstacles), panel_plus, "Dung sai kích thước tấm +1%"))
-
-    cfg_irrad = deepcopy(req.config)
-    cfg_irrad.annual_irradiance_kwh_m2 *= 0.85
-    scenarios.append(_run("Irradiance -15%", "irr15", req, cfg_irrad, deepcopy(req.obstacles), deepcopy(req.panel), "Kịch bản bức xạ thấp hơn 15%"))
-
-    cfg_setback = deepcopy(req.config)
-    cfg_setback.setback_m += 0.15
-    scenarios.append(_run("Safety setback +15cm", "setback", req, cfg_setback, deepcopy(req.obstacles), deepcopy(req.panel), "Tăng khoảng cách an toàn 15 cm"))
-
-    cfg_budget = deepcopy(req.config)
-    cfg_budget.budget_vnd *= 0.85
-    scenarios.append(_run("Budget -15%", "budget", req, cfg_budget, deepcopy(req.obstacles), deepcopy(req.panel), "Giảm ngân sách 15%"))
-
-    passed = sum(1 for s in scenarios if s.status == "PASS")
-    return StressResult(passed=passed, warned=sum(s.status=='WARN' for s in scenarios),
-                        failed=sum(s.status=='FAIL' for s in scenarios), total=len(scenarios), scenarios=scenarios)
+def preview_stress(req):
+    from app.schemas import SceneRequest, SunPosition
+    from app.services.scene import simulate_scene
+    cfg,obstacles,panel=scenario_inputs(req,req.scenario_id)
+    scene=simulate_scene(SceneRequest(config=cfg,obstacles=obstacles,date=req.date,hour_local=req.hour_local))
+    current=req.model_copy(update={'sun':SunPosition(**scene['sun'])})
+    result=_run(SCENARIOS[req.scenario_id],req.scenario_id,current,cfg,obstacles,panel,SCENARIOS[req.scenario_id])
+    design=req.design.model_copy(deep=True)
+    for p in design.panels:p.width_m=panel.width_m;p.height_m=panel.height_m
+    context,_=recalculate_panels(cfg,panel,obstacles,design.panels)
+    design.metrics=summarize(cfg,panel,design.panels,context.geometry.roof.area)
+    base_scene=simulate_scene(SceneRequest(config=req.config,obstacles=req.obstacles,date=req.date,hour_local=req.hour_local))
+    return {'base_scene':base_scene,'config':cfg,'obstacles':obstacles,'panel':panel,'design':design,'scene':scene,'result':result}
