@@ -30,3 +30,9 @@
 @media print{.scenario-backdrop{display:none!important}.table-scroll{max-height:none;overflow:visible}.table-scroll table{font-size:8px}.table-scroll th,.table-scroll td{white-space:normal;padding:5px;position:static}.table-scroll tr{break-inside:avoid}.economics-panel,.installation-guide{break-inside:auto;box-shadow:none;border:0;padding:0}.economics-panel p,.installation-guide p{font-size:10px}.economics-panel details>summary{display:none}}
 
 .measurement-controls{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:10px 14px;background:#f5f8ee;font-size:12px}.measurement-controls label{display:flex;gap:8px;align-items:center}.measurement-controls select{padding:6px;max-width:140px}.measurement-controls span{color:#687967}@media print{.measurement-controls{display:none}}
+
+.brand-mark{background:transparent!important;overflow:visible}.brand-mark img{display:block;width:100%;height:100%;object-fit:contain}
+.panel-selection-info{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;padding:10px 14px;background:#fff9e9;border-top:1px solid #ecdfb8;font-size:12px;color:#665226}
+.panel-selection-info strong{padding:4px 8px;background:#f5e8bd;border-radius:6px}.panel-selection-info small{color:#6c7567}
+.roof-svg [data-panel][role=button]{cursor:pointer}.roof-svg [data-panel]:focus-visible{outline:none;filter:drop-shadow(0 0 2px #e8ad2c)}
+@media print{.panel-selection-info{font-size:9px}}

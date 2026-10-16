@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>SolarOpt — nắng trên mái, thiết kế tối ưu</title>
+  <rect width="64" height="64" rx="17" fill="#eff3df"/>
+  <circle cx="44" cy="19" r="8" fill="#e7af35"/>
+  <path d="M44 5v3m0 22v3M30 19h3m22 0h3M34 9l2 2m16 16 2 2M54 9l-2 2" fill="none" stroke="#c99427" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="m9 33 22-18 24 20" fill="#eff3df" stroke="#205c36" stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="m17 35 30 0 6 17H11Z" fill="#205c36"/>
+  <path d="m27 35-2 17m12-17 2 17M14 44h36" fill="none" stroke="#b9d5a0" stroke-width="1.8"/>
+  <path d="m37 48 5 5 11-12" fill="none" stroke="#e7af35" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
