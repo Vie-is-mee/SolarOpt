@@ -7,11 +7,11 @@ from app.services.geometry import build_context, panel_shape, overlap_ratio
 from app.services.energy import EnergyContext, summarize
 
 
-def verify_design(req: VerifyRequest) -> VerifyResult:
+def verify_design(req: VerifyRequest, *, energy_context=None) -> VerifyResult:
     ctx = build_context(req.config, req.obstacles, req.sun)
     checks: list[CheckResult] = []
     panels = req.design.panels
-    energy_context = EnergyContext(req.config, req.obstacles, geometry=ctx)
+    energy_context = energy_context if energy_context is not None else EnergyContext(req.config, req.obstacles, geometry=ctx)
     recalculated = []
 
     outside = []

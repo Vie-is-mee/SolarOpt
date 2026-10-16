@@ -20,7 +20,7 @@ export function DesignOptions({options,objective,ready,busy,onChoose}:{options:P
  const sameTotals=complete&&new Set(results.map(r=>JSON.stringify([r!.metrics.panel_count,r!.metrics.annual_energy_kwh,r!.metrics.estimated_cost_vnd]))).size===1
  return <>
   <div className="option-grid">{OBJECTIVES.map(o=>{
-   const result=ready&&!busy?options[o.id]:undefined
+   const result=ready?options[o.id]:undefined
    const chosen=result?.layout_trials?.find(t=>t.selected)
    const maximum=result?Math.max(0,...result.panels.map(p=>p.shading_loss_pct)):0
    return <button key={o.id} disabled={busy||!result} aria-pressed={objective===o.id} className={`option-card ${objective===o.id?'selected':''}`} onClick={()=>onChoose(o.id)}>

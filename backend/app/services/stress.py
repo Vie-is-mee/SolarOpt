@@ -16,12 +16,12 @@ def _run(name: str, sid: str, req: StressRequest, cfg, obstacles, panel, detail:
         p.height_m = panel.height_m
     context, _ = recalculate_panels(cfg, panel, obstacles, design.panels)
     design.metrics = summarize(cfg, panel, design.panels, context.geometry.roof.area)
-    ver = verify_design(VerifyRequest(config=cfg, panel=panel, obstacles=obstacles, design=design, sun=req.sun))
+    ver = verify_design(VerifyRequest(config=cfg, panel=panel, obstacles=obstacles, design=design, sun=req.sun), energy_context=context)
     failed=[c for c in ver.checks if c.status=='FAIL']
     warnings=[c for c in ver.checks if c.status=='WARN']
     # Recalculating scenario numbers must not silently legitimize a forged input.
     if sid=='base':
-        original=verify_design(VerifyRequest(config=cfg,panel=panel,obstacles=obstacles,design=req.design,sun=req.sun))
+        original=verify_design(VerifyRequest(config=cfg,panel=panel,obstacles=obstacles,design=req.design,sun=req.sun), energy_context=context)
         failed.extend(c for c in original.checks if c.id=='result_consistency' and c.status=='FAIL')
     relevant=failed+warnings
     return StressScenarioResult(

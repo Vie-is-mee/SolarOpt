@@ -28,15 +28,20 @@ def robust_contexts(req):
     for opening in small.roof_openings:
         for point in opening:point.x*=.98;point.y*=.98
     setback=req.config.model_copy(update={'setback_m':req.config.setback_m+.15})
-    return [build_context(cfg,req.obstacles,None) for cfg in (small,setback,req.config)]
+    contexts = [build_context(cfg,req.obstacles,None) for cfg in (small,setback,req.config)]
+    from shapely import prepare
+    for i, ctx in enumerate(contexts):
+        distance=req.config.setback_m+(.15 if i==1 else 0)
+        ctx.robust_regions=[s.polygon.buffer(-distance,join_style=2) for s in ctx.surfaces if s.installable]
+        for region in [ctx.usable_roof,ctx.obstacle_union,*ctx.robust_regions]:prepare(region)
+    return contexts
 
 
 def robust_position(x,y,angle,req,contexts):
     for i,ctx in enumerate(contexts):
         scale=1.01 if i==2 else 1
         shape=panel_shape(x,y,req.panel.width_m*scale,req.panel.height_m*scale,angle)
-        setback=req.config.setback_m+(.15 if i==1 else 0)
         if (not ctx.usable_roof.covers(shape)
-            or not any(s.installable and s.polygon.buffer(-setback,join_style=2).covers(shape) for s in ctx.surfaces)
+            or not any(region.covers(shape) for region in ctx.robust_regions)
             or overlap_ratio(shape,ctx.obstacle_union)>1e-9):return False
     return True

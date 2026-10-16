@@ -12,6 +12,7 @@ from calendar import monthrange
 from dataclasses import dataclass
 from datetime import date
 from functools import lru_cache
+from shapely import prepare
 
 from app.schemas import DesignMetrics, SunRequest
 from app.services.geometry import build_context, overlap_ratio, panel_shape
@@ -82,11 +83,14 @@ class EnergyContext:
         self.cfg = cfg
         self.geometry = geometry if geometry is not None else build_context(cfg, obstacles, None)
         self.shades = shade_contexts if shade_contexts is not None else representative_contexts(cfg, obstacles)
+        for context in self.shades:prepare(context.shadow_union)
+        self.surface_regions = [(s, s.polygon.buffer(1e-7)) for s in self.geometry.surfaces]
+        for _, region in self.surface_regions:prepare(region)
         self.annual = {s.id: plane_annual_irradiance(cfg, s) for s in self.geometry.surfaces}
 
     def evaluate(self, shape, power_w, surface=None):
         if surface is None:
-            surface = next((s for s in self.geometry.surfaces if s.polygon.buffer(1e-7).covers(shape)), None)
+            surface = next((s for s, region in self.surface_regions if region.covers(shape)), None)
         covers = [overlap_ratio(shape, c.shadow_union) for c in self.shades]
         mean, worst = sum(covers) / max(1, len(covers)), max(covers, default=0)
         loss = round(min(70., (.72 * mean + .28 * worst) * 78), 2)

@@ -42,7 +42,9 @@ def generate_design(req: DesignRequest) -> DesignResult:
     # không phụ thuộc riêng thanh kéo giờ trên giao diện (thanh kéo chỉ để trực quan hóa).
     ctx = build_context(cfg, req.obstacles, None)
     shade_contexts = representative_contexts(cfg, req.obstacles)
-    candidates, layout_trials = search_layouts(req, ctx, shade_contexts)
+    search_info={}
+    candidates, layout_trials = search_layouts(req, ctx, shade_contexts, diagnostics=search_info)
+    search_warnings=(["Đã đạt giới hạn thời gian tìm kiếm; chỉ so sánh các lưới đã tính hoàn tất. Có thể chọn góc xếp thủ công để tập trung tìm kiếm."] if search_info.get('limited') else [])
 
     if not candidates:
         return describe_goal(req, DesignResult(
@@ -52,7 +54,7 @@ def generate_design(req: DesignRequest) -> DesignResult:
                 estimated_cost_vnd=0, average_shading_loss_pct=0, roof_utilization_pct=0,
                 preserved_panel_count=0, layout_preservation_rate_pct=0,
             ),
-            warnings=["Không có vị trí khả thi trong phạm vi đã thử. Kiểm tra biên mái, vật cản, số đo và thông số tấm pin; không tự giảm ràng buộc an toàn."],
+            warnings=search_warnings+["Không có vị trí khả thi trong phạm vi đã thử. Kiểm tra biên mái, vật cản, số đo và thông số tấm pin; không tự giảm ràng buộc an toàn."],
             solver_status="INFEASIBLE", layout_trials=layout_trials,
         ))
 
@@ -96,7 +98,7 @@ def generate_design(req: DesignRequest) -> DesignResult:
     roof_area = ctx.roof.area
 
     metrics = summarize(cfg, spec, selected, roof_area, preserved, len(req.previous_panels))
-    warnings: list[str] = ["Chi phí chỉ gồm tấm pin, chưa gồm inverter, khung, dây và thi công.", MODEL_NOTE]
+    warnings: list[str] = search_warnings + ["Chi phí chỉ gồm tấm pin, chưa gồm inverter, khung, dây và thi công.", MODEL_NOTE]
     warnings.append(f"Đã so sánh {len(layout_trials)} lưới xoay/dịch; chọn theo mục tiêu trong các lưới đã thử, chưa phải tối ưu mọi cách xếp.")
     if len(selected) == 0:
         warnings.append("Solver không chọn được panel trong ngân sách/ràng buộc hiện tại.")

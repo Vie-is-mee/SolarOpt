@@ -215,4 +215,5 @@ def panel_shape(x,y,width,height,rotation_deg=0):
 
 def overlap_ratio(shape,other):
     if other is None or other.is_empty or shape.area<=0:return 0.0
+    if not other.intersects(shape):return 0
     return max(0,min(1,shape.intersection(other).area/shape.area))
