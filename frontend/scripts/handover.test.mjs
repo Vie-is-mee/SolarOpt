@@ -1,0 +1,14 @@
+import {test} from 'node:test'
+import assert from 'node:assert/strict'
+import {readFileSync} from 'node:fs'
+import ts from 'typescript'
+async function module(name){const source=readFileSync(new URL('../src/'+name,import.meta.url),'utf8');return import('data:text/javascript;base64,'+Buffer.from(ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext}}).outputText).toString('base64'))}
+const {defaultEconomics,calculateEconomics}=await module('economics.ts')
+const {panelCorners}=await module('layoutMeasurements.ts')
+function assumptions(){const v=defaultEconomics();for(const k of Object.keys(v))if(v[k]===null)v[k]=0;v.costs=v.costs.map(c=>({...c,amount:0}));v.self_use_pct=100;v.buy_price=1000;v.years=10;v.source='Synthetic arithmetic test, not market prices';return v}
+test('unpriced costs are unknown, never a complete free installation',()=>{const r=calculateEconomics(defaultEconomics(),1000000,1000);assert(r.missing.length>8)})
+test('quote separates installer markup, tax and customer cashflows',()=>{const v=assumptions();v.costs[0].amount=1000000;v.contingency_pct=10;v.markup_pct=20;v.vat_pct=10;const r=calculateEconomics(v,1000000,1000);assert.equal(r.cost,2200000);assert.equal(r.profit,440000);assert.equal(r.total,2904000);assert.equal(r.rows[1].net,1000000);assert.equal(r.payback,2.904);assert.equal(r.netBenefit,7096000)})
+test('no double counting exported and self-used energy; degradation and replacement apply',()=>{const v=assumptions();v.self_use_pct=60;v.sell_price=500;v.degradation_pct=10;v.maintenance_year=100000;v.replacement_year=2;v.replacement_cost=300000;const r=calculateEconomics(v,1000000,1000);assert.equal(r.rows[1].saving,600000);assert.equal(r.rows[1].exportRevenue,200000);assert.equal(r.rows[2].energy,900);assert.equal(r.rows[2].net,320000)})
+test('zero interest loan principal is repaid, not treated as profit',()=>{const v=assumptions();v.loan_amount=500000;v.loan_years=5;const r=calculateEconomics(v,1000000,1000);assert.equal(r.rows[0].net,-500000);assert.equal(r.annualDebt,100000);assert.equal(r.totalLoanInterest,0);assert.equal(r.netBenefit,9000000)})
+test('no benefit has no payback; huge invalid horizon cannot cause an unbounded loop',()=>{const v=assumptions();v.buy_price=0;assert.equal(calculateEconomics(v,1000000,1000).payback,null);v.years=1e12;const r=calculateEconomics(v,1000000,1000);assert.equal(r.rows.length,41);assert(r.missing.includes('Số năm phân tích'))})
+test('rotated panel corners retain side lengths and opposite-corner midpoint',()=>{const p={x:2,y:3,width_m:1,height_m:2,rotation_deg:37};const c=panelCorners(p);assert(Math.abs(Math.hypot(c[1].x-c[0].x,c[1].y-c[0].y)-1)<1e-12);assert(Math.abs(Math.hypot(c[2].x-c[1].x,c[2].y-c[1].y)-2)<1e-12);assert(Math.abs((c[0].x+c[2].x)/2-2.5)<1e-12);assert(Math.abs((c[0].y+c[2].y)/2-4)<1e-12)})

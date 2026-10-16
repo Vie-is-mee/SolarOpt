@@ -15,7 +15,7 @@ from fastapi.responses import JSONResponse
 
 from app.database import init_db, list_versions, save_version, get_version
 from app.schemas import (
-    DesignRequest, DesignResult, RepairRequest, RepairResult, StressRequest, StressResult,
+    DesignRequest, DesignResult, RepairRequest, RepairResult, StressRequest, StressResult, StressPreviewRequest,
     SunPosition, SunRequest, VerifyRequest, VerifyResult, VisionResult, IrradianceResult,
     UncertaintyRequest, UncertaintyResult, SceneRequest,
 )
@@ -24,7 +24,7 @@ from app.services.vision import analyze_images, provider_status, VisionError
 from app.services.scene import simulate_scene
 from app.services.optimizer import generate_design
 from app.services.solar import fetch_pvgis, sun_position
-from app.services.stress import run_stress_tests
+from app.services.stress import run_stress_tests, preview_stress
 from app.services.verifier import verify_design
 from app.services.uncertainty import evaluate_uncertainty
 from app.services.roof_extract import TraceRequest, extract_roof, prepare_image
@@ -35,7 +35,7 @@ init_db()
 app = FastAPI(title="SolarOpt API", version="2.0.0", description="Bộ tính toán và trích xuất ảnh cho SolarOpt Studio")
 
 compute_slots = BoundedSemaphore(max(1, int(os.getenv("SOLAROPT_MAX_COMPUTE", "1"))))
-heavy_paths = {"/api/design/generate", "/api/design/repair", "/api/design/stress-test", "/api/uncertainty/evaluate", "/api/roof/trace", "/api/vision/analyze"}
+heavy_paths = {"/api/design/stress-preview", "/api/design/generate", "/api/design/repair", "/api/design/stress-test", "/api/uncertainty/evaluate", "/api/roof/trace", "/api/vision/analyze"}
 
 
 @app.middleware("http")
@@ -139,6 +139,11 @@ def design_verify(req: VerifyRequest):
 @app.post("/api/design/stress-test", response_model=StressResult)
 def design_stress(req: StressRequest):
     return run_stress_tests(req)
+
+
+@app.post("/api/design/stress-preview")
+def design_stress_preview(req: StressPreviewRequest):
+    return preview_stress(req)
 
 
 @app.post("/api/projects/validate")

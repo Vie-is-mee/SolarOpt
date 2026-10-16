@@ -1,0 +1,32 @@
+.sidebar{overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain}
+.sidebar nav{flex-shrink:0}
+.nav-item{height:auto;min-height:64px;align-items:center;flex-shrink:0;padding-top:12px;padding-bottom:12px}
+.nav-item>div{min-width:0;white-space:normal;line-height:1.5}
+.nav-item small{display:block;white-space:normal;line-height:1.5;margin-top:3px}
+.nav-item>svg,.nav-item>i{flex-shrink:0}
+.sidebar-bottom{flex-shrink:0;margin-top:24px}
+.table-scroll{max-width:100%;overflow:auto;margin:16px 0;max-height:420px}
+.table-scroll table{width:100%;border-collapse:collapse;font-size:12px;text-align:left}
+.table-scroll th,.table-scroll td{padding:9px 10px;border-bottom:1px solid #dce7d8;white-space:nowrap;vertical-align:top}
+.table-scroll th{background:#eef5e8;position:sticky;top:0;z-index:1}
+.table-scroll caption{text-align:left;padding:8px 0;font-weight:600;white-space:normal}
+.economics-panel h3,.installation-guide h3{margin-top:0}
+.economics-panel p,.installation-guide p,.scenario-dialog p,.scenario-dialog li{font-size:13px;line-height:1.7;overflow-wrap:anywhere}
+.economics-panel textarea{width:100%;min-height:80px;padding:10px;border:1px solid #d1dfcb;border-radius:8px;resize:vertical;background:white}
+.economic-summary{background:#eff6e8;border-radius:10px;padding:12px 18px}
+.scenario-backdrop{position:fixed;inset:0;z-index:1000;background:#163a2ab3;padding:24px;display:flex;justify-content:center;align-items:flex-start}
+.scenario-dialog{background:#f8faf5;border-radius:16px;padding:24px;width:min(1500px,100%);max-height:calc(100dvh - 48px);overflow:auto;box-shadow:0 20px 80px #102b3260}
+.scenario-dialog>header{display:flex;justify-content:space-between;align-items:center;gap:16px}
+.scenario-dialog h2{margin:0;font-size:22px}
+.scenario-comparison{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.scenario-comparison>div{min-width:0}
+.scenario-comparison h3{font-size:14px}
+.scenario-comparison .roof-svg{min-height:0}
+.scenario-comparison .canvas-toolbar{flex-wrap:wrap;gap:8px}
+.scenario-comparison .canvas-live{display:none}
+.stress-results>div>.button{margin:10px 0}
+@media(max-width:1000px){.nav-item{min-height:52px}.scenario-comparison{grid-template-columns:1fr}}
+@media(max-width:760px){.scenario-backdrop{padding:8px}.scenario-dialog{padding:14px;max-height:calc(100dvh - 16px)}.scenario-dialog>header{align-items:flex-start}.scenario-dialog h2{font-size:18px}.scenario-dialog>header button{white-space:normal}.economics-panel .field-grid{grid-template-columns:1fr}}
+@media print{.scenario-backdrop{display:none!important}.table-scroll{max-height:none;overflow:visible}.table-scroll table{font-size:8px}.table-scroll th,.table-scroll td{white-space:normal;padding:5px;position:static}.table-scroll tr{break-inside:avoid}.economics-panel,.installation-guide{break-inside:auto;box-shadow:none;border:0;padding:0}.economics-panel p,.installation-guide p{font-size:10px}.economics-panel details>summary{display:none}}
+
+.measurement-controls{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:10px 14px;background:#f5f8ee;font-size:12px}.measurement-controls label{display:flex;gap:8px;align-items:center}.measurement-controls select{padding:6px;max-width:140px}.measurement-controls span{color:#687967}@media print{.measurement-controls{display:none}}

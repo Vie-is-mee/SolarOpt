@@ -1,6 +1,8 @@
 export type Point = { x:number; y:number }
 export type CalibrationRecord={captured_at:string;method:string;image_width_px:number;image_height_px:number;reference_points:Point[];reference_m:number|null;check_points:Point[];check_m:number|null;measured_width_m:number|null;measured_length_m:number|null;result_width_m:number;result_height_m:number;frame_error_pct:number;check_error_pct:number|null}
-export type ProjectEvidence={source_name:string;input_kind:'drone'|'plan'|'partial';source_image:string|null;reference_image:string|null;calibration:CalibrationRecord|null}
+import type {Economics} from './economics'
+import type {Datum} from './components/InstallationGuide'
+export type ProjectEvidence={economic_assumptions?:Economics|null;layout_datum?:Datum|null;source_name:string;input_kind:'drone'|'plan'|'partial';source_image:string|null;reference_image:string|null;calibration:CalibrationRecord|null}
 export type RoofFace = {id:string;label:string;polygon:Point[];elevation_m:number;tilt_deg:number;azimuth_deg:number;installable:boolean}
 export type Obstacle = {
   id:string; label:string; x:number; y:number; width_m:number; depth_m:number; height_m:number;
@@ -47,3 +49,5 @@ export type TraceResult={algorithm:string;polygon_image_pct:Point[];roof_polygon
 export type Health = {status:string;ai:{provider:string;model:string;configured:boolean;local:boolean;status_detail:string}}
 export type Version = {id:number;version_label:string;reason:string;created_at:string;has_evidence?:boolean;payload:{config:Config;panel:Panel;obstacles:Obstacle[];design:Design;verification?:Verification;evidence?:ProjectEvidence|null}}
 export type Objective = 'balanced'|'max_energy'|'durability'|'min_cost'|'robust'
+
+export type StressPreviewData={config:Config;panel:Panel;obstacles:Obstacle[];design:Design;scene:Scene;base_scene:Scene;result:Stress['scenarios'][number]}

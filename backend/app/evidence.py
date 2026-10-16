@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Literal
 from PIL import Image
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from app.economic_evidence import EconomicAssumptions, LayoutDatum
 
 
 class EvidencePoint(BaseModel):
@@ -46,6 +47,8 @@ class ProjectEvidence(BaseModel):
     source_image:str|None=Field(default=None,max_length=4_000_000)
     reference_image:str|None=Field(default=None,max_length=4_000_000)
     calibration:CalibrationRecord|None=None
+    economic_assumptions:EconomicAssumptions|None=None
+    layout_datum:LayoutDatum|None=None
 
     @field_validator('source_image','reference_image')
     @classmethod

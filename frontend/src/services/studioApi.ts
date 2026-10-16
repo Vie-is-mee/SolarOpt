@@ -21,6 +21,7 @@ export const studioApi={
   design:(config:Config,panel:Panel,obstacles:Obstacle[],objective:Objective,evidence?:ProjectEvidence|null)=>request<Design>('/api/design/generate',{config,panel,obstacles,objective,evidence}),
   verify:(config:Config,panel:Panel,obstacles:Obstacle[],design:Design,sun:Sun|null)=>request<Verification>('/api/design/verify',{config,panel,obstacles,design,sun}),
   stress:(config:Config,panel:Panel,obstacles:Obstacle[],design:Design,sun:Sun|null)=>request<Stress>('/api/design/stress-test',{config,panel,obstacles,design,sun}),
+  stressPreview:(config:Config,panel:Panel,obstacles:Obstacle[],design:Design,scenario_id:string,date:string,hour_local:number,signal?:AbortSignal)=>request<import('../studioTypes').StressPreviewData>('/api/design/stress-preview',{config,panel,obstacles,design,scenario_id,date,hour_local},signal),
   repair:(config:Config,panel:Panel,before:Obstacle[],after:Obstacle[],previous_design:Design,objective:Objective,previous_config:Config,previous_panel:Panel,evidence?:ProjectEvidence|null)=>request<Repair>('/api/design/repair',{config,panel,previous_config,previous_panel,evidence,obstacles_before:before,obstacles_after:after,previous_design,objective,minimal_repair_weight:250}),
   versions:(name:string)=>request<Version[]>(`/api/projects/${encodeURIComponent(name)}/versions`),
   version:(name:string,id:number)=>request<Version>(`/api/projects/${encodeURIComponent(name)}/versions/${id}`),
