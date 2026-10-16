@@ -24,11 +24,12 @@ export type Config = {
 export type Panel = {manufacturer:string;model:string;width_m:number;height_m:number;power_w:number;price_vnd:number;voc_v:number;vmp_v:number;imp_a:number}
 export type Sun = {altitude_deg:number;azimuth_deg:number;zenith_deg:number;source:string}
 export type Scene = {
-  sun:Sun;shadows:{id:string;label:string;polygons:number[][][]}[];
+  sun:Sun;shadows:{id:string;label:string;polygons:number[][][];regions?:{boundary:number[][];openings:number[][][]}[];area_m2?:number}[];
+  obstacle_elevations?:{id:string;label:string;base_source:'explicit'|'ground'|'roof';source_label:string;base_min_m:number;base_max_m:number;top_min_m:number;top_max_m:number;height_m:number;warnings:string[]}[];
   cells:{x:number;y:number;width_m:number;height_m:number;irradiance_w_m2:number;shade_fraction:number}[];
   roof_polygons:number[][][];usable_polygons:number[][][];shaded_area_m2:number;shaded_pct:number;
   plane_irradiance_w_m2:number;irradiance_source:string;notes:string[];
-  faces?:{id:string;label:string;polygons:number[][][];elevation_m:number;tilt_deg:number;irradiance_w_m2:number;area_m2:number;installable:boolean}[];
+  faces?:{id:string;label:string;polygons:number[][][];elevation_m:number;tilt_deg:number;irradiance_w_m2:number;area_m2:number;installable:boolean;direct_sunlight?:boolean}[];
 }
 export type PlacedPanel = {rotation_deg?:number;id:string;x:number;y:number;width_m:number;height_m:number;annual_energy_kwh:number;shading_loss_pct:number;preserved:boolean}
 export type LayoutTrial={search_stage?:'coarse'|'refined';angle_deg:number;offset_x_m:number;offset_y_m:number;candidate_count:number;geometry_candidate_count?:number;shading_rejected_count?:number;robustness_rejected_count?:number;target_met?:boolean|null;panel_count:number;annual_energy_kwh:number;objective_score:number;selected:boolean}

@@ -67,30 +67,81 @@ def _parts(shape):
     if shape.geom_type=='Polygon':return [shape]
     return [p for g in getattr(shape,'geoms',[]) for p in _parts(g)]
 
-def _project_prism(base,top_z,target,sun,config):
+
+def direct_sun_reaches(surface,sun,config):
+    if sun is None or sun.altitude_deg<=0:return False
+    bearing=math.radians(sun.azimuth_deg-config.north_rotation_deg)
+    gx,gy=slopes(surface.tilt,surface.azimuth,config.north_rotation_deg)
+    return math.tan(math.radians(sun.altitude_deg))-gx*math.sin(bearing)-gy*math.cos(bearing)>1e-8
+
+
+def _above_receiver(poly,top_z,target,config):
+    """Clip affine prism top against the receiver's height half-plane.
+
+    Intersecting a convex clipping box with the source preserves concavity,
+    holes and disjoint parts. Buried vertices must not become shadow sources.
+    """
+    xmin,ymin,xmax,ymax=poly.bounds
+    ring=[(xmin,ymin),(xmax,ymin),(xmax,ymax),(xmin,ymax)]
+    height=lambda p:top_z(*p)-surface_z(target,*p,config)
+    values=[height(p) for p in ring]
+    if max(values)<=1e-8:return Polygon()
+    if min(values)>=0:return poly
+    clipped=[]
+    for i,a in enumerate(ring):
+        b=ring[(i+1)%4];ha,hb=values[i],values[(i+1)%4]
+        if ha>=0:clipped.append(a)
+        if (ha>=0)!=(hb>=0):
+            t=ha/(ha-hb);clipped.append((a[0]+t*(b[0]-a[0]),a[1]+t*(b[1]-a[1])))
+    return poly.intersection(Polygon(clipped)) if len(clipped)>=3 else Polygon()
+
+def _project_prism(base,top_z,target,sun,config,bottom_z=None):
     if sun is None or sun.altitude_deg<=0:return None
     angle=math.radians(sun.azimuth_deg-config.north_rotation_deg);ux,uy=math.sin(angle),math.cos(angle)
     gx,gy=slopes(target.tilt,target.azimuth,config.north_rotation_deg)
     denominator=math.tan(math.radians(sun.altitude_deg))-gx*ux-gy*uy
-    if denominator<=1e-6:return target.polygon
+    # This face has no incident direct sun. It must not be attributed as a
+    # full-roof shadow from each unrelated obstacle; diffuse light is separate.
+    if denominator<=1e-8:return None
     pieces=[]
-    for poly in _parts(base):
+    exposed=unary_union([_above_receiver(poly,top_z,target,config) for poly in _parts(base)])
+    for poly in _parts(exposed):
         rings=[list(poly.exterior.coords)[:-1]]+[list(r.coords)[:-1] for r in poly.interiors]
-        projected_rings=[];above=False
+        if bottom_z:
+            # The bottom may cross the receiver between vertices. Insert that
+            # crossing so clamping to the receiver remains piecewise affine.
+            refined=[]
+            for ring in rings:
+                points=[]
+                for i,a in enumerate(ring):
+                    b=ring[(i+1)%len(ring)];points.append(a)
+                    ha=bottom_z(*a)-surface_z(target,*a,config)
+                    hb=bottom_z(*b)-surface_z(target,*b,config)
+                    if (ha>0)!=(hb>0) and abs(ha-hb)>1e-12:
+                        t=ha/(ha-hb)
+                        if 1e-10<t<1-1e-10:points.append((a[0]+t*(b[0]-a[0]),a[1]+t*(b[1]-a[1])))
+                refined.append(points)
+            rings=refined
+        projected_rings=[];bottom_rings=[];above=False
         for coords in rings:
-            projected=[]
+            projected=[];bottom=[]
             for x,y in coords:
                 height=top_z(x,y)-surface_z(target,x,y,config)
                 above=above or height>1e-6
                 distance=min(10000,max(0,height)/denominator)
                 projected.append((x-distance*ux,y-distance*uy))
-            projected_rings.append(projected)
+                lower_height=bottom_z(x,y)-surface_z(target,x,y,config) if bottom_z else 0
+                lower_distance=min(10000,max(0,lower_height)/denominator)
+                bottom.append((x-lower_distance*ux,y-lower_distance*uy))
+            projected_rings.append(projected);bottom_rings.append(bottom)
         if not above:continue
-        pieces.append(poly)
+        lower=Polygon(bottom_rings[0],bottom_rings[1:])
+        if not lower.is_valid:lower=lower.buffer(0)
+        pieces.append(lower)
         shifted=Polygon(projected_rings[0],projected_rings[1:])
         if not shifted.is_valid:shifted=shifted.buffer(0)
         pieces.append(shifted)
-        for coords,projected in zip(rings,projected_rings):
+        for coords,projected in zip(bottom_rings,projected_rings):
             for i,a in enumerate(coords):
                 j=(i+1)%len(coords)
                 side=Polygon([a,coords[j],projected[j],projected[i]])
@@ -98,15 +149,40 @@ def _project_prism(base,top_z,target,sun,config):
                 pieces.append(side)
     return unary_union(pieces) if pieces else None
 
+def obstacle_source_surface(o,config,all_surfaces=None):
+    base=obstacle_polygon(o)
+    return next((s for s in (all_surfaces or surfaces(config)) if s.polygon.covers(base.centroid)),
+        Surface('base','Mái cơ sở (ngoại suy)',roof_polygon(config),config.roof_elevation_m,config.roof_tilt_deg,config.roof_azimuth_deg))
+
+
+def obstacle_base_z(o,x,y,source,config):
+    return o.base_elevation_m if o.base_elevation_m is not None else (0 if o.scope=='neighbor' else surface_z(source,x,y,config))
+
+
+def obstacle_elevations(config,obstacles,planes=None):
+    planes=planes or surfaces(config);roof=roof_polygon(config);records=[]
+    for o in obstacles:
+        footprint=obstacle_polygon(o);source=obstacle_source_surface(o,config,planes)
+        bases=[obstacle_base_z(o,x,y,source,config) for x,y in footprint.exterior.coords]
+        warnings=[]
+        if o.scope=='roof' and o.base_elevation_m is None:
+            if not roof.buffer(1e-7).covers(footprint):warnings.append('Mặt bằng vượt biên mái hoặc khoảng trống; cao độ mặc định có phần ngoại suy. Cần kiểm tra hoặc nhập cao độ chân riêng.')
+            if sum(footprint.intersection(s.polygon).area>1e-6 for s in planes)>1:warnings.append('Vật thể bắc qua nhiều phần mái. Cao độ chân đang theo mặt mái chứa tâm vật thể; cần đo và xác nhận riêng.')
+        if min(bases)<-1e-6:warnings.append('Cao độ chân có điểm thấp hơn mặt đất; kiểm tra cao độ và hướng dốc.')
+        records.append({'id':o.id,'label':o.label,'base_source':'explicit' if o.base_elevation_m is not None else 'ground' if o.scope=='neighbor' else 'roof',
+            'source_label':'Cao độ nhập riêng' if o.base_elevation_m is not None else 'Mặt đất' if o.scope=='neighbor' else source.label,
+            'base_min_m':round(min(bases),3),'base_max_m':round(max(bases),3),'top_min_m':round(min(bases)+o.height_m,3),'top_max_m':round(max(bases)+o.height_m,3),'height_m':o.height_m,'warnings':warnings})
+    return records
+
+
 def shadow_polygon(o:RectObstacle,sun:SunPosition|None,config:ProjectConfig|None=None,target:Surface|None=None,all_surfaces=None):
     cfg=config or ProjectConfig(roof_elevation_m=0)
     target=target or Surface('base','Mái',roof_polygon(cfg),cfg.roof_elevation_m,cfg.roof_tilt_deg,cfg.roof_azimuth_deg)
     base=obstacle_polygon(o)
-    source=next((s for s in (all_surfaces or surfaces(cfg)) if s.polygon.covers(base.centroid)),target)
+    source=obstacle_source_surface(o,cfg,all_surfaces)
     def top(x,y):
-        elevation=o.base_elevation_m if o.base_elevation_m is not None else (0 if o.scope=='neighbor' else surface_z(source,x,y,cfg))
-        return elevation+o.height_m
-    return _project_prism(base,top,target,sun,cfg)
+        return obstacle_base_z(o,x,y,source,cfg)+o.height_m
+    return _project_prism(base,top,target,sun,cfg,lambda x,y:obstacle_base_z(o,x,y,source,cfg))
 
 def build_context(config:ProjectConfig,obstacles:list[RectObstacle],sun:SunPosition|None)->GeometryContext:
     roof=roof_polygon(config);planes=surfaces(config)
