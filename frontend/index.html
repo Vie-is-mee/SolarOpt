@@ -7,8 +7,31 @@
     <link rel="icon" type="image/svg+xml" href="/solaropt-mark.svg" />
     <meta name="theme-color" content="#205c36" />
     <title>SolarOpt Studio</title>
+    <script>
+      // Splash only on the first visit of this tab; reloads skip it.
+      try{if(sessionStorage.getItem('solaropt-splash-seen'))document.documentElement.classList.add('splash-skip')}catch{}
+    </script>
+    <style>
+      #splash{position:fixed;inset:0;z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:radial-gradient(ellipse at 70% 15%,#f7f4dc,transparent 60%),#f3f6ee;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;transition:opacity .35s ease,visibility .35s}
+      .splash-skip #splash,#splash.done{opacity:0;visibility:hidden;pointer-events:none}
+      #splash img{width:76px;height:76px;animation:splash-rise .6s ease both}
+      #splash .splash-name{font-size:28px;font-weight:750;letter-spacing:-1.2px;color:#205c36}
+      #splash .splash-name span{font-weight:450;color:#669071}
+      #splash .splash-bar{width:min(240px,70vw);height:4px;border-radius:4px;background:#dfe8d6;overflow:hidden}
+      #splash .splash-bar i{display:block;width:40%;height:100%;border-radius:4px;background:linear-gradient(90deg,#4e875a,#e7af35);animation:splash-run 1.1s ease-in-out infinite}
+      #splash .splash-status{font-size:12px;color:#7c8d7a;min-height:1.5em}
+      @keyframes splash-run{0%{transform:translateX(-100%)}100%{transform:translateX(250%)}}
+      @keyframes splash-rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+      @media (prefers-reduced-motion:reduce){#splash img,#splash .splash-bar i{animation:none}#splash .splash-bar i{width:100%}}
+    </style>
   </head>
   <body>
+    <div id="splash" role="status" aria-live="polite">
+      <img src="/solaropt-mark.svg" alt="" />
+      <div class="splash-name">Solar<span>Opt</span> Studio</div>
+      <div class="splash-bar"><i></i></div>
+      <div class="splash-status" id="splash-status">Đang tải giao diện…</div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

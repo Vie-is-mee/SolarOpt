@@ -343,6 +343,9 @@ class VisionResult(StrictModel):
     roof_crop_data_url: str | None = None
     roof_aspect_ratio: float | None = None
     coordinate_version: int = 1
+    relevant: bool = True
+    image_type: Literal["roof_photo", "roof_drawing", "partial_roof", "other", ""] = ""
+    reject_reason: str = Field(default="", max_length=300)
 
     @model_validator(mode="after")
     def validate_extraction(self):
