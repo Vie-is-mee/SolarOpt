@@ -19,6 +19,16 @@ from app.services.geometry import build_context
 _same_position = same_position
 
 
+def area_upper_bound(cfg, spec, ctx):
+    """Panels that could fit by area alone: usable roof minus obstacle clearance, ignoring gaps,
+    shading caps and budget. No layout can exceed it, so selected/bound is a conservative fill ratio."""
+    free = ctx.usable_roof.buffer(-cfg.layout_edge_reserve_m, join_style=2) if cfg.layout_edge_reserve_m else ctx.usable_roof
+    if ctx.obstacle_union is not None and not ctx.obstacle_union.is_empty:
+        free = free.difference(ctx.obstacle_union)
+    area = max(0.0, free.area)
+    return round(area, 2), int(area // (spec.width_m * spec.height_m))
+
+
 def describe_goal(req, result):
     result.objective=req.objective
     if req.objective=='min_cost':
@@ -100,6 +110,7 @@ def generate_design(req: DesignRequest) -> DesignResult:
     roof_area = ctx.roof.area
 
     metrics = summarize(cfg, spec, selected, roof_area, preserved, len(req.previous_panels))
+    metrics.usable_area_m2, metrics.area_upper_bound_panels = area_upper_bound(cfg, spec, ctx)
     warnings: list[str] = search_warnings + ["Chi phí chỉ gồm tấm pin, chưa gồm inverter, khung, dây và thi công.", MODEL_NOTE]
     warnings.append(f"Đã so sánh {len(layout_trials)} lưới xoay/dịch; chọn theo mục tiêu trong các lưới đã thử, chưa phải tối ưu mọi cách xếp.")
     if len(selected) == 0:

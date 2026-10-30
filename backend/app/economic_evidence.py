@@ -27,6 +27,7 @@ class EconomicAssumptions(BaseModel):
     loan_amount:float|None=Field(default=None,ge=0,le=1e12)
     loan_rate_pct:float|None=Field(default=None,ge=0,le=100)
     loan_years:int=Field(default=5,ge=1,le=40)
+    daytime_use_kwh_month:float|None=Field(default=None,ge=0,le=1e9)
     source:str=Field(default='',max_length=4000)
 
 

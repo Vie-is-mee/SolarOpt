@@ -185,6 +185,8 @@ class DesignMetrics(StrictModel):
     roof_utilization_pct: float
     preserved_panel_count: int = 0
     layout_preservation_rate_pct: float = 0.0
+    usable_area_m2: float | None = None
+    area_upper_bound_panels: int | None = None
 
 
 class LayoutTrial(BaseModel):
