@@ -22,3 +22,13 @@ def test_dependency_impact():
     assert "shadow_map" in impact.affected_nodes
     assert "layout" in impact.affected_nodes
     assert "roof_geometry" in impact.reused_nodes
+
+
+def test_area_upper_bound_never_below_selected_panels():
+    cfg = ProjectConfig(budget_vnd=1_000_000_000)
+    panel = PanelSpec(price_vnd=4_000_000)
+    obs = [RectObstacle(id="tank", label="Bồn nước", x=5.6, y=3.4, width_m=1.2, depth_m=1.1, height_m=1.2)]
+    result = generate_design(DesignRequest(config=cfg, panel=panel, obstacles=obs))
+    m = result.metrics
+    assert m.usable_area_m2 is not None and 0 < m.usable_area_m2 < cfg.roof_width_m * cfg.roof_height_m
+    assert m.area_upper_bound_panels >= m.panel_count > 0
