@@ -166,6 +166,18 @@ def test_vision_rejects_invalid_coordinates(client,monkeypatch):
     assert result.status_code==502
 
 
+def test_vision_rejects_unrelated_image_without_geometry(client,monkeypatch):
+    monkeypatch.setenv('AI_PROVIDER','groq');monkeypatch.setenv('GROQ_API_KEY','test-unrelated');vision._cache.clear()
+    class Response:
+        def raise_for_status(self):pass
+        def json(self):return {'choices':[{'message':{'content':json.dumps({'is_roof_or_plan':False,'image_type':'other','reject_reason':'Ảnh một con mèo','roof_confidence':.9,'roof_polygon_image_pct':[{'x':10,'y':10},{'x':90,'y':10},{'x':90,'y':90}],'obstacles':[{'id':'cat','label':'mèo','x_pct':20,'y_pct':20,'width_pct':30,'depth_pct':30,'confidence':.8}]})}}]}
+    monkeypatch.setattr(vision.requests,'post',lambda *a,**kw:Response())
+    body=client.post('/api/vision/analyze',files={'file':('cat.png',image_bytes(),'image/png')}).json()
+    assert body['relevant'] is False and body['image_type']=='other'
+    assert body['obstacles']==[] and body['roof_polygon_pct']==[] and body['roof_polygon_image_pct']==[]
+    assert any('không phải mái' in n for n in body['notes'])
+
+
 def test_repair_traces_roof_and_panel_changes(client):
     cfg=ProjectConfig(geometry_confirmed=True);panel=PanelSpec()
     design=generate_design(DesignRequest(config=cfg,panel=panel))

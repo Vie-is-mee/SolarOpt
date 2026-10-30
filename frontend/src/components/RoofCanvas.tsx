@@ -11,16 +11,27 @@ type Tool='move'|'roof'|'face'|'opening'|'object'
 const rounded=(v:number)=>Math.round(v*100)/100
 export function RoofCanvas({comparisonRoof=[],datumIndex=0,config,obstacles,scene,design,selected,onSelect,onMove,onRoof,mode,setMode,editable,loading,sample,idPrefix='roof',highlightPanels=[],onPatch,onGeometry,onAddPolygon,onEditStart,onEditEnd,referenceImage}:Props){
  const svg=useRef<SVGSVGElement>(null),drag=useRef<Drag|null>(null),pending=useRef<Partial<Config>|null>(null)
+ const pointers=useRef(new Map<number,Point>()),gesture=useRef<{kind:'pan'|'pinch';start:Point;pan:Point;zoom:number;dist:number}|null>(null)
  const [dragging,setDragging]=useState(false)
  const [measurePanel,setMeasurePanel]=useState(''),[showMeasurements,setShowMeasurements]=useState(true)
  const [viewportRatio,setViewportRatio]=useState(1)
  useEffect(()=>{const el=svg.current;if(!el)return;const observer=new ResizeObserver(()=>{const width=el.getBoundingClientRect().width;if(width>0)setViewportRatio(width/900)});observer.observe(el);return()=>observer.disconnect()},[])
- const [tool,setTool]=useState<Tool>('move'),[points,setPoints]=useState<Point[]>([]),[draft,setDraft]=useState<Partial<Config>|null>(null),[zoom,setZoom]=useState(1),[opacity,setOpacity]=useState(.4),[selectedFace,setSelectedFace]=useState<string|null>(null)
+ const [tool,setTool]=useState<Tool>('move'),[points,setPoints]=useState<Point[]>([]),[draft,setDraft]=useState<Partial<Config>|null>(null),[zoom,setZoom]=useState(1),[pan,setPan]=useState<Point>({x:0,y:0}),[opacity,setOpacity]=useState(.4),[selectedFace,setSelectedFace]=useState<string|null>(null)
  const c={...config,...draft},roof=outerRoof(c),faces=c.roof_faces||[],holes=c.roof_openings||[]
  const minX=Math.min(-2,...obstacles.map(o=>Math.max(-c.roof_width_m-12,o.x-1))),minY=Math.min(-2,...obstacles.map(o=>Math.max(-c.roof_height_m-12,o.y-1)))
  const maxX=Math.max(c.roof_width_m+2,...comparisonRoof.map(p=>p.x+2),...obstacles.map(o=>Math.min(c.roof_width_m*2+12,o.x+o.width_m+1))),maxY=Math.max(c.roof_height_m+2,...comparisonRoof.map(p=>p.y+2),...obstacles.map(o=>Math.min(c.roof_height_m*2+12,o.y+o.depth_m+1)))
  const focusPanel=design?.panels.find(p=>p.id===measurePanel)||design?.panels[0]
- const fitScale=Math.min(740/(maxX-minX),460/(maxY-minY))*zoom,fitTx=450-(zoom>1&&!editable&&focusPanel?focusPanel.x+focusPanel.width_m/2:(minX+maxX)/2)*fitScale,fitTy=315+(zoom>1&&!editable&&focusPanel?focusPanel.y+focusPanel.height_m/2:(minY+maxY)/2)*fitScale
+ // Base view for a zoom level; pan (viewBox px) shifts it so wheel/pinch zoom keeps the point under the pointer fixed.
+ const baseView=(z:number)=>{const s=Math.min(740/(maxX-minX),460/(maxY-minY))*z,focus=z>1&&!editable&&focusPanel;return{scale:s,tx:450-(focus?focusPanel.x+focusPanel.width_m/2:(minX+maxX)/2)*s,ty:315+(focus?focusPanel.y+focusPanel.height_m/2:(minY+maxY)/2)*s}}
+ const base=baseView(zoom),fitScale=base.scale,fitTx=base.tx+pan.x,fitTy=base.ty+pan.y
+ function zoomFrom(fromZoom:number,fromPan:Point,toZoom:number,at:Point){const z=Math.min(6,Math.max(.7,toZoom)),a=baseView(fromZoom),b=baseView(z),k=b.scale/a.scale
+  setZoom(z);setPan({x:at.x-(at.x-a.tx-fromPan.x)*k-b.tx,y:at.y-(at.y-a.ty-fromPan.y)*k-b.ty})}
+ const zoomAt=useRef<(z:number,at:Point)=>void>(()=>{});zoomAt.current=(z:number,at:Point)=>zoomFrom(zoom,pan,z,at)
+ useEffect(()=>{const el=svg.current;if(!el)return
+  const wheel=(e:WheelEvent)=>{if(!e.ctrlKey&&!e.metaKey)return;e.preventDefault();const p=el.createSVGPoint();p.x=e.clientX;p.y=e.clientY;const v=p.matrixTransform(el.getScreenCTM()!.inverse())
+   zoomAt.current(zoomRef.current*Math.exp(-Math.max(-60,Math.min(60,e.deltaY))/300),{x:v.x,y:v.y})}
+  el.addEventListener('wheel',wheel,{passive:false});return()=>el.removeEventListener('wheel',wheel)},[])
+ const zoomRef=useRef(zoom);zoomRef.current=zoom
  const transform=useRef({scale:fitScale,tx:fitTx,ty:fitTy});if(!dragging&&!drag.current)transform.current={scale:fitScale,tx:fitTx,ty:fitTy}
  const {scale,tx,ty}=transform.current
  const sx=(x:number)=>tx+x*scale,sy=(y:number)=>ty-y*scale
@@ -30,8 +41,12 @@ export function RoofCanvas({comparisonRoof=[],datumIndex=0,config,obstacles,scen
  const approximate=c.dimensions_verified||c.dimensions_source==='measured'?'':'≈ '
  const handleRadius=5/scale
  function cursor(e:React.PointerEvent<SVGSVGElement>){const p=svg.current!.createSVGPoint();p.x=e.clientX;p.y=e.clientY;const v=p.matrixTransform(svg.current!.getScreenCTM()!.inverse()),t=transform.current;return{x:(v.x-t.tx)/t.scale,y:(t.ty-v.y)/t.scale}}
+ function viewPoint(e:React.PointerEvent<SVGSVGElement>){const p=svg.current!.createSVGPoint();p.x=e.clientX;p.y=e.clientY;const v=p.matrixTransform(svg.current!.getScreenCTM()!.inverse());return{x:v.x,y:v.y}}
+ function pinchState(){const [a,b]=[...pointers.current.values()];return{mid:{x:(a.x+b.x)/2,y:(a.y+b.y)/2},dist:Math.max(1,Math.hypot(a.x-b.x,a.y-b.y))}}
  function preview(p:Partial<Config>){pending.current=p;setDraft(p)}
  function down(e:React.PointerEvent<SVGSVGElement>){const point=cursor(e),target=e.target as Element
+  pointers.current.set(e.pointerId,viewPoint(e))
+  if(pointers.current.size===2){if(drag.current){drag.current=null;pending.current=null;setDraft(null);setDragging(false)}const {mid,dist}=pinchState();gesture.current={kind:'pinch',start:mid,pan,zoom,dist};e.currentTarget.setPointerCapture(e.pointerId);return}
   const hit=target.closest('[data-panel]');if(!editable&&hit){setMeasurePanel(hit.getAttribute('data-panel')!);return}
   if(editable&&tool!=='move'){setPoints(a=>[...a,{x:rounded(Math.max(0,Math.min(tool==='object'?100:config.roof_width_m,point.x))),y:rounded(Math.max(0,Math.min(tool==='object'?100:config.roof_height_m,point.y)))}]);return}
   const vertex=target.closest('[data-roof-vertex]'),edge=target.closest('[data-roof-edge]'),faceVertex=target.closest('[data-face-vertex]'),opening=target.closest('[data-opening-vertex]'),object=target.closest('[data-obstacle]')
@@ -43,10 +58,14 @@ export function RoofCanvas({comparisonRoof=[],datumIndex=0,config,obstacles,scen
   }else if(editable&&opening){onEditStart?.();const hole=Number(opening.getAttribute('data-opening'));drag.current={kind:'opening-vertex',start:point,index:Number(opening.getAttribute('data-opening-vertex')),opening:hole,points:holes[hole]}
   }else if(object){const id=object.getAttribute('data-obstacle')!,o=obstacles.find(v=>v.id===id)!;onSelect(id);setSelectedFace(null)
    if(editable){onEditStart?.();drag.current={kind:target.hasAttribute('data-rotate')?'rotate':target.hasAttribute('data-resize')?'resize':target.hasAttribute('data-object-vertex')?'object-vertex':'move',start:point,object:structuredClone(o),id,corner:Number(target.getAttribute('data-resize')),index:Number(target.getAttribute('data-object-vertex')),points:footprint(o)}}
-  }else{onSelect(null);const f=target.closest('[data-face]');setSelectedFace(f?.getAttribute('data-face')||null)}
+  }else{onSelect(null);const f=target.closest('[data-face]');setSelectedFace(f?.getAttribute('data-face')||null);gesture.current={kind:'pan',start:viewPoint(e),pan,zoom,dist:1};e.currentTarget.setPointerCapture(e.pointerId)}
   if(drag.current){e.preventDefault();setDragging(true);e.currentTarget.setPointerCapture(e.pointerId)}
  }
- function move(e:React.PointerEvent<SVGSVGElement>){const d=drag.current;if(!d)return;const p=cursor(e),o=d.object
+ function move(e:React.PointerEvent<SVGSVGElement>){if(pointers.current.has(e.pointerId))pointers.current.set(e.pointerId,viewPoint(e))
+  const g=gesture.current
+  if(g?.kind==='pinch'&&pointers.current.size>=2){const {mid,dist}=pinchState();zoomFrom(g.zoom,{x:g.pan.x+mid.x-g.start.x,y:g.pan.y+mid.y-g.start.y},g.zoom*dist/g.dist,mid);return}
+  if(g?.kind==='pan'){const v=viewPoint(e);setPan({x:g.pan.x+v.x-g.start.x,y:g.pan.y+v.y-g.start.y});return}
+  const d=drag.current;if(!d)return;const p=cursor(e),o=d.object
   if(d.kind==='roof-vertex'||d.kind==='face-vertex'||d.kind==='opening-vertex'){
    const list=d.points!.map((v,i)=>i===d.index?{x:Math.min(config.roof_width_m,rounded(Math.max(0,Math.min(config.roof_width_m,p.x)))),y:Math.min(config.roof_height_m,rounded(Math.max(0,Math.min(config.roof_height_m,p.y))))}:v)
    if(d.kind==='roof-vertex')preview({roof_polygon:list})
@@ -64,7 +83,8 @@ export function RoofCanvas({comparisonRoof=[],datumIndex=0,config,obstacles,scen
    }
   }
  }
- function up(){if(pending.current){onGeometry?.(pending.current);pending.current=null;setDraft(null)}drag.current=null;setDragging(false);onEditEnd?.()}
+ function up(e:React.PointerEvent<SVGSVGElement>){pointers.current.delete(e.pointerId);if(gesture.current){if(gesture.current.kind==='pan'||pointers.current.size<2)gesture.current=null;if(!drag.current)return}
+ if(pending.current){onGeometry?.(pending.current);pending.current=null;setDraft(null)}drag.current=null;setDragging(false);onEditEnd?.()}
  function finish(){if(points.length<3)return;onEditStart?.();if(tool==='roof')onRoof(points);else if(tool==='face')onGeometry?.({roof_faces:[...faces,{id:crypto.randomUUID(),label:`Phần mái ${faces.length+1}`,polygon:points,elevation_m:config.roof_elevation_m+2,tilt_deg:0,azimuth_deg:180,installable:true}]});else if(tool==='opening')onGeometry?.({roof_openings:[...holes,points]});else onAddPolygon?.(points);onEditEnd?.();setPoints([]);setTool('move')}
  return <section className="canvas-card">
   <div className="canvas-toolbar"><div className="segmented">{([['plan','Bản vẽ','layers'],['shadow','Bóng che','sun'],['heat','Bức xạ','bolt']] as const).map(([id,label,icon])=><button key={id} className={mode===id?'active':''} onClick={()=>setMode(id)}><Icon name={icon} size={15}/>{label}</button>)}</div><span className="canvas-live"><i className={loading?'busy':''}/>{loading?'Đang tính…':scene?'Dữ liệu mô phỏng':'Chờ bộ tính toán'}</span></div>
@@ -105,7 +125,7 @@ export function RoofCanvas({comparisonRoof=[],datumIndex=0,config,obstacles,scen
    {faces.map(f=>{const x=f.polygon.reduce((s,p)=>s+p.x,0)/f.polygon.length,y=f.polygon.reduce((s,p)=>s+p.y,0)/f.polygon.length;return <g key={f.id} pointerEvents="none"><rect x={sx(x)-55} y={sy(y)-18} width="110" height="31" rx="5" fill="white" opacity=".9"/><text x={sx(x)} y={sy(y)-5} textAnchor="middle" fill="#446458" fontSize="10">{f.label.slice(0,18)}</text><text x={sx(x)} y={sy(y)+7} textAnchor="middle" fill="#6c7d73" fontSize="9">Cao {f.elevation_m} m · dốc {f.tilt_deg}°</text></g>})}
    <g transform={`translate(835 87) rotate(${-c.north_rotation_deg})`}><circle r="31" fill="white" opacity=".85"/><path d="M0-22-7 9 0 5 7 9Z" fill="#2b6a51"/><text y="-39" textAnchor="middle" fill="#254f3c" fontSize="12" fontWeight="700">BẮC</text></g>
    {scene&&scene.sun.altitude_deg>0&&<g transform={`translate(${450+Math.sin((scene.sun.azimuth_deg-c.north_rotation_deg)*Math.PI/180)*320},${315-Math.cos((scene.sun.azimuth_deg-c.north_rotation_deg)*Math.PI/180)*240})`}><circle r="24" fill="#f5bd50" opacity=".16"/><circle r="15" fill="#f4b83c"/>{Array.from({length:8},(_,i)=><path key={i} transform={`rotate(${i*45})`} d="M0-21V-26" stroke="#e7a52c" strokeWidth="1.5"/>)}</g>}
-  </svg><div className="canvas-legend"><span><i style={{background:'#244a48'}}/>Bóng che</span><span><i style={{background:'#2d6080'}}/>Tấm pin</span><span><i style={{background:'#bca06d'}}/>Chưa xác nhận</span></div><div className="canvas-zoom"><button aria-label="Thu nhỏ" onClick={()=>setZoom(v=>Math.max(.7,v-.15))}>−</button><span>{Math.round(zoom*100)}%</span><button aria-label="Phóng to" onClick={()=>setZoom(v=>Math.min(6,v+.25))}>+</button><button aria-label="Đặt lại góc nhìn" onClick={()=>setZoom(1)}><Icon name="grid" size={15}/></button></div></div>
+  </svg><div className="canvas-legend"><span><i style={{background:'#244a48'}}/>Bóng che</span><span><i style={{background:'#2d6080'}}/>Tấm pin</span><span><i style={{background:'#bca06d'}}/>Chưa xác nhận</span></div><div className="canvas-zoom" title="Ctrl + cuộn chuột hoặc chụm hai ngón để phóng; kéo vùng trống để dịch bản vẽ"><button aria-label="Thu nhỏ" onClick={()=>zoomAt.current(zoom-.15,{x:450,y:315})}>−</button><span>{Math.round(zoom*100)}%</span><button aria-label="Phóng to" onClick={()=>zoomAt.current(zoom+.25,{x:450,y:315})}>+</button><button aria-label="Đặt lại góc nhìn" onClick={()=>{setZoom(1);setPan({x:0,y:0})}}><Icon name="grid" size={15}/></button></div></div>
   {editable&&mode==='plan'&&<div className="canvas-measurement-note">Chế độ bản vẽ đang ẩn bóng che. <button className="text-button" onClick={()=>setMode('shadow')}>Hiện bóng che</button></div>}
   <div className="canvas-measurement-note">{c.dimensions_source==='measured'?'Mái đã quy đổi theo hai số đo người dùng nhập; cần kiểm tra phối cảnh và vị trí vật cản.':c.dimensions_verified?'Kích thước đã được kỹ sư đối chiếu số đo.':c.dimensions_source==='reference'?'Hiệu chuẩn theo đoạn tham chiếu; cần kiểm tra phối cảnh và đối chiếu số đo khác.':'Số đo ước lượng theo dữ liệu nhập/tỷ lệ ảnh; chưa dùng làm kích thước thi công.'}</div><div className="canvas-bottom"><span><Icon name={editable?'move':'compass'} size={14}/>{editable?'Kéo đỉnh để sửa mái · nút giữa cạnh thêm đỉnh · bấm đúp đỉnh để xóa · nút tím xoay vật thể':'Mặt bằng theo mét · các cao độ phải được kỹ sư kiểm tra'}</span></div>
  </section>
