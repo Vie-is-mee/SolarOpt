@@ -9,4 +9,6 @@ COPY --chown=solaropt:solaropt backend/app /app/app
 COPY --chown=solaropt:solaropt ops /app/ops
 USER solaropt
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--no-access-log"]
+# Only Caddy can reach this port (no published ports); it replaces X-Forwarded-For with the real client,
+# so the login throttle counts each visitor instead of one shared proxy address.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--no-access-log", "--proxy-headers", "--forwarded-allow-ips", "*"]
