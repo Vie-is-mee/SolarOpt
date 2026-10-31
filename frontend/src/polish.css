@@ -1,0 +1,168 @@
+/* SolarOpt finish layer: one type scale, stronger contrast and consistent components.
+   Keeps the existing green identity; loaded last so it settles the older stylesheets. */
+:root{
+ --ink:#14341f;--ink-2:#2f4d38;--muted:#5d7262;--faint:#8a9b8c;
+ --brand:#1e6b45;--brand-2:#2b8a58;--brand-soft:#e6f2e2;--brand-line:#b9d6b4;
+ --sun:#d9961c;--sun-soft:#fdf3dc;--danger:#b04a36;--danger-soft:#fbe9e4;
+ --surface:#ffffff;--surface-2:#f6faf3;--line-2:#d3e1cd;
+ --radius:14px;--radius-sm:9px;
+ --shadow-1:0 1px 2px rgba(20,52,31,.06),0 4px 14px rgba(20,52,31,.06);
+ --shadow-2:0 2px 4px rgba(20,52,31,.08),0 12px 32px rgba(20,52,31,.10);
+}
+body,.studio-app,button,input,select,textarea{font-family:'Be Vietnam Pro','Segoe UI',system-ui,sans-serif}
+body{color:var(--ink);-webkit-font-smoothing:antialiased}
+
+/* ---- Shell ---------------------------------------------------------------------------- */
+.topbar{box-shadow:0 1px 0 var(--line-2);}
+.breadcrumb{font-size:13px;color:var(--muted)}.breadcrumb span{color:var(--ink);font-weight:600}
+.sidebar{box-shadow:1px 0 0 var(--line-2)}
+.nav-item{font-size:13.5px;color:var(--ink-2);border-radius:10px}.nav-item small{font-size:11.5px;color:var(--muted)}
+.nav-item.active{background:var(--brand-soft);color:var(--brand);box-shadow:inset 3px 0 0 var(--brand)}
+.nav-item.active small{color:var(--brand-2)}
+.nav-caption{font-size:10.5px;letter-spacing:.12em;color:var(--faint);font-weight:700}
+.account-bar{font-size:13.5px;color:var(--ink-2)}
+.plan-meter{font-size:12.5px;color:var(--ink-2);background:var(--brand-soft);border-color:var(--brand-line)}.plan-meter strong{color:var(--brand)}
+
+/* ---- Headings ------------------------------------------------------------------------- */
+.eyebrow{font-size:11px;letter-spacing:.14em;color:var(--brand-2);font-weight:700}
+.project-heading h1,.heading-line h1{font-size:32px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
+.project-heading p{font-size:13.5px;color:var(--muted)}
+.section-intro h2{font-size:26px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
+.section-intro p{font-size:14.5px;color:var(--muted);line-height:1.6}
+
+/* ---- Stepper -------------------------------------------------------------------------- */
+.stepper{background:var(--surface);border:1px solid var(--line-2);box-shadow:var(--shadow-1);border-radius:var(--radius);padding:8px}
+.stepper button{font-size:14px;color:var(--muted);border-radius:10px;padding:10px 14px}
+.stepper button:hover{background:var(--surface-2)}
+.step-number{width:28px;height:28px;font-size:12px;font-weight:700;border-radius:8px;background:var(--surface-2);border-color:var(--line-2);color:var(--muted)}
+.stepper .visited .step-number{background:var(--brand-soft);border-color:var(--brand-line);color:var(--brand)}
+.stepper .active{color:var(--ink);font-weight:700;background:var(--brand-soft)}
+.stepper .active .step-number{background:var(--brand);border-color:var(--brand);color:#fff;box-shadow:0 3px 10px rgba(30,107,69,.35)}
+
+/* ---- Cards ---------------------------------------------------------------------------- */
+.card,.canvas-card,.time-machine,.result-strip,.activity-panel,.simulation-stats>div,.option-card{background:var(--surface);border:1px solid var(--line-2);border-radius:var(--radius);box-shadow:var(--shadow-1)}
+.card{padding:22px}
+.card-heading{margin:-2px 0 18px;padding-bottom:14px;border-bottom:1px solid #e7efe3}
+.card-title h3{font-size:17px;font-weight:700;color:var(--ink);letter-spacing:-.01em}
+.card-title p{font-size:12.5px;color:var(--muted);line-height:1.55}
+.card-icon{width:36px;height:36px;border-radius:10px;background:var(--brand-soft);border-color:var(--brand-line);color:var(--brand)}
+
+/* Numbered parameter groups inside long settings cards. */
+.param-group{padding:16px 0 4px;border-top:1px dashed var(--line-2)}
+.param-group:first-of-type{border-top:0;padding-top:0}
+.param-title{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:700;color:var(--ink);margin:0 0 12px}
+.param-title span{display:grid;place-items:center;width:24px;height:24px;border-radius:7px;background:var(--brand);color:#fff;font-size:12px;flex-shrink:0}
+.param-title small{font-size:12px;font-weight:500;color:var(--muted);margin-left:2px}
+
+/* ---- Fields --------------------------------------------------------------------------- */
+.field{margin-bottom:14px}
+.field>span{font-size:13px;font-weight:600;color:var(--ink-2);margin-bottom:7px}
+.field>input,.input-wrap,select,textarea{min-height:42px;border:1.5px solid #c9d8c3;border-radius:var(--radius-sm);background:#fff;color:var(--ink);font-size:14.5px;transition:border-color .15s,box-shadow .15s}
+.field>input,select,textarea{padding:10px 12px}
+.input-wrap{padding:0 4px 0 12px}
+.input-wrap input{font-size:14.5px;color:var(--ink);font-weight:500;padding:10px 0}
+.input-wrap small{font-size:12px;font-weight:600;color:var(--muted);background:var(--surface-2);border:1px solid #e1eadc;border-radius:6px;padding:3px 7px;margin-left:6px}
+.field>input:hover,.input-wrap:hover,select:hover{border-color:#a9c3a1}
+.field>input:focus,.input-wrap:focus-within,select:focus,textarea:focus{outline:none;border-color:var(--brand-2);box-shadow:0 0 0 3px rgba(43,138,88,.16)}
+.field em{font-size:12px;color:var(--muted);line-height:1.55;margin-top:6px}
+.field-grid{gap:2px 14px}
+.muted-note{font-size:13px;line-height:1.65;color:var(--muted)}
+.check-line{font-size:13.5px;color:var(--ink-2)}
+input[type=checkbox]{width:17px;height:17px}
+
+/* ---- Buttons -------------------------------------------------------------------------- */
+.button{font-size:14px;font-weight:600;border-radius:10px;padding:11px 18px;letter-spacing:-.005em}
+.button.small{font-size:13px;padding:8px 13px;border-radius:9px}
+.button.primary{background:linear-gradient(180deg,var(--brand-2),var(--brand));border-color:var(--brand);box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 4px 12px rgba(30,107,69,.28)}
+.button.primary:hover:not(:disabled){background:linear-gradient(180deg,#30955f,#1b6140);box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 6px 18px rgba(30,107,69,.34)}
+.button.secondary{background:#fff;border:1.5px solid #c9d8c3;color:var(--ink-2)}
+.button.secondary:hover:not(:disabled){border-color:var(--brand-2);color:var(--brand);background:var(--surface-2)}
+.text-button{font-size:13.5px;font-weight:600;color:var(--brand)}.text-button:hover:not(:disabled){color:var(--ink)}
+.text-button.danger{color:var(--danger)}
+
+/* ---- Badges and banners --------------------------------------------------------------- */
+.badge{font-size:11.5px;font-weight:600;padding:4px 9px;border-radius:999px;background:var(--brand-soft);border-color:var(--brand-line);color:var(--brand)}
+.badge.amber{background:var(--sun-soft);border-color:#f0d9a3;color:#93630c}
+.badge.red{background:var(--danger-soft);border-color:#efc4b8;color:var(--danger)}
+.badge.neutral{background:#f1f4ef;border-color:#dfe6da;color:var(--muted)}
+.banner{font-size:14px;line-height:1.6;border-radius:12px;padding:13px 16px}
+.warning-banner{background:var(--sun-soft);border-color:#f0d9a3;color:#7a530d}
+.error-banner{background:var(--danger-soft);border-color:#efc4b8;color:#8c3a29}
+.toast{font-size:14px;border-radius:12px;background:#163d26}
+.tracer-error{font-size:13px;color:var(--danger)}
+
+/* ---- Option cards and key numbers ----------------------------------------------------- */
+.option-card{padding:20px;transition:border-color .15s,box-shadow .15s,transform .15s}
+.option-card:hover{border-color:var(--brand-line);box-shadow:var(--shadow-2);transform:translateY(-1px)}
+.option-card.selected{border-color:var(--brand-2);box-shadow:0 0 0 3px rgba(43,138,88,.14),var(--shadow-2);background:linear-gradient(160deg,#fff 55%,#f1f8ec)}
+.option-heading strong{font-size:15px;font-weight:700;color:var(--ink)}
+.option-heading>span{background:var(--brand-soft);color:var(--brand)}
+.option-card>p{font-size:13px;line-height:1.6;color:var(--muted)}
+.option-metrics strong{font-size:30px;font-weight:700;color:var(--brand);letter-spacing:-.02em}
+.option-metrics small{font-size:12px;color:var(--muted)}
+.option-bottom>span{font-size:14px;font-weight:600;color:var(--ink-2)}.option-bottom>small{font-size:12px;color:var(--muted)}
+.result-strip{padding:18px 20px}
+.result-strip span{font-size:12px;font-weight:600;color:var(--muted);text-transform:none}
+.result-strip strong{font-size:20px;font-weight:700;color:var(--ink)}
+.bound-note{font-size:11.5px;color:var(--muted)}
+.simulation-stats>div>span{font-size:13px;color:var(--muted);font-weight:600}
+.simulation-stats strong{font-size:30px;font-weight:700;color:var(--brand)}
+.simulation-stats em{font-size:12px;color:var(--muted)}
+.sizing-summary span{font-size:12px;font-weight:600;color:var(--muted)}.sizing-summary strong{font-size:16px;color:var(--brand)}
+.sizing-notes{font-size:13px;color:var(--ink-2);line-height:1.7}
+
+/* ---- Selectable tiles (roof shape, mounting, input kind) ------------------------------ */
+.shape-grid button,.input-kind button{border:1.5px solid #d6e3d0;border-radius:11px;background:#fff;padding:12px;transition:border-color .15s,background .15s,box-shadow .15s}
+.shape-grid button:hover,.input-kind button:hover{border-color:var(--brand-line);background:var(--surface-2)}
+.shape-grid button.selected,.input-kind button.selected{border-color:var(--brand-2);background:var(--brand-soft);box-shadow:0 0 0 3px rgba(43,138,88,.12)}
+.shape-grid strong,.input-kind strong{font-size:13.5px;font-weight:700;color:var(--ink)}
+.shape-grid small,.input-kind small{font-size:11.5px;color:var(--muted);line-height:1.5}
+
+/* ---- Tables --------------------------------------------------------------------------- */
+.table-scroll table,.admin-table,.mounting-table{font-size:13px;border-collapse:separate;border-spacing:0;width:100%}
+.table-scroll th{font-size:12px;font-weight:700;color:var(--ink-2);background:var(--surface-2);text-align:left;padding:10px 12px;border-bottom:1px solid var(--line-2)}
+.table-scroll td{padding:10px 12px;border-bottom:1px solid #edf2ea;color:var(--ink)}
+.table-scroll tbody tr:hover td{background:#fafcf8}
+.table-scroll caption{font-size:13px;font-weight:600;color:var(--ink-2);text-align:left;padding:4px 0 10px}
+tr.recommended td{background:#eef7e9!important}
+
+/* ---- Canvas, time machine, activity --------------------------------------------------- */
+.canvas-toolbar{padding:12px 14px}
+.segmented{background:var(--surface-2);border-color:var(--line-2);border-radius:10px;padding:4px}
+.segmented button{font-size:13px;font-weight:600;color:var(--muted);padding:7px 12px;border-radius:7px}
+.segmented button.active{background:#fff;color:var(--brand);border-color:var(--line-2);box-shadow:var(--shadow-1)}
+.canvas-bottom{font-size:12px;color:var(--muted)}
+.time-heading strong{font-size:15px;font-weight:700;color:var(--ink)}.time-heading small{font-size:12px;color:var(--muted)}
+.hour-labels{font-size:11.5px;color:var(--muted)}
+.play-button{width:36px;height:36px;background:var(--brand);border-color:var(--brand);color:#fff}
+.activity-header h3{font-size:15px;color:var(--ink)}.activity-item strong{font-size:13.5px;color:var(--ink-2)}.activity-item p{font-size:12.5px;color:var(--muted)}
+.roof-3d-info{font-size:12px;color:var(--ink-2)}
+.object-list strong{font-size:13.5px;color:var(--ink)}.object-list small{font-size:12px;color:var(--muted)}
+.check-results strong{font-size:14px;color:var(--ink)}.check-results p{font-size:12.5px;color:var(--muted)}
+.source-fact{font-size:13px;color:var(--muted)}.source-fact strong{font-size:13px;color:var(--ink-2)}
+.welcome-card h2{font-size:34px;font-weight:700}
+
+@media (max-width:760px){
+ .project-heading h1,.heading-line h1{font-size:25px}.section-intro h2{font-size:21px}
+ .option-metrics strong,.simulation-stats strong{font-size:24px}.card{padding:18px}
+}
+
+/* Option cards are buttons disabled until computed: keep the card solid, dim only its figures. */
+.option-card:disabled{opacity:1;cursor:default;background:var(--surface)}
+.option-card:disabled .option-metrics,.option-card:disabled .option-bottom{opacity:.55}
+.option-card:disabled:hover{transform:none;box-shadow:var(--shadow-1);border-color:var(--line-2)}
+/* Calmer scenery behind the workspace so panels and figures read first. */
+body{background-image:linear-gradient(180deg,rgba(247,251,243,.94),rgba(242,247,238,.9)),url('./assets/solar-landscape.jpg')}
+.side-note,.next-card,.info-box,.design-note{background:var(--surface);border:1px solid var(--line-2);border-radius:12px}
+.param-title{flex-wrap:wrap;row-gap:2px}
+.param-title small{flex-basis:100%;padding-left:34px;margin:0}
+.empty-state{background:var(--surface);border:1.5px dashed var(--line-2);border-radius:var(--radius);padding:44px 28px}
+.empty-state h3{font-size:18px;font-weight:700;color:var(--ink)}
+.empty-state p{font-size:14px;color:var(--muted)}
+.empty-state svg{color:var(--brand-2)}
+.canvas-legend{font-size:11.5px;color:var(--ink-2);padding:7px 11px;border-radius:8px}
+.canvas-legend i{width:10px;height:10px}
+.map-label{font-size:11px;color:var(--ink-2)}.map-label>span:last-child{font-size:10.5px}
+.canvas-zoom span{font-size:11.5px}
+.panel-picker-row .button{min-width:42px;min-height:42px;font-size:18px}
+.reference-opacity{font-size:13px;color:var(--ink-2)}

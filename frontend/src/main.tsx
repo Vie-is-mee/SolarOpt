@@ -14,3 +14,5 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 dismissSplash()
 
 import './handover.css'
+// Last layer: shared type scale, contrast and component finish over the older stylesheets.
+import './polish.css'
