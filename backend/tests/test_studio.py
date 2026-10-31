@@ -100,7 +100,8 @@ def test_verification_rejects_tampered_metrics():
     checked=verify_design(VerifyRequest(config=cfg,panel=panel,design=design))
     assert not checked.valid
 
-def test_approval_requires_confirmation_and_stores_full_inputs(client):
+def test_approval_requires_confirmation_and_stores_full_inputs(authenticated_client):
+    client=authenticated_client
     cfg=ProjectConfig(); panel=PanelSpec()
     design=generate_design(DesignRequest(config=cfg,panel=panel))
     body={'config':cfg.model_dump(),'panel':panel.model_dump(),'obstacles':[],'design':design.model_dump()}

@@ -1,0 +1,23 @@
+.account-bar{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:12px;padding:10px 24px;background:#fff;border-bottom:1px solid var(--line,#dce3df);font-size:13px;position:relative;z-index:2}
+.account-dialog{width:min(440px,calc(100vw - 32px));max-width:none;max-height:calc(100dvh - 32px);margin:auto;padding:0;overflow:auto;color:var(--forest,#163d20);background:#fff;border:1px solid var(--line,#dce3df);border-radius:16px;box-shadow:0 24px 80px #102c2340}
+.account-dialog::backdrop{background:#10271fc2}
+.account-close{position:absolute;top:12px;right:12px;min-width:40px;min-height:40px;color:var(--forest,#163d20)}
+.account-form{padding:32px;display:grid;gap:12px}
+.account-form h2{font-size:24px;line-height:1.3;padding-right:32px;margin:0}
+.account-form p{margin:0;font-size:14px;line-height:1.6;color:#48614f}
+.account-form label{font-weight:600;font-size:14px;margin-top:8px}
+.account-form input{width:100%;min-height:46px;padding:10px 12px;font-size:16px;color:var(--forest,#163d20);background:#fff;border:1px solid #93a399;border-radius:6px}
+.account-form-actions{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.account-form-actions .button{min-height:44px}
+.account-form .text-button{font-size:13px;min-height:40px}
+.account-form .account-guest{justify-self:start;text-decoration:underline;text-underline-offset:3px;font-weight:400}
+.account-form [role=alert],.account-bar [role=alert]{color:#a32828}
+.account-dialog :focus-visible{outline:2px solid var(--green,#176b3b);outline-offset:3px}
+.account-loading{padding:24px}
+.account-shell{margin-left:222px}
+@media(min-width:1600px){.account-shell{margin-left:240px}}
+@media(max-width:1200px){.account-shell{margin-left:192px}}
+@media(max-width:1000px){.account-shell{margin-left:74px}}
+@media(max-width:600px){.account-bar{padding:10px 16px;justify-content:space-between}.account-form{padding:28px 24px}.account-form h2{font-size:22px}}
+@media(max-width:480px){.account-shell{margin-left:54px}}
+@media print{.account-shell,.account-dialog,.account-dialog::backdrop{display:none!important}}

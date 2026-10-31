@@ -204,7 +204,7 @@ SolarOpt là công cụ **hỗ trợ đánh giá sơ bộ**. Khi sử dụng k�
 - Bố trí được tối ưu trong phạm vi lưới vị trí ứng viên và hướng đặt tấm đang hỗ trợ; chưa khảo sát mọi cấu hình khả thi.
 - Giá trong các phương án hiện chỉ tính phần tấm pin, chưa phản ánh đầy đủ chi phí đầu tư và thi công.
 - Các kiểm tra trong ứng dụng không thay thế đánh giá kết cấu mái, an toàn điện, thiết kế chuỗi điện và yêu cầu phòng cháy chữa cháy.
-- Bản hiện tại hướng tới chạy thử trên máy cá nhân; chưa có hệ thống tài khoản và phân quyền nhiều người dùng.
+- Tài khoản email/mật khẩu và lịch sử riêng được lưu bằng SQLite; xem [hướng dẫn tài khoản](docs/ACCOUNTS.md).
 
 ## Tài liệu liên quan
 
@@ -225,3 +225,7 @@ SolarOpt là công cụ **hỗ trợ đánh giá sơ bộ**. Khi sử dụng k�
 ---
 
 **SolarOpt Studio** — Dự án phát triển công cụ hỗ trợ thiết kế điện mặt trời áp mái dựa trên dữ liệu, mô phỏng và kiểm tra phương án.
+
+## Accounts and private history
+
+Lightweight email/password accounts and private SQLite history are available. See [account setup](docs/ACCOUNTS.md).

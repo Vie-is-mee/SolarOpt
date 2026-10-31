@@ -12,6 +12,7 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash-lite}
       GEMINI_TIMEOUT_SECONDS: 45
+      SOLAROPT_COOKIE_SECURE: "true"
       SOLAROPT_DB_PATH: /data/solaropt.db
       SOLAROPT_MAX_COMPUTE: 1
       SOLAROPT_SOLVER_WORKERS: 2

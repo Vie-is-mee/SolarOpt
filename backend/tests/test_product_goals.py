@@ -86,11 +86,11 @@ def test_robust_rotated_roof_and_obstacles_pass_fixed_layout_geometry_tests():
     assert all(s.status=='PASS' for s in stress.scenarios if s.id in ('base','roof2','panel1','setback','budget'))
 
 
-def test_api_new_goal_roundtrip_and_unmet_target_cannot_be_approved(monkeypatch):
+def test_api_new_goal_roundtrip_and_unmet_target_cannot_be_approved(monkeypatch,authenticated_client):
     from fastapi.testclient import TestClient
     import app.main as main
     monkeypatch.setattr(main,'save_version',lambda *args,**kwargs:123)
-    client=TestClient(main.app)
+    client=authenticated_client
     cfg=config(budget_vnd=120_000_000,target_energy_kwh_year=100_000).model_dump()
     spec=PanelSpec().model_dump()
     missing=client.post('/api/design/generate',json={'config':{**cfg,'target_energy_kwh_year':None},'panel':spec,'objective':'min_cost'})

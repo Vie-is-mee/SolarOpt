@@ -1,13 +1,17 @@
 import type {Config,Panel,Obstacle,Design,Verification,Scene,Health,Vision,Stress,Repair,Version,Objective,Sun,ProjectEvidence} from '../studioTypes'
+import {accountIdentity} from '../draftOwner'
 const base = import.meta.env.VITE_API_BASE || ''
 async function request<T>(path:string,body?:unknown,signal?:AbortSignal):Promise<T> {
+  const identity=accountIdentity()
+  const headers={'X-SolarOpt-Request':'1','X-SolarOpt-User':identity}
   const timeout = AbortSignal.timeout(120_000)
   let response:Response
-  try {response = await fetch(base+path,{method:body===undefined?'GET':'POST',...(body===undefined?{}:body instanceof FormData?{body}:{headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),signal:signal ? AbortSignal.any([signal, timeout]) : timeout})}
+  try {response = await fetch(base+path,{credentials:'include',headers,method:body===undefined?'GET':'POST',...(body===undefined?{}:body instanceof FormData?{body}:{headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify(body)}),signal:signal ? AbortSignal.any([signal, timeout]) : timeout})}
   catch(error){
     if(timeout.aborted&&!signal?.aborted)throw new Error('Máy chủ tính quá thời gian chờ. Các phương án đã hoàn tất vẫn được giữ lại. Với mái lớn, chọn góc xếp thủ công hoặc giảm phạm vi mái rồi tính lại.')
     throw error
   }
+  if(response.status===401&&typeof window!=='undefined')window.dispatchEvent(new CustomEvent('solaropt-auth-required',{detail:identity}))
   if(!response.ok){let detail='';try{const data=await response.json();detail=typeof data.detail==='string'?data.detail:JSON.stringify(data.detail)}catch{}throw new Error(detail||`Yêu cầu chưa thành công (${response.status}).`)}
   return response.json()
 }
@@ -25,6 +29,7 @@ export const studioApi={
   stress:(config:Config,panel:Panel,obstacles:Obstacle[],design:Design,sun:Sun|null)=>request<Stress>('/api/design/stress-test',{config,panel,obstacles,design,sun}),
   stressPreview:(config:Config,panel:Panel,obstacles:Obstacle[],design:Design,scenario_id:string,date:string,hour_local:number,signal?:AbortSignal)=>request<import('../studioTypes').StressPreviewData>('/api/design/stress-preview',{config,panel,obstacles,design,scenario_id,date,hour_local},signal),
   repair:(config:Config,panel:Panel,before:Obstacle[],after:Obstacle[],previous_design:Design,objective:Objective,previous_config:Config,previous_panel:Panel,evidence?:ProjectEvidence|null)=>request<Repair>('/api/design/repair',{config,panel,previous_config,previous_panel,evidence,obstacles_before:before,obstacles_after:after,previous_design,objective,minimal_repair_weight:250}),
+  history:()=>request<Version[]>('/api/history'),
   versions:(name:string)=>request<Version[]>(`/api/projects/${encodeURIComponent(name)}/versions`),
   version:(name:string,id:number)=>request<Version>(`/api/projects/${encodeURIComponent(name)}/versions/${id}`),
   approve:(config:Config,panel:Panel,obstacles:Obstacle[],design:Design,sun:Sun|null,evidence?:ProjectEvidence|null)=>request<{version_id:number;scope:string}>('/api/projects/approve',{config,panel,obstacles,design,sun,evidence}),
