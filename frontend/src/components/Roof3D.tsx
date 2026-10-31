@@ -4,6 +4,7 @@ import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js'
 import type {Config,Design,Obstacle,Scene} from '../studioTypes'
 import {footprint} from '../editorGeometry'
 import {panelCorners} from '../layoutMeasurements'
+import {assetModel,compass,skyPoint,sunModel,sunPath,type AssetMats} from './scenery3d'
 
 type Face=NonNullable<Scene['faces']>[number]&{azimuth_deg?:number;origin?:number[];regions?:{boundary:number[][];openings:number[][][]}[];mount?:string|null;mount_tilt?:number;mount_azimuth?:number}
 const D=Math.PI/180,FLOOR=3.3,BAY=3
@@ -145,9 +146,9 @@ function panelModel(p:Design['panels'][number],face:Face|undefined,cfg:Config,sc
  return group
 }
 
-export default function Roof3D({config,obstacles,scene,design,photo}:{config:Config;obstacles:Obstacle[];scene:Scene|null;design:Design|null;photo?:string|null}){
+export default function Roof3D({config,obstacles,scene,design,photo,sunDate}:{config:Config;obstacles:Obstacle[];scene:Scene|null;design:Design|null;photo?:string|null;sunDate?:string}){
  const host=useRef<HTMLDivElement>(null)
- const state=useRef<{renderer:THREE.WebGLRenderer;camera:THREE.PerspectiveCamera;controls:OrbitControls;content:THREE.Group;sun:THREE.DirectionalLight;ambient:THREE.HemisphereLight;framed:number;assets:Record<string,THREE.Texture>;photo?:{src:string;tex:THREE.Texture}}|null>(null)
+ const state=useRef<{renderer:THREE.WebGLRenderer;camera:THREE.PerspectiveCamera;controls:OrbitControls;content:THREE.Group;decor:THREE.Group;sun:THREE.DirectionalLight;sunView?:()=>void;ambient:THREE.HemisphereLight;framed:number;assets:Record<string,THREE.Texture>;photo?:{src:string;tex:THREE.Texture}}|null>(null)
  useEffect(()=>{
   const el=host.current!,renderer=new THREE.WebGLRenderer({antialias:true})
   renderer.setPixelRatio(Math.min(2,window.devicePixelRatio));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap
@@ -163,8 +164,8 @@ export default function Roof3D({config,obstacles,scene,design,photo}:{config:Con
   assets.ground.repeat.set(60,60)
   const ground=new THREE.Mesh(new THREE.CircleGeometry(400,64),new THREE.MeshStandardMaterial({map:assets.ground,roughness:1}))
   ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;s.add(ground)
-  const content=new THREE.Group();s.add(content)
-  state.current={renderer,camera,controls,content,sun,ambient,framed:0,assets}
+  const content=new THREE.Group(),decor=new THREE.Group();s.add(content,decor)
+  state.current={renderer,camera,controls,content,decor,sun,ambient,framed:0,assets}
   const resize=()=>{const w=el.clientWidth,h=el.clientHeight;renderer.setSize(w,h);camera.aspect=w/Math.max(1,h);camera.updateProjectionMatrix()}
   const ro=new ResizeObserver(resize);ro.observe(el);resize()
   let frame=0;const loop=()=>{frame=requestAnimationFrame(loop);controls.update();renderer.render(s,camera)};loop()
@@ -172,7 +173,7 @@ export default function Roof3D({config,obstacles,scene,design,photo}:{config:Con
  },[])
  useEffect(()=>{
   const st=state.current;if(!st)return
-  st.content.traverse(o=>{if(o instanceof THREE.Mesh||o instanceof THREE.Line)o.geometry.dispose()});st.content.clear()
+  for(const g of [st.content,st.decor]){g.traverse(o=>{if(o instanceof THREE.Mesh||o instanceof THREE.Line)o.geometry.dispose()});g.clear()}
   if(photo&&st.photo?.src!==photo){st.photo?.tex.dispose();const tex=new THREE.TextureLoader().load(photo);tex.colorSpace=THREE.SRGBColorSpace;tex.anisotropy=8;st.photo={src:photo,tex}}
   const rot=config.north_rotation_deg,faces=(scene?.faces||[]) as Face[],outline=scene?.roof_polygons||[],A=st.assets
   // The roof photo (satellite / drone crop aligned to the roof frame) is kept as-is on a flat roof so the
@@ -189,14 +190,18 @@ export default function Roof3D({config,obstacles,scene,design,photo}:{config:Con
   const levels=new Map((scene?.obstacle_elevations||[]).map(e=>[e.id,e]))
   const obstacleMat=new THREE.MeshStandardMaterial({color:PALETTE.concrete,roughness:.85}),steelMat=new THREE.MeshStandardMaterial({color:PALETTE.steel,roughness:.35,metalness:.45})
   const neighbourMat=new THREE.MeshStandardMaterial({map:A.neighbour,roughness:.9})
+  const assetMats:AssetMats={concrete:obstacleMat,steel:steelMat,dark:new THREE.MeshStandardMaterial({color:0x3a4046,roughness:.6}),white:new THREE.MeshStandardMaterial({color:0xeef0ee,roughness:.5}),
+   glass:new THREE.MeshPhysicalMaterial({color:0x8fb5c9,roughness:.1,metalness:.1,transparent:true,opacity:.7}),trunk:new THREE.MeshStandardMaterial({color:0x6b4f36,roughness:1}),
+   leaf:new THREE.MeshStandardMaterial({color:0x4f7d3a,roughness:.9,flatShading:true}),leaf2:new THREE.MeshStandardMaterial({color:0x6b9a45,roughness:.9,flatShading:true}),facade:neighbourMat,cap:capMat}
   for(const o of obstacles){
    const lv=levels.get(o.id),base=lv?lv.base_min_m:o.scope==='neighbor'?0:config.roof_elevation_m
+   if(o.scope==='neighbor'&&o.kind){st.content.add(assetModel(o,base,assetMats,()=>prism(footprint(o),base,o.height_m,neighbourMat)));continue}
    if(o.scope==='neighbor'){
     // Neighbour: facade-textured block (UV in metres for one window per bay and floor) with a roof cap.
     const pts=footprint(o),mesh=prism(pts,base,o.height_m,neighbourMat)
     const uv=mesh.geometry.attributes.uv as THREE.BufferAttribute;for(let i=0;i<uv.count;i++)uv.setXY(i,uv.getX(i)/BAY,uv.getY(i)/FLOOR)
     st.content.add(mesh,prism(pts,base+o.height_m,.25,capMat))
-   }else st.content.add(prism(footprint(o),base,o.height_m,o.shape==='ellipse'?steelMat:obstacleMat))
+   }else st.content.add(assetModel(o,base,assetMats,()=>prism(footprint(o),base,o.height_m,o.shape==='ellipse'?steelMat:obstacleMat)))
   }
   const panelMats:PanelMats={glass:new THREE.MeshPhysicalMaterial({map:A.cells,roughness:.22,metalness:.25,clearcoat:1,clearcoatRoughness:.08,side:THREE.DoubleSide}),
    back:new THREE.MeshStandardMaterial({color:0xd8dde2,roughness:.7}),frame:new THREE.LineBasicMaterial({color:0xd5dde4}),post:new THREE.MeshStandardMaterial({color:0x9aa3aa,metalness:.6,roughness:.4})}
@@ -208,6 +213,18 @@ export default function Roof3D({config,obstacles,scene,design,photo}:{config:Con
   const alt=scene?.sun.altitude_deg??45,az=scene?.sun.azimuth_deg??180,[bx,by]=downhill(az,rot)
   const dir=new THREE.Vector3(bx*Math.cos(alt*D),Math.sin(Math.max(alt,0)*D),-by*Math.cos(alt*D)).normalize()
   st.sun.position.copy(centre).addScaledVector(dir,reach*2);st.sun.target.position.copy(centre);st.sun.intensity=alt>0?3:0;st.ambient.intensity=alt>0?.9:.45
+  // Sun disc on its sky position for this hour, the whole day's path, and a ground compass,
+  // kept outside `content` so they never change the camera framing.
+  const ground=new THREE.Vector3(centre.x,0,centre.z),skyR=Math.max(25,reach*1.5)
+  if(alt>0){const disc=sunModel(skyR*.035);disc.position.copy(skyPoint(ground,skyR,az,alt,rot));st.decor.add(disc)}
+  if(sunDate)st.decor.add(sunPath(ground,skyR,config.latitude,config.longitude,sunDate,rot))
+  st.decor.add(compass(ground,Math.max(size.x,size.z)*.62+4,rot))
+  st.controls.maxDistance=skyR*3
+  // View of the sun's daily arc as an observer sees it: from the pole side facing the equator, so east
+  // is on the left, the sun rises left and sets right; aim between the building and the sky.
+  st.sunView=()=>{const [nx,ny]=downhill(config.latitude>=0?0:180,rot),side=new THREE.Vector3(nx,0,-ny).normalize()   // stand on the pole side, face the sun's arc
+   const sunPos=skyPoint(ground,skyR,180,55,rot),aim=ground.clone().lerp(sunPos,.5)
+   st.camera.position.copy(aim).addScaledVector(side,skyR*2.4).add(new THREE.Vector3(0,skyR*.2,0));st.controls.target.copy(aim);st.controls.update()}
   const cam=st.sun.shadow.camera;cam.left=-reach;cam.right=reach;cam.top=reach;cam.bottom=-reach;cam.near=.1;cam.far=reach*5;cam.updateProjectionMatrix()
   // Frame from the south-east, above the roof; reframe only when the model size changes a lot
   // (e.g. roof faces arrive after obstacles), so user orbiting is kept on ordinary updates.
@@ -216,6 +233,7 @@ export default function Roof3D({config,obstacles,scene,design,photo}:{config:Con
  const sun=scene?.sun
  return <div className="roof-3d">
   <div ref={host} className="roof-3d-view" role="img" aria-label="Phối cảnh 3D mái nhà, vật cản, tấm pin và bóng theo giờ"/>
+  <button type="button" className="roof-3d-sun" onClick={()=>state.current?.sunView?.()}>☀ Toàn cảnh mặt trời</button>
   <div className="roof-3d-info">{photo?'Mái dùng ảnh chụp thật · ':''}Kéo để xoay · cuộn để phóng · chuột phải để dịch{sun?` · nắng ${sun.altitude_deg.toFixed(0)}°, hướng ${sun.azimuth_deg.toFixed(0)}°`:''}</div>
  </div>
 }
