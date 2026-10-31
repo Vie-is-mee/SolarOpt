@@ -17,6 +17,7 @@ class Surface:
     origin_x:float=0
     origin_y:float=0
     installable:bool=True
+    group:str|None=None
 
 @dataclass
 class GeometryContext:
@@ -47,7 +48,7 @@ def surfaces(config:ProjectConfig)->list[Surface]:
         p=Polygon([(t.x,t.y) for t in f.polygon]).intersection(roof)
         if not p.is_empty:
             center=p.centroid
-            result.append(Surface(f.id,f.label,p,f.elevation_m,f.tilt_deg,f.azimuth_deg,center.x,center.y,f.installable));used.append(p)
+            result.append(Surface(f.id,f.label,p,f.elevation_m,f.tilt_deg,f.azimuth_deg,center.x,center.y,f.installable,f.group));used.append(p)
     remaining=roof.difference(unary_union(used)) if used else roof
     if remaining.area>1e-8:result.append(Surface('base','Mái cơ sở',remaining,config.roof_elevation_m,config.roof_tilt_deg,config.roof_azimuth_deg))
     return result
@@ -208,10 +209,20 @@ def with_obstacle_tops(config:ProjectConfig,obstacles:list[RectObstacle])->Proje
     return config.model_copy(update={'roof_faces':faces})
 
 
+def installable_regions(planes,margin):
+    """Usable part of each installable face. Grouped faces (one continuous surface split into strips)
+    are set back only from the group's outer edge, never along their shared seams."""
+    groups={}
+    for s in planes:
+        if s.installable and s.group:groups.setdefault(s.group,[]).append(s.polygon)
+    shrunk={g:unary_union(parts).buffer(-margin,join_style=2) for g,parts in groups.items()}
+    return [(s,s.polygon.intersection(shrunk[s.group]) if s.group else s.polygon.buffer(-margin,join_style=2)) for s in planes if s.installable]
+
+
 def build_context(config:ProjectConfig,obstacles:list[RectObstacle],sun:SunPosition|None)->GeometryContext:
     config=with_obstacle_tops(config,obstacles)
     roof=roof_polygon(config);planes=surfaces(config)
-    usable_parts=[s.polygon.buffer(-config.setback_m,join_style=2) for s in planes if s.installable]
+    usable_parts=[region for _,region in installable_regions(planes,config.setback_m)]
     usable=unary_union(usable_parts) if usable_parts else Polygon()
     def blocked(o):
         shape=obstacle_polygon(o).buffer(config.obstacle_clearance_m,join_style=2)

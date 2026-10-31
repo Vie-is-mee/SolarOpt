@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 
 from app.schemas import CheckResult, VerifyRequest, VerifyResult
-from app.services.geometry import build_context, panel_shape, overlap_ratio
+from app.services.geometry import build_context, panel_shape, overlap_ratio, installable_regions
 from app.services.energy import EnergyContext, summarize
 
 
@@ -13,6 +13,7 @@ def verify_design(req: VerifyRequest, *, energy_context=None) -> VerifyResult:
     panels = req.design.panels
     energy_context = energy_context if energy_context is not None else EnergyContext(req.config, req.obstacles, geometry=ctx)
     recalculated = []
+    face_regions = [region for _, region in installable_regions(ctx.surfaces, req.config.setback_m)]
 
     outside = []
     obstacle_hits = []
@@ -29,10 +30,7 @@ def verify_design(req: VerifyRequest, *, energy_context=None) -> VerifyResult:
         }))
         if value.worst_cover > .4:
             sample_heavy.append(p.id)
-        if not ctx.usable_roof.covers(s) or not any(
-            face.installable and face.polygon.buffer(-req.config.setback_m,join_style=2).covers(s)
-            for face in ctx.surfaces
-        ):
+        if not ctx.usable_roof.covers(s) or not any(region.covers(s) for region in face_regions):
             outside.append(p.id)
         if overlap_ratio(s,ctx.obstacle_union) > 1e-8:
             obstacle_hits.append(p.id)
