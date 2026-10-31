@@ -15,3 +15,6 @@
 .read-dimensions{margin-bottom:9px}
 .roof-shape-picker{display:block}.shape-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:7px;margin:4px 0 14px}.shape-grid button{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:10px;border:1px solid #e4eadd;border-radius:8px;background:#fff;text-align:left}.shape-grid button.selected{background:#f1f6ea;border-color:#9bb18c}.shape-grid strong{font-size:9.5px;font-weight:550;color:#5f7a51}.shape-grid small{font-size:7.5px;color:#a3af95;line-height:1.6}
 .mounting-picker{display:grid;gap:8px;margin-bottom:14px}.mounting-table{width:100%;font-size:9px}.mounting-table tr.recommended td{background:#f1f6e8}
+.roof-3d{position:relative}.roof-3d-view{width:100%;height:clamp(320px,58vh,600px);touch-action:none}.roof-3d-view canvas{display:block}
+.roof-3d-info{position:absolute;left:12px;bottom:10px;font-size:8px;color:#5f7a51;background:#f9fcf4d9;border:1px solid #dce6d3;border-radius:5px;padding:5px 8px;pointer-events:none}
+.roof-3d-loading{display:grid;place-items:center;height:320px;font-size:10px;color:#7c8d7a}

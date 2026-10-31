@@ -67,3 +67,17 @@ def test_compare_reports_every_option_against_flush():
     assert labels[0] == "Lắp sát mái" and len(labels) == 7 and result["best"] in labels
     assert result["options"][0]["vs_flush_pct"] == 0
     assert any("chi phí" in n for n in result["notes"])
+
+
+def test_scene_faces_carry_what_the_3d_view_needs():
+    import datetime
+    from app.schemas import RectObstacle, SceneRequest
+    from app.services.scene import simulate_scene
+    cfg = ProjectConfig(mounting="tilted_rack", rack_tilt_deg=12)
+    tank = RectObstacle(id="tank", label="Bồn", x=2, y=2, width_m=2, depth_m=2, height_m=2, top_installable=True)
+    faces = {f["id"]: f for f in simulate_scene(SceneRequest(config=cfg, obstacles=[tank], date=datetime.date(2026, 6, 21), hour_local=10, heatmap=False))["faces"]}
+    base = faces["base"]
+    assert base["azimuth_deg"] == cfg.roof_azimuth_deg and base["origin"] == [0, 0]
+    assert base["regions"][0]["openings"], "base face keeps the hole where the obstacle top sits"
+    assert base["mount"] == "tilted_rack" and base["mount_tilt"] == 12
+    assert faces["top-tank"]["elevation_m"] == cfg.roof_elevation_m + 2

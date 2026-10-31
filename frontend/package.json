@@ -12,13 +12,15 @@
   },
   "dependencies": {
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "three": "0.169.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/three": "0.169.0",
     "@vitejs/plugin-react": "^6.0.0",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.7.0",
