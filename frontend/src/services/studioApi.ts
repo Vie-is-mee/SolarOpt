@@ -3,7 +3,7 @@ const base = import.meta.env.VITE_API_BASE || ''
 async function request<T>(path:string,body?:unknown,signal?:AbortSignal):Promise<T> {
   const timeout = AbortSignal.timeout(120_000)
   let response:Response
-  try {response = await fetch(base+path,{method:body===undefined?'GET':'POST',...(body===undefined?{}:body instanceof FormData?{body}:{headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),signal:signal ? AbortSignal.any([signal, timeout]) : timeout})}
+  try {response = await fetch(base+path,{credentials:'include',headers:{'X-SolarOpt-Request':'1'},method:body===undefined?'GET':'POST',...(body===undefined?{}:body instanceof FormData?{body}:{headers:{'Content-Type':'application/json','X-SolarOpt-Request':'1'},body:JSON.stringify(body)}),signal:signal ? AbortSignal.any([signal, timeout]) : timeout})}
   catch(error){
     if(timeout.aborted&&!signal?.aborted)throw new Error('Máy chủ tính quá thời gian chờ. Các phương án đã hoàn tất vẫn được giữ lại. Với mái lớn, chọn góc xếp thủ công hoặc giảm phạm vi mái rồi tính lại.')
     throw error
@@ -25,6 +25,7 @@ export const studioApi={
   stress:(config:Config,panel:Panel,obstacles:Obstacle[],design:Design,sun:Sun|null)=>request<Stress>('/api/design/stress-test',{config,panel,obstacles,design,sun}),
   stressPreview:(config:Config,panel:Panel,obstacles:Obstacle[],design:Design,scenario_id:string,date:string,hour_local:number,signal?:AbortSignal)=>request<import('../studioTypes').StressPreviewData>('/api/design/stress-preview',{config,panel,obstacles,design,scenario_id,date,hour_local},signal),
   repair:(config:Config,panel:Panel,before:Obstacle[],after:Obstacle[],previous_design:Design,objective:Objective,previous_config:Config,previous_panel:Panel,evidence?:ProjectEvidence|null)=>request<Repair>('/api/design/repair',{config,panel,previous_config,previous_panel,evidence,obstacles_before:before,obstacles_after:after,previous_design,objective,minimal_repair_weight:250}),
+  history:()=>request<Version[]>('/api/history'),
   versions:(name:string)=>request<Version[]>(`/api/projects/${encodeURIComponent(name)}/versions`),
   version:(name:string,id:number)=>request<Version>(`/api/projects/${encodeURIComponent(name)}/versions/${id}`),
   approve:(config:Config,panel:Panel,obstacles:Obstacle[],design:Design,sun:Sun|null,evidence?:ProjectEvidence|null)=>request<{version_id:number;scope:string}>('/api/projects/approve',{config,panel,obstacles,design,sun,evidence}),

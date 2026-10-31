@@ -39,14 +39,15 @@ def test_evidence_is_json_serializable_and_accepts_legacy_absence():
 def test_version_list_excludes_image_bytes_and_detail_preserves_evidence(tmp_path,monkeypatch):
     from app import database,main
     monkeypatch.setenv('SOLAROPT_DB_PATH',str(tmp_path/'versions.db'));database.init_db()
+    client=TestClient(main.app,headers={'X-SolarOpt-Request':'1'})
+    user=client.post('/api/auth/register',json={'email':'evidence@example.com','password':'long-test-password'}).json()
     full=evidence()
-    version_id=database.save_version('Roof A','design','test',{'evidence':full,'config':{'project_name':'Roof A'}})
-    listed=database.list_versions('Roof A')[0]
+    version_id=database.save_version('Roof A','design','test',{'evidence':full,'config':{'project_name':'Roof A'}},user['id'])
+    listed=database.list_versions('Roof A',user['id'])[0]
     assert listed['has_evidence']
     assert listed['payload']['evidence']['source_image'] is None
-    assert database.get_version('Roof A',version_id)['payload']['evidence']==full
+    assert database.get_version('Roof A',version_id,user['id'])['payload']['evidence']==full
     assert database.get_version('Roof B',version_id) is None
-    client=TestClient(main.app)
     assert client.get(f'/api/projects/Roof%20A/versions/{version_id}').json()['payload']['evidence']==full
     assert client.get(f'/api/projects/Roof%20B/versions/{version_id}').status_code==404
 
@@ -58,13 +59,14 @@ def test_design_and_approval_save_same_calibration_evidence(tmp_path,monkeypatch
     spec=PanelSpec();request=DesignRequest(config=cfg,panel=spec,objective='max_energy')
     design=generate_design(request)
     monkeypatch.setattr(main,'generate_design',lambda req:design)
-    client=TestClient(main.app)
+    client=TestClient(main.app,headers={'X-SolarOpt-Request':'1'})
+    user=client.post('/api/auth/register',json={'email':'evidence@example.com','password':'long-test-password'}).json()
     body={**request.model_dump(mode='json'),'evidence':evidence()}
     result=client.post('/api/design/generate',json=body)
     assert result.status_code==200,result.text
-    saved=database.get_version(cfg.project_name,database.list_versions(cfg.project_name)[0]['id'])
+    saved=database.get_version(cfg.project_name,database.list_versions(cfg.project_name,user['id'])[0]['id'],user['id'])
     assert saved['payload']['evidence']['source_image']==evidence()['source_image']
     approved=client.post('/api/projects/approve',json={**body,'design':design.model_dump(mode='json')})
     assert approved.status_code==200,approved.text
-    payload=database.get_version(cfg.project_name,approved.json()['version_id'])['payload']
+    payload=database.get_version(cfg.project_name,approved.json()['version_id'],user['id'])['payload']
     assert payload['evidence']['calibration']['reference_m']==8

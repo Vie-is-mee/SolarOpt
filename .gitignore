@@ -10,3 +10,6 @@
 **/.venv/
 output/validation/
 data/public/
+
+# Local auth browser verification artifacts
+output/auth-check/

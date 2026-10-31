@@ -8,13 +8,14 @@ from time import perf_counter
 from threading import BoundedSemaphore
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFile
 from typing import Literal
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.auth import COOKIE, router as auth_router, optional_user, require_user
 from app.database import init_db, list_versions, save_version, get_version
 from app.schemas import (
     DesignRequest, DesignResult, RepairRequest, RepairResult, StressRequest, StressResult, StressPreviewRequest,
@@ -36,12 +37,25 @@ init_db()
 
 app = FastAPI(title="SolarOpt API", version="2.0.0", description="Bộ tính toán và trích xuất ảnh cho SolarOpt Studio")
 
+app.include_router(auth_router)
+
+
+@app.middleware("http")
+async def private_responses(request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith(("/api/auth/", "/api/history", "/api/projects/")):
+        response.headers["Cache-Control"] = "private, no-store"
+    return response
+
+
 compute_slots = BoundedSemaphore(max(1, int(os.getenv("SOLAROPT_MAX_COMPUTE", "1"))))
 heavy_paths = {"/api/design/stress-preview", "/api/design/generate", "/api/design/repair", "/api/design/stress-test", "/api/uncertainty/evaluate", "/api/roof/trace", "/api/vision/analyze"}
 
 
 @app.middleware("http")
 async def bound_compute(request, call_next):
+    if request.method not in {"GET", "HEAD", "OPTIONS"} and request.cookies.get(COOKIE) and request.headers.get("X-SolarOpt-Request") != "1":
+        return JSONResponse(status_code=403, content={"detail": "Thiếu xác nhận yêu cầu."})
     if request.method != "POST" or request.url.path not in heavy_paths:
         return await call_next(request)
     if not compute_slots.acquire(blocking=False):
@@ -148,9 +162,10 @@ def get_irradiance(
 
 
 @app.post("/api/design/generate", response_model=DesignResult)
-def design_generate(req: DesignRequest):
+def design_generate(req: DesignRequest, user=Depends(optional_user)):
     result = generate_design(req)
-    save_version(req.config.project_name, "design", f"Thiết kế: {req.objective}", {"config":req.config.model_dump(),"panel":req.panel.model_dump(),"obstacles": [o.model_dump() for o in req.obstacles],"design":result.model_dump(),"evidence":req.evidence.model_dump(mode='json') if req.evidence else None})
+    if user:
+        save_version(req.config.project_name, "design", f"Thiết kế: {req.objective}", {"config":req.config.model_dump(),"panel":req.panel.model_dump(),"obstacles": [o.model_dump() for o in req.obstacles],"design":result.model_dump(),"evidence":req.evidence.model_dump(mode='json') if req.evidence else None}, user_id=user["id"])
     return result
 
 
@@ -175,7 +190,7 @@ def validate_project(req: DesignRequest):
 
 
 @app.post("/api/design/repair", response_model=RepairResult)
-def design_repair(req: RepairRequest):
+def design_repair(req: RepairRequest, user=Depends(optional_user)):
     changed = []
     before = {o.id: o for o in req.obstacles_before}
     after = {o.id: o for o in req.obstacles_after}
@@ -215,9 +230,10 @@ def design_repair(req: RepairRequest):
     verification = verify_design(VerifyRequest(
         config=req.config, panel=req.panel, obstacles=req.obstacles_after, design=design, sun=req.sun
     ))
-    save_version(req.config.project_name, "repair", f"Self-heal after {changed_input}", {
-        "config":req.config.model_dump(),"panel":req.panel.model_dump(),"obstacles":[o.model_dump() for o in req.obstacles_after],"impact": impact.model_dump(), "design": design.model_dump(), "verification": verification.model_dump(),"evidence":req.evidence.model_dump(mode='json') if req.evidence else None
-    })
+    if user:
+        save_version(req.config.project_name, "repair", f"Self-heal after {changed_input}", {
+            "config":req.config.model_dump(),"panel":req.panel.model_dump(),"obstacles":[o.model_dump() for o in req.obstacles_after],"impact": impact.model_dump(), "design": design.model_dump(), "verification": verification.model_dump(),"evidence":req.evidence.model_dump(mode='json') if req.evidence else None
+        }, user_id=user["id"])
     return RepairResult(impact=impact, design=design, verification=verification)
 
 
@@ -229,24 +245,29 @@ def uncertainty_evaluate(req: UncertaintyRequest):
         raise HTTPException(status_code=400, detail=str(exc))
 
 
+@app.get("/api/history")
+def account_history(user=Depends(require_user)):
+    return list_versions(None, user["id"])
+
+
 @app.get("/api/projects/{project_name}/versions")
-def project_versions(project_name: str):
-    return list_versions(project_name)
+def project_versions(project_name: str, user=Depends(require_user)):
+    return list_versions(project_name, user["id"])
 
 
 @app.get('/api/projects/{project_name}/versions/{version_id}')
-def project_version(project_name:str,version_id:int):
-    version=get_version(project_name,version_id)
+def project_version(project_name:str,version_id:int,user=Depends(require_user)):
+    version=get_version(project_name,version_id,user["id"])
     if version is None:raise HTTPException(404,'Không tìm thấy phiên bản của dự án này.')
     return version
 
 
 @app.post("/api/projects/approve")
-def approve_project(req: VerifyRequest):
+def approve_project(req: VerifyRequest, user=Depends(require_user)):
     if not req.config.geometry_confirmed or any(not o.confirmed for o in req.obstacles):
         raise HTTPException(409, "Kỹ sư cần xác nhận hình học và tất cả vật cản trước khi lưu bản duyệt.")
     verification = verify_design(req)
     if not verification.valid:
         raise HTTPException(409, "Phương án chưa đạt các kiểm tra bắt buộc.")
-    version_id = save_version(req.config.project_name,"approved","Kỹ sư xác nhận trong phạm vi kiểm tra MVP",{**req.model_dump(mode='json'),"verification":verification.model_dump()})
+    version_id = save_version(req.config.project_name,"approved","Kỹ sư xác nhận trong phạm vi kiểm tra MVP",{**req.model_dump(mode='json'),"verification":verification.model_dump()}, user_id=user["id"])
     return {"version_id":version_id,"verification":verification,"scope":"Xác nhận nội bộ bản sơ bộ; không phải chứng nhận đủ điều kiện thi công."}

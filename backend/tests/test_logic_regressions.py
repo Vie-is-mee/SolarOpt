@@ -171,7 +171,7 @@ def test_pvgis_missing_irradiance_does_not_masquerade_as_real_data(monkeypatch):
 
 
 @pytest.mark.parametrize('corruption',['energy_total','panel_energy','gap'])
-def test_approval_endpoint_rejects_corrupted_or_too_close_layout(corruption,monkeypatch):
+def test_approval_endpoint_rejects_corrupted_or_too_close_layout(corruption,monkeypatch,authenticated_client):
     from fastapi.testclient import TestClient
     from app import main
     saved=[]
@@ -184,7 +184,7 @@ def test_approval_endpoint_rejects_corrupted_or_too_close_layout(corruption,monk
         design.panels[0].annual_energy_kwh=999999
         design.metrics.annual_energy_kwh=999999
         design.metrics.annual_energy_mwh=999.999
-    client=TestClient(main.app)
+    client=authenticated_client
     payload={'config':cfg.model_dump(),'panel':spec.model_dump(),'design':design.model_dump(),'obstacles':[]}
     response=client.post('/api/design/verify',json=payload)
     assert response.status_code==200 and response.json()['valid'] is False
