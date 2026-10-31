@@ -21,6 +21,11 @@ def same_position(a, b, tol=.02):
             and angle<=.01)
 
 
+# Near-ties on energy (common on unshaded flat roofs) are broken towards a compact block in the
+# middle of each face, away from edges, as installers group arrays. Capped at 0.3 % of a panel's
+# energy score, so it never gives up more than that to move a panel.
+PLACEMENT_WEIGHT = .003
+
 SHADING_LIMITS = {'max_energy': 70, 'min_cost': 70, 'robust': 10, 'balanced': 18, 'durability': 10}
 
 
@@ -29,6 +34,7 @@ def score(req, candidate):
     if req.objective == 'durability':
         value = int(round(value*(1-min(candidate.shading_loss_pct,50)/120)))
     if req.objective == 'min_cost':return value
+    value += int(round(value*PLACEMENT_WEIGHT*candidate.placement))
     # Balanced maximizes energy within its shade cap. A fixed subtraction per
     # panel was an undocumented cost penalty despite identical panel prices.
     return value + (int(round(req.minimal_repair_weight*100)) if candidate.preserved else 0)
@@ -61,6 +67,7 @@ def search_layouts(req, ctx, shade_contexts, *, budget_seconds=25., diagnostics=
     margin=cfg.setback_m+cfg.layout_edge_reserve_m
     surfaces=[(s,s.polygon.buffer(-margin,join_style=2)) for s in ctx.surfaces if s.installable and not s.id.startswith(TOP_PREFIX)]
     tops=[(s,s.polygon.buffer(-margin,join_style=2)) for s in ctx.surfaces if s.installable and s.id.startswith(TOP_PREFIX)]
+    centres={s.id:_face_centre(region) for s,region in surfaces+tops}
     for region in [ctx.usable_roof,ctx.obstacle_union,*(r for _,r in surfaces)]:prepare(region)
     max_count=capacity(req)
     robust=robust_contexts(req) if req.objective=='robust' else []
@@ -116,6 +123,7 @@ def search_layouts(req, ctx, shade_contexts, *, budget_seconds=25., diagnostics=
                                     rotation_deg=angle,face_id=surface.id,shading_loss_pct=round(loss,2),
                                     annual_energy_kwh=value.annual_kwh)
                                 candidate.preserved=any(same_position(candidate,p) for p in req.previous_panels)
+                                candidate.placement=_placement(centres[surface.id],cx*co-cy*si,cx*si+cy*co)
                                 candidates.append(candidate)
                             else:
                                 shade_rejected+=1
@@ -148,14 +156,27 @@ def search_layouts(req, ctx, shade_contexts, *, budget_seconds=25., diagnostics=
     extra=[]
     for t,(surface,region) in enumerate(tops):
         if not region.is_empty and perf_counter()-started<budget_seconds+5:
-            extra+=_best_top_grid(req,ctx,energy_context,surface,region,f't{t}',robust)
+            extra+=_best_top_grid(req,ctx,energy_context,surface,region,f't{t}',robust,centres[surface.id])
     if diagnostics is not None:
         diagnostics.update(positions=visited, elapsed_ms=round((perf_counter()-started)*1000), obstacle_top_candidates=len(extra))
     trials[best_index]['selected']=True
     return best+extra,trials
 
 
-def _best_top_grid(req,ctx,energy_context,surface,region,tag,robust):
+def _face_centre(region):
+    """Centroid of a usable face and the distance from it to the farthest usable point."""
+    if region.is_empty:return None
+    c=region.centroid
+    reach=max((math.hypot(x-c.x,y-c.y) for part in _parts(region) for x,y in part.exterior.coords),default=0)
+    return c.x,c.y,reach
+
+
+def _placement(centre,x,y):
+    if not centre or centre[2]<=0:return 0.0
+    return round(max(0.0,1-math.hypot(x-centre[0],y-centre[1])/centre[2]),4)
+
+
+def _best_top_grid(req,ctx,energy_context,surface,region,tag,robust,centre=None):
     """Small exhaustive grid on one obstacle top: edge-aligned and portrait/landscape, edge or centred offsets."""
     cfg,spec=req.config,req.panel
     edge=max(zip(region.minimum_rotated_rectangle.exterior.coords,list(region.minimum_rotated_rectangle.exterior.coords)[1:]),
@@ -185,6 +206,7 @@ def _best_top_grid(req,ctx,energy_context,surface,region,tag,robust):
                             candidate=CandidatePanel(id=f'{tag}r{row}c{col}',x=px,y=py,width_m=spec.width_m,height_m=spec.height_m,
                                 rotation_deg=angle,face_id=surface.id,shading_loss_pct=round(value.loss_pct,2),annual_energy_kwh=value.annual_kwh)
                             candidate.preserved=any(same_position(candidate,p) for p in req.previous_panels)
+                            candidate.placement=_placement(centre,px+spec.width_m/2,py+spec.height_m/2)
                             candidates.append(candidate)
                 total=sum(max(0,score(req,c)) for c in candidates)
                 if total>best_value:best,best_value=candidates,total

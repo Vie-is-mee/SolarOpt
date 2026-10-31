@@ -156,6 +156,7 @@ class CandidatePanel(StrictModel):
     shading_loss_pct: float = Field(ge=0, le=100)
     preserved: bool = False
     face_id: str = "base"
+    placement: float = Field(default=0, ge=0, le=1, description="1 at the centre of its roof face, 0 at the farthest usable edge; tie-breaker only")
 
 
 class DesignRequest(BaseModel):

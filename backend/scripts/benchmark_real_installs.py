@@ -17,6 +17,7 @@ import argparse
 import html
 import json
 import math
+import random
 import sys
 
 from shapely.geometry import Polygon, box
@@ -83,6 +84,15 @@ def run_case(case):
                                 'covers_real_pct': round(100 * inter / real.area, 1), 'inside_real_pct': round(100 * inter / ours.area, 1) if ours.area else 0.0,
                                 'kwp': design.metrics.peak_power_kwp, 'solver': design.solver_status}
         result['runs'][mode]['_panels'] = [list(panel_shape(p.x, p.y, p.width_m, p.height_m, p.rotation_deg).exterior.coords) for p in design.panels]
+    # Fair reference for same_area: the same number of panels drawn at random from SolarOpt's own
+    # feasible positions (the max run), averaged over fixed seeds.
+    feasible = [Polygon(c) for c in result['runs']['max']['_panels']]
+    n = min(result['runs']['same_area']['panels'], len(feasible))
+    draws = []
+    for seed in range(30):
+        pick = unary_union(random.Random(seed).sample(feasible, n)) if n else Polygon()
+        draws.append(real.intersection(pick).area / real.union(pick).area if not pick.is_empty else 0.0)
+    result['baseline_random_same_area_iou'] = round(sum(draws) / len(draws), 3)
     result['_roof'] = list(roof.exterior.coords)
     result['_real'] = [list(g.exterior.coords) for g in getattr(real, 'geoms', [real]) if not g.is_empty]
     return result
@@ -106,7 +116,7 @@ def report(results, snapshot):
 <p>Mái {r['roof_m2']} m² · dãy pin thật {r['real_array_m2']} m² ({r['real_array_count']} vùng ≈ {r['equivalent_panels']} tấm)</p>
 <div class="pair"><figure>{svg(r, 'same_area')}<figcaption>Cùng diện tích: IoU {a['iou']} · phủ {a['covers_real_pct']}% vùng thật</figcaption></figure>
 <figure>{svg(r, 'max')}<figcaption>Tối đa: {m['panels']} tấm · phủ {m['covers_real_pct']}% vùng thật · IoU {m['iou']}</figcaption></figure></div>
-<p>Mốc so sánh “phủ kín mái”: IoU {r['baseline_roof_fill_iou']}</p></article>""")
+<p>Mốc so sánh: đặt ngẫu nhiên cùng số tấm IoU {r['baseline_random_same_area_iou']} · phủ kín mái IoU {r['baseline_roof_fill_iou']}</p></article>""")
     return f"""<!doctype html><meta charset="utf-8"><title>SolarOpt · So với mái đã lắp thật</title>
 <style>body{{font-family:system-ui,sans-serif;max-width:900px;margin:24px auto;padding:0 16px;color:#2f4935}}article{{border-top:1px solid #dde5d6;padding:12px 0}}.pair{{display:flex;flex-wrap:wrap;gap:16px}}figure{{margin:0}}figcaption{{font-size:13px}}</style>
 <h1>SolarOpt so với dãy pin đã lắp thật (OpenStreetMap, Exeter)</h1>
@@ -127,6 +137,7 @@ def main():
     clean = [{k: v for k, v in r.items() if not k.startswith('_')} | {'runs': {m: {k: v for k, v in run.items() if not k.startswith('_')} for m, run in r['runs'].items()}} for r in results]
     summary = {'cases': len(clean), 'mean_iou_same_area': round(sum(r['runs']['same_area']['iou'] for r in clean) / len(clean), 3),
                'mean_baseline_iou': round(sum(r['baseline_roof_fill_iou'] for r in clean) / len(clean), 3),
+               'mean_random_same_area_iou': round(sum(r['baseline_random_same_area_iou'] for r in clean) / len(clean), 3),
                'mean_covers_real_pct_max': round(sum(r['runs']['max']['covers_real_pct'] for r in clean) / len(clean), 1)}
     (OUT / 'report.json').write_text(json.dumps({'snapshot': {k: v for k, v in snapshot.items() if k != 'cases'}, 'panel': PANEL.model_dump(), 'config': CONFIG,
                                                   'summary': summary, 'cases': clean}, ensure_ascii=False, indent=1), encoding='utf-8')
