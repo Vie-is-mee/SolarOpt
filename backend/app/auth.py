@@ -30,10 +30,31 @@ class Credentials(BaseModel):
         return value
 
 
-def password_hash(password: str, salt: str | None = None) -> str:
+# OWASP-equivalent scrypt cost at 16 MiB memory: N=2^14, r=8, p=5. Legacy hashes
+# ("scrypt$salt$digest", p=1) still verify and are upgraded on the next successful login.
+SCRYPT = (16384, 8, 5)
+
+
+def password_hash(password: str, salt: str | None = None, params: tuple[int, int, int] = SCRYPT) -> str:
     salt = salt or secrets.token_hex(16)
-    digest = hashlib.scrypt(password.encode(), salt=bytes.fromhex(salt), n=16384, r=8, p=1).hex()
-    return f"scrypt${salt}${digest}"
+    n, r, p = params
+    digest = hashlib.scrypt(password.encode(), salt=bytes.fromhex(salt), n=n, r=r, p=p, maxmem=64 * 1024 * 1024).hex()
+    return f"scrypt${n}${r}${p}${salt}${digest}"
+
+
+def _params(stored: str) -> tuple[tuple[int, int, int], str]:
+    parts = stored.split("$")
+    if len(parts) == 3:                      # legacy format before cost parameters were stored
+        return (16384, 8, 1), parts[1]
+    return (int(parts[1]), int(parts[2]), int(parts[3])), parts[4]
+
+
+def verify_password(password: str, stored: str) -> bool:
+    params, salt = _params(stored)
+    candidate = password_hash(password, salt, params)
+    if len(stored.split("$")) == 3:
+        candidate = "scrypt$" + "$".join(candidate.split("$")[4:])
+    return hmac.compare_digest(stored, candidate)
 
 
 DUMMY_HASH = password_hash("dummy-account-password")
@@ -108,8 +129,11 @@ def login(body: Credentials, response: Response):
     with connect() as conn:
         row = conn.execute("SELECT id,email,password_hash FROM users WHERE email=?", (body.email,)).fetchone()
     stored = row[2] if row else DUMMY_HASH
-    if not hmac.compare_digest(stored, password_hash(body.password, stored.split("$")[1])) or row is None:
+    if not verify_password(body.password, stored) or row is None:
         raise HTTPException(401, "Email hoặc mật khẩu không đúng.")
+    if _params(stored)[0] != SCRYPT:
+        with connect() as conn:
+            conn.execute("UPDATE users SET password_hash=? WHERE id=?", (password_hash(body.password), row[0]))
     create_session(response, row[0])
     return {"id": row[0], "email": row[1]}
 

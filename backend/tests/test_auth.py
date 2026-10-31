@@ -102,3 +102,31 @@ def test_legacy_migration(tmp_path,monkeypatch):
     assert database.get_version('Roof',1)['reason']=='old'
     with database.connect() as conn:
         assert conn.execute('SELECT user_id FROM project_versions').fetchone()[0] is None
+
+
+def test_legacy_hash_still_logs_in_and_is_upgraded(client):
+    from app.auth import SCRYPT
+    user=register(client,'legacy@example.com')
+    salt='00'*16
+    legacy='scrypt$'+salt+'$'+hashlib.scrypt(PASSWORD.encode(),salt=bytes.fromhex(salt),n=16384,r=8,p=1).hex()
+    with database.connect() as conn:
+        conn.execute('UPDATE users SET password_hash=? WHERE id=?',(legacy,user['id']))
+    client.cookies.clear()
+    assert client.post('/api/auth/login',json={'email':user['email'],'password':'wrong-password'}).status_code==401
+    assert client.post('/api/auth/login',json={'email':user['email'],'password':PASSWORD}).status_code==200
+    with database.connect() as conn:
+        upgraded=conn.execute('SELECT password_hash FROM users WHERE id=?',(user['id'],)).fetchone()[0]
+    assert upgraded.startswith('scrypt$%d$%d$%d$'%SCRYPT)
+    client.cookies.clear()
+    assert client.post('/api/auth/login',json={'email':user['email'],'password':PASSWORD}).status_code==200
+
+
+def test_deployed_backend_reads_client_ip_from_caddy():
+    from pathlib import Path
+    root=Path(__file__).resolve().parents[2]
+    dockerfile=(root/'deploy/Dockerfile.backend').read_text(encoding='utf-8')
+    compose=(root/'compose.yaml').read_text(encoding='utf-8')
+    assert '"--proxy-headers"' in dockerfile and '"--forwarded-allow-ips"' in dockerfile
+    # Trusting forwarded headers is only safe while the backend publishes no port of its own.
+    backend=compose.split('\n  web:')[0]
+    assert 'ports:' not in backend
