@@ -119,7 +119,8 @@ def test_scene_api_exposes_source_and_actual_polygons(client):
     assert data['irradiance_source']=='pvlib_ineichen_clear_sky'
     assert data['plane_irradiance_w_m2']>0
 
-def test_no_key_returns_manual_without_fabricated_obstacles(client,monkeypatch):
+def test_no_key_returns_manual_without_fabricated_obstacles(authenticated_client,monkeypatch):
+    client=authenticated_client
     monkeypatch.setenv('AI_PROVIDER','groq');monkeypatch.delenv('GROQ_API_KEY',raising=False)
     result=client.post('/api/vision/analyze',files={'file':('roof.jpg',b'not-sent-to-ai','image/jpeg')})
     assert result.status_code==200
@@ -130,7 +131,8 @@ def image_bytes():
     from PIL import Image
     out=io.BytesIO();Image.new('RGB',(20,20),'white').save(out,format='PNG');return out.getvalue()
 
-def test_vision_cache_and_partial_photo_requires_placement(client,monkeypatch):
+def test_vision_cache_and_partial_photo_requires_placement(authenticated_client,monkeypatch):
+    client=authenticated_client
     monkeypatch.setenv('AI_PROVIDER','groq');monkeypatch.setenv('GROQ_API_KEY','test-not-real')
     vision._cache.clear();calls=[]
     class Response:
@@ -146,7 +148,8 @@ def test_vision_cache_and_partial_photo_requires_placement(client,monkeypatch):
     assert one.json()['obstacles'][0]['requires_placement']
     assert one.json()['obstacles'][0]['height_m'] is None
 
-def test_provider_rate_limit_is_not_fake_success(client,monkeypatch):
+def test_provider_rate_limit_is_not_fake_success(authenticated_client,monkeypatch):
+    client=authenticated_client
     import requests
     monkeypatch.setenv('AI_PROVIDER','groq');monkeypatch.setenv('GROQ_API_KEY','test-429');vision._cache.clear()
     def post(*a,**kw):
@@ -157,7 +160,8 @@ def test_provider_rate_limit_is_not_fake_success(client,monkeypatch):
     assert result.status_code==429
     assert 'mode' not in result.json()
 
-def test_vision_rejects_invalid_coordinates(client,monkeypatch):
+def test_vision_rejects_invalid_coordinates(authenticated_client,monkeypatch):
+    client=authenticated_client
     monkeypatch.setenv('AI_PROVIDER','groq');monkeypatch.setenv('GROQ_API_KEY','test-coords');vision._cache.clear()
     class Response:
         def raise_for_status(self):pass
@@ -167,7 +171,8 @@ def test_vision_rejects_invalid_coordinates(client,monkeypatch):
     assert result.status_code==502
 
 
-def test_vision_rejects_unrelated_image_without_geometry(client,monkeypatch):
+def test_vision_rejects_unrelated_image_without_geometry(authenticated_client,monkeypatch):
+    client=authenticated_client
     monkeypatch.setenv('AI_PROVIDER','groq');monkeypatch.setenv('GROQ_API_KEY','test-unrelated');vision._cache.clear()
     class Response:
         def raise_for_status(self):pass

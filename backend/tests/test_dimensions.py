@@ -50,7 +50,8 @@ def test_misread_label_is_flagged_and_not_used():
     assert out["notes"] and "lệch tỉ lệ" in out["notes"][0]
 
 
-def test_vision_returns_dimension_check(client, monkeypatch):  # noqa: F811
+def test_vision_returns_dimension_check(authenticated_client, monkeypatch):
+    client=authenticated_client
     monkeypatch.setenv('AI_PROVIDER', 'groq'); monkeypatch.setenv('GROQ_API_KEY', 'test-dims'); vision._cache.clear()
     payload = {'is_roof_or_plan': True, 'image_type': 'roof_drawing', 'roof_confidence': .8, 'obstacles': [],
                'dimension_labels': [_label('12000', 10, 95, 90, 95), _label('9000', 95, 10, 95, 85)]}

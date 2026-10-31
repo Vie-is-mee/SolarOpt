@@ -16,6 +16,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.auth import COOKIE, router as auth_router, optional_user, require_user
+from app.billing import router as billing_router, ProjectQuota, check_ai, record_ai
+from fastapi import Request
 from app.database import init_db, list_versions, save_version, get_version
 from app.schemas import (
     DesignRequest, DesignResult, RepairRequest, RepairResult, StressRequest, StressResult, StressPreviewRequest,
@@ -38,6 +40,7 @@ init_db()
 app = FastAPI(title="SolarOpt API", version="2.0.0", description="Bộ tính toán và trích xuất ảnh cho SolarOpt Studio")
 
 app.include_router(auth_router)
+app.include_router(billing_router)
 
 
 @app.middleware("http")
@@ -92,7 +95,7 @@ def health():
 
 
 @app.post("/api/vision/analyze", response_model=VisionResult)
-async def vision_analyze(file: UploadFile = File(...), context_files: list[UploadFile] = File(default=[]), input_kind: str = Form("drone"), roof_width_m: float | None = Form(None), roof_height_m: float | None = Form(None)):
+async def vision_analyze(file: UploadFile = File(...), context_files: list[UploadFile] = File(default=[]), input_kind: str = Form("drone"), roof_width_m: float | None = Form(None), roof_height_m: float | None = Form(None), user=Depends(require_user)):
     if input_kind not in {"drone", "plan", "partial"}:
         raise HTTPException(422, "Loại đầu vào không hợp lệ.")
     if len(context_files)>2:
@@ -105,10 +108,15 @@ async def vision_analyze(file: UploadFile = File(...), context_files: list[Uploa
         if upload.content_type not in {"image/jpeg","image/png","image/webp","application/pdf"}:
             raise HTTPException(415, "Chỉ hỗ trợ JPG/PNG/WEBP/PDF.")
         files.append((data,upload.content_type))
+    check_ai(user)
     try:
-        return await run_in_threadpool(analyze_images,files,input_kind,roof_width_m,roof_height_m)
+        result = await run_in_threadpool(analyze_images,files,input_kind,roof_width_m,roof_height_m)
     except VisionError as exc:
         raise HTTPException(exc.status,str(exc)) from exc
+    # Cached and "AI not configured" answers cost nothing, so they do not use the quota.
+    if result.mode != "manual" and not result.cached:
+        record_ai(user)
+    return result
 
 
 @app.post("/api/solar/scene")
@@ -164,8 +172,12 @@ def get_irradiance(
 
 
 @app.post("/api/design/generate", response_model=DesignResult)
-def design_generate(req: DesignRequest, user=Depends(optional_user)):
+def design_generate(req: DesignRequest, request: Request, user=Depends(optional_user)):
+    quota = ProjectQuota(request, user, req.config.project_name)
+    quota.check()
     result = generate_design(req)
+    if result.panels:
+        quota.record()
     if user:
         save_version(req.config.project_name, "design", f"Thiết kế: {req.objective}", {"config":req.config.model_dump(),"panel":req.panel.model_dump(),"obstacles": [o.model_dump() for o in req.obstacles],"design":result.model_dump(),"evidence":req.evidence.model_dump(mode='json') if req.evidence else None}, user_id=user["id"])
     return result
@@ -192,7 +204,9 @@ def validate_project(req: DesignRequest):
 
 
 @app.post("/api/design/repair", response_model=RepairResult)
-def design_repair(req: RepairRequest, user=Depends(optional_user)):
+def design_repair(req: RepairRequest, request: Request, user=Depends(optional_user)):
+    quota = ProjectQuota(request, user, req.config.project_name)
+    quota.check()
     changed = []
     before = {o.id: o for o in req.obstacles_before}
     after = {o.id: o for o in req.obstacles_after}
@@ -236,6 +250,8 @@ def design_repair(req: RepairRequest, user=Depends(optional_user)):
         save_version(req.config.project_name, "repair", f"Self-heal after {changed_input}", {
             "config":req.config.model_dump(),"panel":req.panel.model_dump(),"obstacles":[o.model_dump() for o in req.obstacles_after],"impact": impact.model_dump(), "design": design.model_dump(), "verification": verification.model_dump(),"evidence":req.evidence.model_dump(mode='json') if req.evidence else None
         }, user_id=user["id"])
+    if design.panels:
+        quota.record()
     return RepairResult(impact=impact, design=design, verification=verification)
 
 

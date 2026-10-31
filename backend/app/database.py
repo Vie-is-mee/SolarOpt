@@ -42,6 +42,15 @@ def init_db() -> None:
         if "user_id" not in {row[1] for row in conn.execute("PRAGMA table_info(project_versions)")}:
             conn.execute("ALTER TABLE project_versions ADD COLUMN user_id INTEGER REFERENCES users(id)")
         conn.execute("CREATE INDEX IF NOT EXISTS versions_owner_project ON project_versions(user_id, project_name, id)")
+        # Freemium plans (app/billing.py): plan per user, usage events, upgrade requests.
+        user_columns = {row[1] for row in conn.execute("PRAGMA table_info(users)")}
+        if "plan" not in user_columns:
+            conn.execute("ALTER TABLE users ADD COLUMN plan TEXT NOT NULL DEFAULT 'free'")
+        if "plan_until" not in user_columns:
+            conn.execute("ALTER TABLE users ADD COLUMN plan_until INTEGER")
+        conn.execute("CREATE TABLE IF NOT EXISTS usage_events (id INTEGER PRIMARY KEY, owner TEXT NOT NULL, kind TEXT NOT NULL, project_key TEXT, created_at INTEGER NOT NULL)")
+        conn.execute("CREATE INDEX IF NOT EXISTS usage_owner_kind ON usage_events(owner, kind, created_at)")
+        conn.execute("CREATE TABLE IF NOT EXISTS upgrade_requests (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, plan TEXT NOT NULL, note TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'pending', created_at INTEGER NOT NULL)")
         conn.commit()
 
 
