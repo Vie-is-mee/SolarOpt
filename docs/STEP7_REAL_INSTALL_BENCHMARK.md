@@ -36,8 +36,22 @@ Chạy lại: `python scripts/benchmark_real_installs.py` (từ thư mục `back
 3. **Ở chế độ tối đa SolarOpt đặt gấp khoảng 3 lần diện tích pin thật.** Lý do: không có vật cản trong dữ liệu; mái bằng ở Anh thường dùng giá nghiêng xếp hàng có khoảng cách tránh bóng giữa các hàng, SolarOpt hiện đặt phẳng sát nhau; ngân sách, tải mái và nhu cầu điện của chủ công trình không có trong dữ liệu.
 4. Không dùng kết quả này để quảng cáo “bố trí giống thực tế”. Kết luận đúng là: vùng khả dụng hợp lý, nhưng **thiếu quy tắc ưu tiên vị trí khi sản lượng ngang nhau** và **thiếu mô hình hàng giá nghiêng** cho mái bằng.
 
+## Cập nhật 31/10/2026: tiêu chí ưu tiên vị trí khi sản lượng ngang nhau
+
+Thêm điểm phụ cho mỗi vị trí: 1 ở tâm phần mái, giảm dần về 0 ở mép xa nhất. Điểm phụ tối đa 0,3% điểm sản lượng của tấm, nên bộ tối ưu không bao giờ đổi quá 0,3% sản lượng chỉ để dời tấm. Quy tắc áp dụng chung cho mọi mái, không chỉnh riêng cho 4 ca. Thêm mốc so sánh công bằng hơn cho chế độ cùng diện tích: **đặt ngẫu nhiên cùng số tấm** trong các vị trí khả thi của SolarOpt (trung bình 30 lần rút cố định).
+
+| OSM way | IoU trước | IoU sau | Ngẫu nhiên cùng số tấm |
+|---|---:|---:|---:|
+| 733416878 | 0,192 | 0,143 | 0,198 |
+| 780007669 | 0,506 | 0,526 | 0,472 |
+| 516819627 | 0,331 | 0,216 | 0,327 |
+| 780007667 | 0,000 | 0,337 | 0,152 |
+| **Trung bình** | **0,257** | **0,305** | **0,287** |
+
+Kết luận: trung bình cải thiện 0,048 nhưng chỉ nhỉnh hơn đặt ngẫu nhiên 0,018; hai mái tốt lên, hai mái kém đi. Gom về tâm mái **không phải** cách các đơn vị lắp đặt ở đây đã chọn. Vẫn giữ quy tắc vì nó cho bố trí liền khối thay vì rải rác khi ngân sách giới hạn (dễ đi dây, chừa lối đi), nhưng không tinh chỉnh thêm cho khớp 4 ca. Muốn tiến xa hơn cần dữ liệu vật cản, lối đi và thiết bị trên mái.
+
 ## Việc nên làm tiếp (đề xuất, chưa triển khai)
 
-- Thêm tiêu chí phụ khi sản lượng ngang nhau: gom tấm thành khối liền, ưu tiên cách xa mép, giữ lối đi — rồi chạy lại benchmark này, không chỉnh riêng cho 4 ca.
+- Bổ sung ca có vẽ vật cản/lối đi để kiểm tra tiêu chí ưu tiên vị trí trong điều kiện thật; không tinh chỉnh tham số theo 4 ca hiện có.
 - Mô hình hàng giá nghiêng trên mái bằng (khoảng cách hàng theo góc mặt trời thấp nhất), phần đã nêu trong lộ trình mục 11.
 - Bổ sung ca có vật cản và ca tại Việt Nam có bản vẽ thi công từ đơn vị lắp đặt (cần xin phép sử dụng).
