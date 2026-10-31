@@ -62,7 +62,8 @@ def test_template_endpoint_rejects_unknown_shape(client):  # noqa: F811
     assert len(ok["roof_faces"]) == 4
 
 
-def test_vision_reports_roof_shape_and_drops_invalid_values(client, monkeypatch):  # noqa: F811
+def test_vision_reports_roof_shape_and_drops_invalid_values(authenticated_client, monkeypatch):
+    client=authenticated_client
     monkeypatch.setenv('AI_PROVIDER', 'groq'); monkeypatch.setenv('GROQ_API_KEY', 'test-shape'); vision._cache.clear()
     payload = {'is_roof_or_plan': True, 'roof_confidence': .7, 'obstacles': [], 'roof_shape': 'gable', 'ridge_axis': 'diagonal', 'rise_m': -3}
 

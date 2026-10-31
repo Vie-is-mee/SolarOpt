@@ -3,6 +3,7 @@ import App from './App'
 import {Icon} from './components/Icon'
 import {accountIdentity,setDraftOwner} from './draftOwner'
 import './account.css'
+import {PlanCenter} from './components/PlanCenter'
 
 type User={id:number;email:string}
 const base=import.meta.env.VITE_API_BASE||''
@@ -85,6 +86,7 @@ export default function Account(){
  return <>
   <div className="account-shell"><section className="account-bar" aria-label="Tài khoản">
    <span>{user?user.email:'Chế độ khách · đăng nhập để lưu lịch sử riêng'}</span>
+   <PlanCenter signedIn={!!user} onLogin={()=>{setMode('register');setError('')}}/>
    {user?<button className="button secondary small" disabled={busy} onClick={logout}>Đăng xuất</button>:<button className="button secondary small" onClick={()=>{setMode('login');setError('')}}>Đăng nhập / Đăng ký</button>}
    {error&&!mode&&<span role="alert">{error}</span>}
   </section></div>

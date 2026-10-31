@@ -21,3 +21,15 @@
 @media(max-width:600px){.account-bar{padding:10px 16px;justify-content:space-between}.account-form{padding:28px 24px}.account-form h2{font-size:22px}}
 @media(max-width:480px){.account-shell{margin-left:54px}}
 @media print{.account-shell,.account-dialog,.account-dialog::backdrop{display:none!important}}
+.plan-meter{font-size:12px;color:#48614f;padding:4px 10px;border:1px solid var(--line,#dce3df);border-radius:999px;background:#f6f9f3}
+.plan-meter.empty{color:#a35e4d;border-color:#efd2c6;background:#fbebe5}
+.plan-dialog{width:min(860px,calc(100vw - 32px))}.plan-dialog.wide{width:min(1100px,calc(100vw - 32px))}
+.plan-body{padding:32px;display:grid;gap:14px}.plan-body h2{font-size:22px;margin:0;padding-right:36px}
+.plan-note{font-size:13px;line-height:1.6;color:#48614f;margin:0}.plan-ok{color:#287453;font-size:13px}
+.plan-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.plan-grid article{border:1px solid var(--line,#dce3df);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:8px}
+.plan-grid article.current{border-color:#9bb18c;background:#f4f8ee}.plan-grid h3{margin:0;font-size:16px}.plan-grid strong{font-size:18px;color:#286b4f}
+.plan-grid ul{margin:0;padding-left:18px;font-size:13px;line-height:1.7;color:#48614f;flex:1}.plan-grid .button,.plan-grid .badge{align-self:flex-start}
+.admin-table{width:100%;border-collapse:collapse;font-size:13px}.admin-table th,.admin-table td{text-align:left;padding:8px;border-bottom:1px solid var(--line,#dce3df);vertical-align:middle}
+.admin-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.admin-actions select{width:auto;min-height:32px;padding:4px 8px}
+@media(max-width:600px){.plan-body{padding:28px 18px}}

@@ -12,6 +12,8 @@ async function request<T>(path:string,body?:unknown,signal?:AbortSignal):Promise
     throw error
   }
   if(response.status===401&&typeof window!=='undefined')window.dispatchEvent(new CustomEvent('solaropt-auth-required',{detail:identity}))
+  // Quota: 402 opens the plan dialog; billable calls refresh the usage meter.
+  if(typeof window!=='undefined'){if(response.status===402)window.dispatchEvent(new Event('solaropt-quota'));else if(response.ok&&/^\/api\/(design\/(generate|repair)|vision\/analyze)/.test(path))window.dispatchEvent(new Event('solaropt-usage'))}
   if(!response.ok){let detail='';try{const data=await response.json();detail=typeof data.detail==='string'?data.detail:JSON.stringify(data.detail)}catch{}throw new Error(detail||`Yêu cầu chưa thành công (${response.status}).`)}
   return response.json()
 }

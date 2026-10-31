@@ -27,3 +27,23 @@ Reference: [Python scrypt](https://docs.python.org/3/library/hashlib.html#hashli
 The popup supports Escape, backdrop dismissal, keyboard focus containment and a guest-mode action. Dismissal is disabled while an auth request is pending. See [Vercel deployment assessment](VERCEL_DEPLOYMENT.md) before deploying the SQLite-backed API to serverless hosting.
 
 Account changes are synchronized between tabs and revalidated on focus. Expired or revoked sessions return 401 instead of silently downgrading a signed-in calculation to an unsaved guest calculation. Invalid cookies are cleared, and the UI offers login again. Browser drafts remain under their original account key.
+
+
+## Gói sử dụng và hạn mức (freemium)
+
+Mã: `backend/app/billing.py`, giao diện `frontend/src/components/PlanCenter.tsx`.
+
+| Gói | Giá dự kiến | Dự án tính phương án | AI đọc ảnh |
+|---|---|---|---|
+| Khách (chưa đăng nhập) | 0 đ | 2 dự án mỗi ngày theo IP (`SOLAROPT_GUEST_DAILY_PROJECTS`) | Không (cần đăng nhập) |
+| Miễn phí | 0 đ | 5 dự án tổng cộng | 10 lượt / 30 ngày |
+| Cá nhân Pro | 399.000 đ/tháng | 30 dự án / 30 ngày | 100 lượt / 30 ngày |
+| Doanh nghiệp | 2.500.000 đ/tháng | 300 dự án / 30 ngày | 1.000 lượt / 30 ngày |
+
+- **Một lượt = một dự án mới được tính phương án thành công.** Tính lại, sửa phương án hoặc so sánh 3 mục tiêu của cùng dự án (cùng tên, không phân biệt hoa thường/khoảng trắng) không trừ thêm. Đổi tên dự án sẽ tính là dự án mới.
+- AI đọc ảnh trừ một lượt mỗi lần gọi nhà cung cấp; kết quả lấy từ bộ nhớ đệm và trường hợp chưa cấu hình AI không trừ.
+- Hết lượt: máy chủ trả 402, giao diện mở bảng gói.
+- **Nâng cấp:** chưa tích hợp thanh toán. Người dùng bấm “Gửi yêu cầu nâng cấp”; quản trị viên (email trong `SOLAROPT_ADMIN_EMAILS`, phân cách bằng dấu phẩy) mở trang Quản trị, xem mức dùng và yêu cầu, rồi đặt gói 1–12 tháng. Hết hạn tự quay về gói Miễn phí.
+- Giá là giả thuyết cần kiểm chứng với khách hàng; sửa ở một chỗ trong `PLANS`.
+
+API: `GET /api/account/usage`, `POST /api/account/upgrade-request`, `GET /api/admin/users`, `POST /api/admin/users/{id}/plan`.
