@@ -72,3 +72,20 @@ def test_vision_reports_roof_shape_and_drops_invalid_values(client, monkeypatch)
     monkeypatch.setattr(vision.requests, 'post', lambda *a, **kw: Response())
     body = client.post('/api/vision/analyze', files={'file': ('roof.png', image_bytes(), 'image/png')}).json()
     assert body['roof_shape'] == 'gable' and body['ridge_axis'] == 'unknown' and body['rise_m'] is None
+
+
+def test_sloped_faces_use_plan_footprint_and_fit_more_panels():
+    cfg, _, _ = with_faces("gable", "x", rise=2.5)
+    design = generate_design(DesignRequest(config=cfg, panel=PANEL, obstacles=[], objective="max_energy"))
+    c = math.cos(math.atan2(2.5, 5))
+    sides = {round(v, 4) for p in design.panels for v in (p.width_m, p.height_m)}
+    assert sides <= {round(PANEL.width_m, 4), round(PANEL.height_m, 4), round(PANEL.width_m * c, 4), round(PANEL.height_m * c, 4)}
+    assert any(abs(v - PANEL.width_m * c) < 1e-4 or abs(v - PANEL.height_m * c) < 1e-4 for v in sides)
+    assert design.metrics.panel_count >= 48
+    assert verify_design(VerifyRequest(config=cfg, panel=PANEL, obstacles=[], design=design)).valid
+    # The same layout drawn with physical sizes on the slope must not pass the consistency check.
+    physical = design.model_copy(deep=True)
+    for p in physical.panels:
+        p.width_m, p.height_m = (PANEL.width_m, PANEL.height_m) if p.width_m <= p.height_m else (PANEL.height_m, PANEL.width_m)
+    checks = {c.id: c.status for c in verify_design(VerifyRequest(config=cfg, panel=PANEL, obstacles=[], design=physical)).checks}
+    assert checks["result_consistency"] == "FAIL"

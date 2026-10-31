@@ -12,8 +12,9 @@ def _run(name: str, sid: str, req: StressRequest, cfg, obstacles, panel, detail:
     # Test the ORIGINAL layout; do not optimize a different design and call it robust.
     design = req.design.model_copy(deep=True)
     for p in design.panels:
-        p.width_m = panel.width_m
-        p.height_m = panel.height_m
+        # Keep each panel's plan footprint (shrunk on slopes), scaled by the scenario's size change.
+        p.width_m *= panel.width_m / req.panel.width_m
+        p.height_m *= panel.height_m / req.panel.height_m
     context, _ = recalculate_panels(cfg, panel, obstacles, design.panels)
     design.metrics = summarize(cfg, panel, design.panels, context.geometry.roof.area)
     ver = verify_design(VerifyRequest(config=cfg, panel=panel, obstacles=obstacles, design=design, sun=req.sun), energy_context=context)

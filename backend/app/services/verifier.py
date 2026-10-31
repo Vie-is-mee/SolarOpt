@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 
 from app.schemas import CheckResult, VerifyRequest, VerifyResult
-from app.services.geometry import build_context, panel_shape, overlap_ratio, installable_regions
+from app.services.geometry import build_context, panel_shape, overlap_ratio, installable_regions, footprint_dims
 from app.services.energy import EnergyContext, summarize
 
 
@@ -72,7 +72,12 @@ def verify_design(req: VerifyRequest, *, energy_context=None) -> VerifyResult:
                   'roof_utilization_pct':.051}
     consistent = req.design.metrics.panel_count == len(panels) and len({p.id for p in panels}) == len(panels)
     consistent = consistent and all(math.isclose(getattr(req.design.metrics, key), getattr(expected, key), abs_tol=tol, rel_tol=0) for key,tol in tolerances.items())
-    consistent = consistent and all(abs(p.width_m-req.panel.width_m)<1e-5 and abs(p.height_m-req.panel.height_m)<1e-5 for p in panels)
+    faces = {s.id: s for s in ctx.surfaces}
+    def footprint_ok(p, face_id):
+        # Plan footprint must equal the physical panel, shrunk by cos(tilt) along the fall line on sloped faces.
+        dims = footprint_dims(req.panel.width_m, req.panel.height_m, p.rotation_deg % 180, faces.get(face_id), req.config)
+        return dims is not None and abs(p.width_m-dims[0]) < 1e-5 and abs(p.height_m-dims[1]) < 1e-5
+    consistent = consistent and all(footprint_ok(p, r.face_id) for p, r in zip(panels, recalculated))
     consistent = consistent and all(abs(a.annual_energy_kwh-b.annual_energy_kwh)<=.0051 and abs(a.shading_loss_pct-b.shading_loss_pct)<=.0051 and a.face_id==b.face_id for a,b in zip(panels,recalculated))
     checks.append(CheckResult(id="result_consistency",label="Kết quả khớp dữ liệu tấm pin",status="PASS" if consistent else "FAIL",detail="Máy chủ đã tính lại công suất, sản lượng từng tấm, bóng đại diện, diện tích, số lượng và chi phí." if consistent else "Số liệu hoặc mặt mái của tấm không khớp phép tính độc lập trên máy chủ; cần tính lại phương án."))
     if req.design.objective=='min_cost':

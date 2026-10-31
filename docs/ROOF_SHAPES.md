@@ -39,18 +39,25 @@ Hướng mở rộng khi có dữ liệu tốt hơn (chưa triển khai): ảnh 
 | Dạng mái | Số mặt | Số tấm | Ghi chú |
 |---|---:|---:|---|
 | Mái bằng | 1 | 42 | |
-| Mái một dốc 8,5° | 1 | 42 | |
-| Mái chữ A 26,6° | 2 | 35 | Mặt hướng Nam 21 tấm, hướng Bắc 14 tấm |
-| Mái 4 dốc 26,6° | 4 | 17 | Lùi mép ở mọi đường nóc/đường hồi |
+| Mái một dốc 8,5° | 1 | 42 → **48** | Sau khi tính kích thước chiếu bằng theo độ dốc |
+| Mái chữ A 26,6° (nóc ngang) | 2 | 36 → **48** | |
+| Mái chữ A 26,6° (nóc dọc) | 2 | 35 → **42** | |
+| Mái 4 dốc 26,6° | 4 | 17 → **30** | Lùi mép ở mọi đường nóc/đường hồi |
 | Vòm cung cao 1,2 m | 8 | 42 | Lệch 3,5 cm |
 | Vòm cung cao 2,5 m | 8 | 42 | Lệch 12,7 cm → cảnh báo ray uốn/tấm dẻo |
 | Vòm parabol cao 3 m | 13 | 36 | Lệch 2,9 cm |
 
 Mọi phương án trên đều đạt kiểm tra (biên mái, chồng tấm, khe, sản lượng).
 
-## 5. Giới hạn hiện tại
+## 5. Kích thước tấm trên mặt dốc (cập nhật 31/10/2026)
 
-- Kích thước tấm trên mặt dốc vẫn tính theo mặt bằng, chưa co theo độ dốc (cos góc dốc) → số tấm trên mái dốc có thể **thấp hơn** thực tế (an toàn). Sửa cần lưới xếp riêng cho từng mặt.
+Tấm nằm trên mặt dốc có hình chiếu bằng ngắn hơn theo chiều dốc: cạnh chạy dọc chiều dốc nhân cos(góc dốc). Mỗi mặt dốc (> 1°) giờ có lưới xếp riêng, đặt theo đường đồng mức của mặt đó (tấm nằm ngang hoặc dọc theo chiều dốc). `width_m`/`height_m` của tấm trong kết quả là **kích thước trên mặt bằng**; bước kiểm tra chấp nhận đúng kích thước tấm thật đã co theo độ dốc của mặt chứa nó và từ chối kích thước khác. Khe giữa tấm vẫn đo trên mặt bằng (an toàn hơn).
+
+Đánh đổi khi thử sai số: mái chữ A ở chế độ “sản lượng cao nhất” xếp được 48 tấm (trước 36) nhưng sát hơn nên không qua thêm tình huống “mái nhỏ đi 2%”; chế độ “dự phòng sai số” vẫn 36 tấm và đạt cả 8 tình huống.
+
+## 6. Giới hạn hiện tại
+
+- Mái vòm chưa tăng số tấm vì dải vẫn chia theo bước tấm trên mặt bằng; chia theo chiều dài cung sẽ tăng thêm.
 - Mái vòm cầu (dome), mái lượn sóng, mái răng cưa chưa có mẫu; có thể vẽ từng phần mái thủ công.
 - Mẫu tạo theo khung chữ nhật rồi cắt theo biên mái; mái không vuông cần kiểm tra lại đường nóc.
 - Độ chính xác nhận dạng dạng mái của AI chưa được đo trên ảnh thật.
