@@ -15,6 +15,7 @@ export type Config = {
   target_energy_kwh_year?:number|null;
   layout_edge_reserve_m?:number;
   layout_angle_deg?:number|null;
+  mounting?:'flush'|'tilted_rack'|'tracker';rack_tilt_deg?:number;rack_azimuth_deg?:number;tracker_gcr?:number;tracker_max_angle_deg?:number;
   dimensions_source?: 'assumed'|'reference'|'measured'; dimensions_verified?: boolean; calibration_reference_m?: number|null;
   measurement_image_width_px?: number|null; measurement_image_height_px?: number|null;
   project_name:string; latitude:number; longitude:number; roof_width_m:number; roof_height_m:number;

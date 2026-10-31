@@ -1,6 +1,7 @@
 from __future__ import annotations
 import math
 from dataclasses import dataclass,field
+from functools import lru_cache
 from shapely.affinity import rotate,scale
 from shapely.geometry import Polygon,Point,box
 from shapely.ops import unary_union
@@ -18,6 +19,10 @@ class Surface:
     origin_y:float=0
     installable:bool=True
     group:str|None=None
+    # Panel mounting on a flat face: None (flush), 'tilted_rack' or 'tracker'; set by build_context.
+    mount:str|None=None
+    mount_tilt:float=0
+    mount_azimuth:float=180
 
 @dataclass
 class GeometryContext:
@@ -222,6 +227,12 @@ def installable_regions(planes,margin):
 def build_context(config:ProjectConfig,obstacles:list[RectObstacle],sun:SunPosition|None)->GeometryContext:
     config=with_obstacle_tops(config,obstacles)
     roof=roof_polygon(config);planes=surfaces(config)
+    if config.mounting!='flush':
+        for s in planes:
+            if s.installable and s.tilt<=SLOPED_TILT:
+                s.mount=config.mounting
+                # Trackers rotate about a N-S axis; an east-facing virtual plane gives that row direction.
+                s.mount_tilt,s.mount_azimuth=(config.rack_tilt_deg,config.rack_azimuth_deg) if config.mounting=='tilted_rack' else (0.0,90.0)
     usable_parts=[region for _,region in installable_regions(planes,config.setback_m)]
     usable=unary_union(usable_parts) if usable_parts else Polygon()
     def blocked(o):
@@ -253,20 +264,67 @@ SLOPED_TILT=1.0
 
 
 def contour_angle(surface,config):
-    """Drawing direction (degrees, CCW from +x, mod 180) along which a face stays level."""
-    return (-(surface.azimuth-config.north_rotation_deg))%180
+    """Drawing direction (degrees, CCW from +x, mod 180) along which panel rows stay level: the face
+    contour, or for racks/trackers on a flat face the row direction of the mounting."""
+    azimuth=surface.mount_azimuth if getattr(surface,'mount',None) else surface.azimuth
+    return (-(azimuth-config.north_rotation_deg))%180
+
+
+def own_grid(surface):
+    """Faces whose panels follow their own row direction instead of the roof-wide grid."""
+    return surface.tilt>SLOPED_TILT or getattr(surface,'mount',None) is not None
 
 
 def footprint_dims(width,height,angle,surface,config):
-    """Plan footprint of a physical width x height panel lying on a face, its local x axis at angle.
-    The side running down the fall line shrinks by cos(tilt). Panels on sloped faces are only laid
-    along or across the fall line; any other angle returns None."""
-    c=math.cos(math.radians(surface.tilt)) if surface is not None else 1.0
-    if surface is None or surface.tilt<=SLOPED_TILT:return width,height
+    """Plan footprint of a physical width x height panel, its local x axis at angle.
+    On a sloped face or a tilted rack the side running down the fall line shrinks by cos(tilt);
+    trackers keep the full footprint (flat at noon). Such panels are laid only along or across the
+    row direction; any other angle returns None."""
+    if surface is None or not own_grid(surface):return width,height
+    mount=getattr(surface,'mount',None)
+    tilt=surface.mount_tilt if mount=='tilted_rack' else 0.0 if mount=='tracker' else surface.tilt
+    c=math.cos(math.radians(tilt))
     d=abs((angle-contour_angle(surface,config)+90)%180-90)
     if d<.01:return width,height*c
     if abs(d-90)<.01:return width*c,height
     return None
+
+
+def rack_row_pitch(slope_len,config):
+    """Row pitch (plan, along the rack azimuth) so the row in front casts no shadow on the next row
+    on the winter solstice between 9:00 and 15:00, the usual design window for fixed racks."""
+    return _rack_pitch(round(slope_len,6),config.latitude,config.longitude,config.rack_tilt_deg,config.rack_azimuth_deg)
+
+
+@lru_cache(maxsize=512)
+def _rack_pitch(slope_len,latitude,longitude,tilt,azimuth):
+    from datetime import date
+    from app.schemas import SunRequest
+    from app.services.solar import sun_position
+    beta=math.radians(tilt);height=slope_len*math.sin(beta)
+    day=date(2026,12,21) if latitude>=0 else date(2026,6,21)
+    shadow=0.0
+    for step in range(13):
+        sun=sun_position(SunRequest(latitude=latitude,longitude=longitude,date=day,hour_local=9+step*.5))
+        if sun.altitude_deg<=1:continue
+        facing=math.cos(math.radians(sun.azimuth_deg-azimuth))
+        if facing>0:shadow=max(shadow,height*facing/math.tan(math.radians(sun.altitude_deg)))
+    return slope_len*math.cos(beta)+shadow
+
+
+def row_spacing(width,height,angle,surface,config):
+    """(sx, sy) grid steps for a panel at angle: gap between panels along a row, and the row pitch
+    across rows (rack shading pitch, tracker 1/GCR spacing, or plain gap otherwise)."""
+    dims=footprint_dims(width,height,angle,surface,config)
+    if dims is None:return None
+    pw,ph=dims;gap=config.panel_gap_m
+    mount=getattr(surface,'mount',None) if surface is not None else None
+    if mount is None:return pw+gap,ph+gap
+    across_rows_y=abs((angle-contour_angle(surface,config)+90)%180-90)<.01   # local y runs across rows
+    slope_len=height if across_rows_y else width
+    pitch=rack_row_pitch(slope_len,config) if mount=='tilted_rack' else slope_len/config.tracker_gcr
+    pitch=max(pitch,(ph if across_rows_y else pw)+gap)
+    return (pw+gap,pitch) if across_rows_y else (pitch,ph+gap)
 
 
 def panel_shape(x,y,width,height,rotation_deg=0):

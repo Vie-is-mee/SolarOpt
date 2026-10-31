@@ -54,7 +54,7 @@ async def private_responses(request, call_next):
 
 
 compute_slots = BoundedSemaphore(max(1, int(os.getenv("SOLAROPT_MAX_COMPUTE", "1"))))
-heavy_paths = {"/api/design/stress-preview", "/api/design/generate", "/api/design/repair", "/api/design/stress-test", "/api/uncertainty/evaluate", "/api/roof/trace", "/api/vision/analyze"}
+heavy_paths = {"/api/design/mounting-compare", "/api/design/stress-preview", "/api/design/generate", "/api/design/repair", "/api/design/stress-test", "/api/uncertainty/evaluate", "/api/roof/trace", "/api/vision/analyze"}
 
 
 @app.middleware("http")
@@ -180,6 +180,17 @@ def design_generate(req: DesignRequest, request: Request, user=Depends(optional_
         quota.record()
     if user:
         save_version(req.config.project_name, "design", f"Thiết kế: {req.objective}", {"config":req.config.model_dump(),"panel":req.panel.model_dump(),"obstacles": [o.model_dump() for o in req.obstacles],"design":result.model_dump(),"evidence":req.evidence.model_dump(mode='json') if req.evidence else None}, user_id=user["id"])
+    return result
+
+
+@app.post("/api/design/mounting-compare")
+def design_mounting_compare(req: DesignRequest, request: Request, user=Depends(optional_user)):
+    from app.services.mounting import compare_mountings
+    quota = ProjectQuota(request, user, req.config.project_name)
+    quota.check()
+    result = compare_mountings(req)
+    if any(o["panels"] for o in result["options"]):
+        quota.record()
     return result
 
 
