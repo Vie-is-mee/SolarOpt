@@ -49,12 +49,34 @@ def _plane_sum(latitude, longitude, tilt, azimuth):
     return float((poa.to_numpy() * weights).sum()) / 1000
 
 
+@lru_cache(maxsize=256)
+def _tracker_sum(latitude, longitude, gcr, max_angle):
+    """Clear-sky plane-of-array sum for a horizontal 1-axis tracker on a N-S axis, with backtracking
+    so rows never shade each other (pvlib); same representative days and weights as _plane_sum."""
+    import pvlib
+    position, sky, weights = _sky(latitude, longitude)
+    track = pvlib.tracking.singleaxis(position.apparent_zenith, position.azimuth, axis_tilt=0, axis_azimuth=180,
+                                      max_angle=max_angle, backtrack=True, gcr=gcr)
+    poa = pvlib.irradiance.get_total_irradiance(
+        track["surface_tilt"].fillna(0), track["surface_azimuth"].fillna(180), position.apparent_zenith, position.azimuth,
+        sky.dni, sky.ghi, sky.dhi,
+    )["poa_global"].fillna(0).clip(lower=0)
+    return float((poa.to_numpy() * weights).sum()) / 1000
+
+
 def plane_annual_irradiance(cfg, surface):
+    """Annual irradiance on the panels of a face: the face itself, a tilted rack, or a tracker."""
     reference = _plane_sum(cfg.latitude, cfg.longitude,
                            cfg.irradiance_reference_tilt_deg, cfg.irradiance_reference_azimuth_deg)
     if reference <= 0:
         raise ValueError("Không xác định được bức xạ trên mặt tham chiếu; kiểm tra vị trí và hướng.")
-    target = _plane_sum(cfg.latitude, cfg.longitude, surface.tilt, surface.azimuth)
+    mount = getattr(surface, "mount", None)
+    if mount == "tracker":
+        target = _tracker_sum(cfg.latitude, cfg.longitude, round(cfg.tracker_gcr, 4), cfg.tracker_max_angle_deg)
+    elif mount == "tilted_rack":
+        target = _plane_sum(cfg.latitude, cfg.longitude, surface.mount_tilt, surface.mount_azimuth)
+    else:
+        target = _plane_sum(cfg.latitude, cfg.longitude, surface.tilt, surface.azimuth)
     return cfg.annual_irradiance_kwh_m2 * target / reference
 
 

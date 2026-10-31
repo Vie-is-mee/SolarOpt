@@ -26,7 +26,12 @@ def area_upper_bound(cfg, spec, ctx):
     if ctx.obstacle_union is not None and not ctx.obstacle_union.is_empty:
         free = free.difference(ctx.obstacle_union)
     area = max(0.0, free.area)
-    return round(area, 2), int(area // (spec.width_m * spec.height_m))
+    # Panels on slopes or tilted racks occupy only cos(tilt) of their area in plan; use the smallest
+    # footprint so the bound stays an upper bound on every face.
+    tilts = [s.mount_tilt if getattr(s, "mount", None) == "tilted_rack" else 0.0 if getattr(s, "mount", None) else s.tilt
+             for s in ctx.surfaces if s.installable] or [0.0]
+    footprint = spec.width_m * spec.height_m * min(math.cos(math.radians(t)) for t in tilts)
+    return round(area, 2), int(area // footprint)
 
 
 def describe_goal(req, result):

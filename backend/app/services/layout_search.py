@@ -9,7 +9,7 @@ from time import perf_counter
 from shapely import prepare
 from shapely.affinity import rotate
 from app.schemas import CandidatePanel
-from app.services.geometry import panel_shape, overlap_ratio, _parts, TOP_PREFIX, installable_regions, contour_angle, footprint_dims, SLOPED_TILT
+from app.services.geometry import panel_shape, overlap_ratio, _parts, TOP_PREFIX, installable_regions, contour_angle, footprint_dims, row_spacing, own_grid
 from app.services.energy import EnergyContext
 from app.services.design_policy import capacity, select_for_target, robust_contexts, robust_position
 
@@ -68,7 +68,7 @@ def search_layouts(req, ctx, shade_contexts, *, budget_seconds=25., diagnostics=
     regions=installable_regions(ctx.surfaces,margin)
     # Obstacle tops and sloped faces get their own grid: tops sit inside a blocked footprint, and on a
     # slope the panel's plan footprint shrinks along the fall line, so it must follow that face's contour.
-    own=lambda s:s.id.startswith(TOP_PREFIX) or s.tilt>SLOPED_TILT
+    own=lambda s:s.id.startswith(TOP_PREFIX) or own_grid(s)
     surfaces=[(s,r) for s,r in regions if not own(s)]
     tops=[(s,r) for s,r in regions if own(s)]
     centres={s.id:_face_centre(region) for s,region in surfaces+tops}
@@ -186,7 +186,7 @@ def _best_top_grid(req,ctx,energy_context,surface,region,tag,robust,centre=None)
     cfg,spec=req.config,req.panel
     region=region.intersection(surface.polygon.buffer(-cfg.panel_gap_m/2,join_style=2))
     if region.is_empty:return []
-    if surface.tilt>SLOPED_TILT:
+    if own_grid(surface):
         level=round(contour_angle(surface,cfg),3);angles={level,round((level+90)%180,3)}
     else:
         edge=max(zip(region.minimum_rotated_rectangle.exterior.coords,list(region.minimum_rotated_rectangle.exterior.coords)[1:]),
@@ -197,12 +197,15 @@ def _best_top_grid(req,ctx,energy_context,surface,region,tag,robust,centre=None)
     for angle in sorted(angles):
         radians=math.radians(angle);co,si=math.cos(radians),math.sin(radians)
         minx,miny,maxx,maxy=rotate(region,-angle,origin=(0,0)).bounds
-        pw,ph=footprint_dims(spec.width_m,spec.height_m,angle,surface,cfg)
-        sx,sy=pw+cfg.panel_gap_m,ph+cfg.panel_gap_m
+        # Round once, before building shapes, so stored panels are exactly the shapes that were checked.
+        pw,ph=(round(v,6) for v in footprint_dims(spec.width_m,spec.height_m,angle,surface,cfg))
+        sx,sy=row_spacing(spec.width_m,spec.height_m,angle,surface,cfg)
         if robust:sx+=pw*.01;sy+=ph*.01
-        nx,ny=int((maxx-minx+cfg.panel_gap_m+1e-7)//sx),int((maxy-miny+cfg.panel_gap_m+1e-7)//sy)
+        # Rows fit while (n-1) steps plus one panel stay inside; steps may exceed panel+gap (row pitch).
+        nx=int((maxx-minx-pw+1e-7)//sx)+1 if maxx-minx>=pw-1e-7 else 0
+        ny=int((maxy-miny-ph+1e-7)//sy)+1 if maxy-miny>=ph-1e-7 else 0
         if not nx or not ny:continue
-        spare_x,spare_y=maxx-minx-(nx*sx-cfg.panel_gap_m),maxy-miny-(ny*sy-cfg.panel_gap_m)
+        spare_x,spare_y=maxx-minx-((nx-1)*sx+pw),maxy-miny-((ny-1)*sy+ph)
         for ox in {0.0,spare_x/2}:
             for oy in {0.0,spare_y/2}:
                 candidates=[]
@@ -216,7 +219,7 @@ def _best_top_grid(req,ctx,energy_context,surface,region,tag,robust,centre=None)
                         if robust and not robust_position(px,py,angle,req,robust,pw,ph):continue
                         value=energy_context.evaluate(shape,spec.power_w,surface)
                         if value.mean_cover<.55 and value.worst_cover<.50 and value.loss_pct<=SHADING_LIMITS[req.objective]:
-                            candidate=CandidatePanel(id=f'{tag}r{row}c{col}',x=px,y=py,width_m=round(pw,6),height_m=round(ph,6),
+                            candidate=CandidatePanel(id=f'{tag}r{row}c{col}',x=px,y=py,width_m=pw,height_m=ph,
                                 rotation_deg=angle,face_id=surface.id,shading_loss_pct=round(value.loss_pct,2),annual_energy_kwh=value.annual_kwh)
                             candidate.preserved=any(same_position(candidate,p) for p in req.previous_panels)
                             candidate.placement=_placement(centre,px+pw/2,py+ph/2)

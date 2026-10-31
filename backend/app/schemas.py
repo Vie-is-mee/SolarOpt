@@ -101,6 +101,12 @@ class ProjectConfig(StrictModel):
     performance_ratio: float = Field(default=0.82, gt=0, le=1)
     budget_vnd: float = Field(default=100_000_000, ge=0)
     target_energy_kwh_year: float | None = Field(default=None, gt=0, le=10_000_000)
+    # Mounting on flat faces (sloped faces stay flush): tilted racks in rows, or 1-axis N-S trackers.
+    mounting: Literal["flush", "tilted_rack", "tracker"] = "flush"
+    rack_tilt_deg: float = Field(default=15.0, ge=1, le=45)
+    rack_azimuth_deg: float = Field(default=180.0, ge=0, le=360)
+    tracker_gcr: float = Field(default=0.4, ge=0.2, le=0.8, description="Panel width across the axis / row pitch")
+    tracker_max_angle_deg: float = Field(default=55.0, ge=20, le=70)
 
     @model_validator(mode="after")
     def validate_polygon(self):
