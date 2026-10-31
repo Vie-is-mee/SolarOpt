@@ -201,3 +201,73 @@ body{background-image:linear-gradient(180deg,rgba(247,251,243,.94),rgba(242,247,
 .param-body{padding:4px 14px 14px;border-top:1px solid #eaf1e6;animation:param-in .18s ease}
 @keyframes param-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.param-body{animation:none}.param-chevron{transition:none}}
+
+/* ── Aligned forms: every field in a row shares label / input / help rows, so a label that wraps
+   to two lines no longer pushes its input below the neighbours. */
+.field-grid{align-items:start}
+@supports (grid-template-rows:subgrid){
+ .field-grid>.field{display:grid;grid-row:span 3;grid-template-rows:subgrid;row-gap:0;align-content:start}
+ .field-grid>.field>span{align-self:end}
+ .field-grid>.field>em{align-self:start}
+}
+.field-grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(max-width:1100px){.field-grid.three{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.field-grid.three{grid-template-columns:1fr}}
+.input-wrap input{min-width:0;flex:1;width:100%}
+.input-wrap small{flex-shrink:0;white-space:nowrap;font-size:11.5px;padding:3px 6px}
+.money-field .input-wrap input{font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.money-field .input-wrap small{color:var(--brand);background:var(--brand-soft);border-color:var(--brand-line)}
+.form-group-title{display:flex;align-items:center;gap:10px;margin:18px 0 10px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--brand)}
+.form-group-title::after{content:'';flex:1;height:1px;background:#e3ecdf}
+
+/* ── Data tables: numbers right-aligned in tabular figures, grouped rows, totals that stand out. */
+.table-scroll .data-table td,.table-scroll .data-table th{font-variant-numeric:tabular-nums}
+.data-table th.num,.data-table td.num{text-align:right}
+.data-table tbody tr:nth-child(even) td{background:#fbfdf9}
+.data-table td.strong{font-weight:700}
+.data-table td.neg,.kpi-tiles strong.neg{color:#b3402f}
+.data-table td.pos{color:#1f6b40}
+.data-table td.cost{color:#7d6a4a}
+.data-table .pending,.datum-facts .pending{color:#b07a2a;font-style:italic;font-weight:500}
+.data-table tr.subtotal td{background:#f2f8ee!important;font-weight:650;border-top:1px solid #d6e5cf}
+.data-table tr.total td{background:#e2f0da!important;font-weight:800;font-size:14.5px;color:#163f2a;border-top:2px solid #9cc78b;border-bottom:none}
+.cost-table td.share{width:30%;position:relative;color:var(--muted);font-size:12px}
+.cost-table td.share i{position:absolute;left:12px;top:50%;height:8px;max-width:calc(100% - 70px);transform:translateY(-50%);border-radius:4px;background:linear-gradient(90deg,#9ccf8a,#3f9a60)}
+.cost-table td.share span{position:absolute;right:12px;top:50%;transform:translateY(-50%)}
+.cashflow-table tr.payback td{background:#fff3cf!important;box-shadow:inset 0 1px #f0cf7c,inset 0 -1px #f0cf7c}
+.cashflow-table tr.year-zero td{background:#f6f8f4!important;color:var(--muted)}
+.corner-table tbody.band td{background:#f7fbf4}
+.corner-table tbody tr:nth-child(even) td{background:transparent}
+.corner-table tbody.band tr td{background:#f5faf1}
+.corner-table tbody tr:last-child td{border-bottom:1px solid #d6e5cf}
+.corner-table td.panel-code{vertical-align:middle}
+.corner-table td.panel-code span{display:inline-block;padding:3px 8px;border-radius:6px;background:#163e35;color:#fff;font-weight:700;font-size:12px}
+.corner-table td.vertex{color:var(--muted);font-weight:600}
+
+/* ── Result tiles, datum facts and missing-input chips. */
+.kpi-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:16px 0}
+.kpi-tiles>div{display:flex;flex-direction:column;gap:3px;padding:12px 14px;border:1px solid var(--brand-line);border-radius:12px;background:linear-gradient(180deg,#fff,#f5faf2)}
+.kpi-tiles span{font-size:12px;color:var(--muted);font-weight:600}
+.kpi-tiles strong{font-size:18px;color:#163f2a;font-variant-numeric:tabular-nums;line-height:1.25}
+.kpi-tiles small{font-size:11.5px;color:var(--muted)}
+.kpi-tiles>div.warn{border-color:#efd9a7;background:linear-gradient(180deg,#fff,#fff8e8)}
+.datum-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:6px 0 14px}
+.datum-facts>div{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:10px;background:var(--surface-2);border:1px solid #e3ecdf}
+.datum-facts span{font-size:11.5px;color:var(--muted);font-weight:600}
+.datum-facts strong{font-size:14px;color:var(--ink);font-variant-numeric:tabular-nums}
+.datum-facts small{font-size:11px;color:var(--muted)}
+.missing-list{margin:14px 0;padding:12px 14px;border:1px solid #f1c9bf;border-radius:12px;background:#fdf3f0}
+.missing-list strong{display:block;font-size:13px;color:#9b3324;margin-bottom:8px}
+.missing-list strong span{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;background:#f6d6cd;font-size:11.5px}
+.missing-list ul{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none}
+.missing-list li{padding:4px 10px;border-radius:999px;background:#fff;border:1px solid #f1c9bf;color:#8a3a2c;font-size:12px}
+.economics-panel .card-heading,.sizing-advisor .card-heading,.installation-guide .card-heading{margin-bottom:12px}
+.installation-guide>.button{margin:0 0 6px}
+.geometry-tools{flex-wrap:wrap}
+.pen-hint{flex-basis:100%;display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:8px 0 0;font-size:12px;color:var(--muted);line-height:1.6}
+.pen-hint svg{color:var(--brand)}
+kbd{display:inline-block;padding:1px 6px;border:1px solid #cfdcc9;border-bottom-width:2px;border-radius:5px;background:#fff;font:600 11px/1.5 inherit;color:var(--ink-2)}
+.corner-table td[rowspan]{vertical-align:middle;border-bottom:1px solid #d6e5cf}
+.corner-table tbody tr:not(:last-child) td:not([rowspan]){border-bottom:1px dashed #e6eee1}
+.table-scroll:has(.cost-table){max-height:none}
+.kpi-tiles strong{font-size:17px}
