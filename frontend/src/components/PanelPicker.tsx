@@ -1,5 +1,6 @@
 import {useState} from 'react'
 import type {Panel} from '../studioTypes'
+import {MoneyInput} from './MoneyInput'
 import {BUILTIN_PANELS,panelErrors,panelKey,readCustomPanels,writeCustomPanels} from '../panelLibrary'
 
 const FIELDS:[keyof Panel,string,string,number][]=[['power_w','Công suất','W',1],['price_vnd','Giá một tấm','đ',100000],['width_m','Rộng','m',.001],['height_m','Dài','m',.001],['voc_v','Voc','V',.01],['vmp_v','Vmp','V',.01],['imp_a','Imp','A',.01]]
@@ -29,7 +30,7 @@ export function PanelPicker({panel,onChange}:{panel:Panel;onChange:(p:Panel)=>vo
    <div className="field-grid">
     <label className="field"><span>Hãng</span><input value={draft.manufacturer} onChange={e=>setDraft({...draft,manufacturer:e.target.value})}/></label>
     <label className="field"><span>Model</span><input value={draft.model} onChange={e=>setDraft({...draft,model:e.target.value})}/></label>
-    {FIELDS.map(([k,label,unit,step])=><label key={k} className="field"><span>{label}</span><div className="input-wrap"><input type="number" min={0} step={step} value={draft[k]||''} onChange={e=>setDraft({...draft,[k]:Number(e.target.value)})}/><small>{unit}</small></div></label>)}
+    {FIELDS.map(([k,label,unit,step])=>k==='price_vnd'?<MoneyInput key={k} label={label} value={draft.price_vnd||null} onChange={v=>setDraft({...draft,price_vnd:v??0})}/>:<label key={k} className="field"><span>{label}</span><div className="input-wrap"><input type="number" min={0} step={step} value={draft[k]||''} onChange={e=>setDraft({...draft,[k]:Number(e.target.value)})}/><small>{unit}</small></div></label>)}
    </div>
    {tried&&(errors.length>0||duplicate)&&<ul className="panel-form-errors">{duplicate&&<li>Đã có loại pin cùng hãng và model</li>}{errors.map(e=><li key={e}>{e}</li>)}</ul>}
    <div className="inline-actions"><button type="button" className="button primary small" onClick={save}>Lưu và dùng loại pin này</button><button type="button" className="text-button" onClick={()=>setDraft(null)}>Hủy</button></div>

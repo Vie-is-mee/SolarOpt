@@ -1,6 +1,7 @@
 import {useCallback,useEffect,useRef,useState,type ReactNode} from 'react'
 import {accountIdentity} from '../draftOwner'
 import {Icon} from './Icon'
+import {vnd} from '../format'
 
 type Limits={projects:number|null;project_window:number|null;ai_reads:number|null}
 type Plan={name:string;price_vnd_month:number;projects:number;ai_reads:number;features:string[];project_window_days:number|null;seats:number}
@@ -10,7 +11,7 @@ type Usage={plan:string;plan_name:string;plan_until:number|null;limits:Limits;us
 type AdminUser={id:number;email:string;role:string;plan:string;plan_name:string;plan_until:number|null;used:{projects:number;ai_reads:number};limits:Limits;pending_request:{plan:string;note:string}|null;team:{name:string;role:string}|null}
 type AdminTeam={id:number;name:string;plan:string;plan_until:number|null;owner:string;members:number;seats:number;used:{projects:number;ai_reads:number};limits:Limits;pending_request:{plan:string;note:string}|null}
 const base=import.meta.env.VITE_API_BASE||''
-const money=(n:number)=>n?n.toLocaleString('vi-VN')+' đ/tháng':'0 đ'
+const money=(n:number)=>n?vnd(n,'đ/tháng'):'0 đ'
 const date=(t:number|null)=>t?new Date(t*1000).toLocaleDateString('vi-VN'):'—'
 const of=(used:number,limit:number|null)=>limit===null?`${used} · không giới hạn`:`${used}/${limit}`
 async function call<T>(path:string,body?:unknown):Promise<T>{
