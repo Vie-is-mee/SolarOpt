@@ -9,6 +9,8 @@ from threading import BoundedSemaphore
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
+from typing import Literal
+from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -17,7 +19,7 @@ from app.database import init_db, list_versions, save_version, get_version
 from app.schemas import (
     DesignRequest, DesignResult, RepairRequest, RepairResult, StressRequest, StressResult, StressPreviewRequest,
     SunPosition, SunRequest, VerifyRequest, VerifyResult, VisionResult, IrradianceResult,
-    UncertaintyRequest, UncertaintyResult, SceneRequest,
+    UncertaintyRequest, UncertaintyResult, SceneRequest, ProjectConfig,
 )
 from app.services.dependency import trace_impact
 from app.services.vision import analyze_images, provider_status, VisionError
@@ -105,6 +107,27 @@ async def roof_prepare(file: UploadFile = File(...)):
     if file.content_type not in {"image/jpeg","image/png","image/webp","application/pdf"}:raise HTTPException(415,"Loại tệp không hỗ trợ.")
     try:return await run_in_threadpool(prepare_image,data,file.content_type)
     except VisionError as exc:raise HTTPException(exc.status,str(exc)) from exc
+
+
+class RoofTemplateRequest(BaseModel):
+    config: ProjectConfig
+    shape: str
+    ridge_axis: Literal["x", "y"] = "x"
+    rise_m: float = Field(default=2.0, ge=0, le=50)
+    low_side: Literal["start", "end"] = "start"
+    tolerance_m: float = Field(default=.05, gt=0, le=.5)
+    panel_pitch_m: float | None = Field(default=None, gt=0, le=10)
+
+
+@app.post("/api/roof/template")
+def roof_template(req: RoofTemplateRequest):
+    from app.services.roof_templates import generate_faces
+    try:
+        faces, notes = generate_faces(req.config, req.shape, req.ridge_axis, req.rise_m, req.low_side, req.tolerance_m, req.panel_pitch_m)
+        ProjectConfig(**{**req.config.model_dump(), "roof_faces": [f.model_dump() for f in faces]})
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return {"roof_faces": faces, "notes": notes}
 
 
 @app.post("/api/roof/trace")

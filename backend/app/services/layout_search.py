@@ -9,7 +9,7 @@ from time import perf_counter
 from shapely import prepare
 from shapely.affinity import rotate
 from app.schemas import CandidatePanel
-from app.services.geometry import panel_shape, overlap_ratio, _parts, TOP_PREFIX
+from app.services.geometry import panel_shape, overlap_ratio, _parts, TOP_PREFIX, installable_regions
 from app.services.energy import EnergyContext
 from app.services.design_policy import capacity, select_for_target, robust_contexts, robust_position
 
@@ -65,8 +65,9 @@ def search_layouts(req, ctx, shade_contexts, *, budget_seconds=25., diagnostics=
     if cfg.layout_angle_deg is None:
         angles=sorted(set(angles+[p.rotation_deg%180 for p in req.previous_panels]))
     margin=cfg.setback_m+cfg.layout_edge_reserve_m
-    surfaces=[(s,s.polygon.buffer(-margin,join_style=2)) for s in ctx.surfaces if s.installable and not s.id.startswith(TOP_PREFIX)]
-    tops=[(s,s.polygon.buffer(-margin,join_style=2)) for s in ctx.surfaces if s.installable and s.id.startswith(TOP_PREFIX)]
+    regions=installable_regions(ctx.surfaces,margin)
+    surfaces=[(s,r) for s,r in regions if not s.id.startswith(TOP_PREFIX)]
+    tops=[(s,r) for s,r in regions if s.id.startswith(TOP_PREFIX)]
     centres={s.id:_face_centre(region) for s,region in surfaces+tops}
     for region in [ctx.usable_roof,ctx.obstacle_union,*(r for _,r in surfaces)]:prepare(region)
     max_count=capacity(req)

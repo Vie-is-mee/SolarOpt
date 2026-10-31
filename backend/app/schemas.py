@@ -56,6 +56,7 @@ class RoofFace(StrictModel):
     tilt_deg: float = Field(default=0, ge=0, le=60)
     azimuth_deg: float = Field(default=180, ge=0, le=360)
     installable: bool = True
+    group: str | None = Field(default=None, max_length=40, description="Faces in one group form a continuous surface (e.g. vault strips): edge setback applies only around the group")
 
 
 class PanelSpec(StrictModel):
@@ -375,6 +376,9 @@ class VisionResult(StrictModel):
     image_type: Literal["roof_photo", "roof_drawing", "partial_roof", "other", ""] = ""
     reject_reason: str = Field(default="", max_length=300)
     dimensions: DimensionCheck | None = None
+    roof_shape: Literal["flat", "shed", "gable", "hip", "barrel", "parabolic", "other", "unknown"] = "unknown"
+    ridge_axis: Literal["horizontal", "vertical", "unknown"] = "unknown"
+    rise_m: float | None = Field(default=None, gt=0, le=50)
 
     @model_validator(mode="after")
     def validate_extraction(self):

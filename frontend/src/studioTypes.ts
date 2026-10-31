@@ -3,7 +3,7 @@ export type CalibrationRecord={captured_at:string;method:string;image_width_px:n
 import type {Economics} from './economics'
 import type {Datum} from './components/InstallationGuide'
 export type ProjectEvidence={economic_assumptions?:Economics|null;layout_datum?:Datum|null;source_name:string;input_kind:'drone'|'plan'|'partial';source_image:string|null;reference_image:string|null;calibration:CalibrationRecord|null}
-export type RoofFace = {id:string;label:string;polygon:Point[];elevation_m:number;tilt_deg:number;azimuth_deg:number;installable:boolean}
+export type RoofFace = {id:string;label:string;polygon:Point[];elevation_m:number;tilt_deg:number;azimuth_deg:number;installable:boolean;group?:string|null}
 export type Obstacle = {
   id:string; label:string; x:number; y:number; width_m:number; depth_m:number; height_m:number;
   scope:'roof'|'neighbor'; source:'manual'|'groq'|'ollama'|'gemini'|'demo'; confidence:number;
@@ -43,7 +43,7 @@ export type Vision = {
   mode:'groq'|'ollama'|'gemini'|'manual';model:string;roof_width_m:number|null;roof_height_m:number|null;roof_confidence:number;
   obstacles:{id:string;label:string;x_pct:number;y_pct:number;width_pct:number;depth_pct:number;height_m:number|null;confidence:number;observation:string;requires_placement:boolean}[];
   roof_polygon_pct:Point[];extracted_text:string[];notes:string[];events:{stage:string;status:string;detail:string}[];cached:boolean;elapsed_ms:number;preview_data_url:string|null;
-  roof_polygon_image_pct?:Point[];roof_aspect_ratio?:number|null;roof_crop_data_url?:string|null;coordinate_version?:number;relevant?:boolean;image_type?:string;reject_reason?:string;dimensions?:DimensionCheck|null;
+  roof_polygon_image_pct?:Point[];roof_aspect_ratio?:number|null;roof_crop_data_url?:string|null;coordinate_version?:number;relevant?:boolean;image_type?:string;reject_reason?:string;dimensions?:DimensionCheck|null;roof_shape?:string;ridge_axis?:'horizontal'|'vertical'|'unknown';rise_m?:number|null;
 }
 export type DimensionCheck={labels:{text:string;value_m:number|null;interpretation:string;axis:'horizontal'|'vertical'|'other';length_px:number|null;m_per_px:number|null;outlier:boolean}[];scale_m_per_px:number|null;scale_spread_pct:number|null;consistent:boolean|null;suggested_width_m:number|null;suggested_height_m:number|null;width_basis:string;height_basis:string;notes:string[]}
 export type TraceResult={algorithm:string;polygon_image_pct:Point[];roof_polygon_pct:Point[];openings_image_pct?:Point[][];roof_openings_pct?:Point[][];discarded_regions?:number;roof_bbox_image_pct:number[];roof_aspect_ratio:number;roof_width_px:number;roof_height_px:number;image_width_px:number;image_height_px:number;roof_crop_data_url:string;overlay_data_url:string;elapsed_ms:number;notes:string[];rectified?:boolean;image_data_url?:string;width_px?:number;height_px?:number}

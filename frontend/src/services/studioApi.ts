@@ -14,6 +14,7 @@ async function request<T>(path:string,body?:unknown,signal?:AbortSignal):Promise
 export const studioApi={
   prepare:(file:File)=>{const data=new FormData();data.append('file',file);return request<{image_data_url:string;width_px:number;height_px:number}>('/api/roof/prepare',data)},
   trace:(body:unknown)=>request<import('../studioTypes').TraceResult>('/api/roof/trace',body),
+  roofTemplate:(body:unknown)=>request<{roof_faces:import('../studioTypes').RoofFace[];notes:string[]}>('/api/roof/template',body),
   validateProject:(config:Config,panel:Panel,obstacles:Obstacle[],evidence?:ProjectEvidence|null)=>request<{valid:boolean}>('/api/projects/validate',{config,panel,obstacles,evidence}),
   health:()=>request<Health>('/api/health'),
   scene:(config:Config,obstacles:Obstacle[],date:string,hour_local:number,signal?:AbortSignal)=>request<Scene>('/api/solar/scene',{config,obstacles,date,hour_local},signal),
