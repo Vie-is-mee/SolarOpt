@@ -48,6 +48,10 @@ def init_db() -> None:
             conn.execute("ALTER TABLE users ADD COLUMN plan TEXT NOT NULL DEFAULT 'free'")
         if "plan_until" not in user_columns:
             conn.execute("ALTER TABLE users ADD COLUMN plan_until INTEGER")
+        if "role" not in user_columns:
+            conn.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'")
+        conn.execute("CREATE TABLE IF NOT EXISTS orgs (id INTEGER PRIMARY KEY, name TEXT NOT NULL, owner_id INTEGER NOT NULL REFERENCES users(id), plan TEXT NOT NULL DEFAULT 'free', plan_until INTEGER, created_at INTEGER NOT NULL)")
+        conn.execute("CREATE TABLE IF NOT EXISTS org_members (org_id INTEGER NOT NULL REFERENCES orgs(id) ON DELETE CASCADE, user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE, role TEXT NOT NULL, added_at INTEGER NOT NULL)")
         conn.execute("CREATE TABLE IF NOT EXISTS usage_events (id INTEGER PRIMARY KEY, owner TEXT NOT NULL, kind TEXT NOT NULL, project_key TEXT, created_at INTEGER NOT NULL)")
         conn.execute("CREATE INDEX IF NOT EXISTS usage_owner_kind ON usage_events(owner, kind, created_at)")
         conn.execute("CREATE TABLE IF NOT EXISTS upgrade_requests (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, plan TEXT NOT NULL, note TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'pending', created_at INTEGER NOT NULL)")
@@ -64,12 +68,19 @@ def save_version(project_name: str, version_label: str, reason: str, payload: di
         return int(cur.lastrowid)
 
 
-def list_versions(project_name: str | None, user_id: int | None = None) -> list[dict[str, Any]]:
+def _owners(user_id: int | list[int] | None) -> list[int | None]:
+    return list(user_id) if isinstance(user_id, list) else [user_id]
+
+
+def list_versions(project_name: str | None, user_id: int | list[int] | None = None) -> list[dict[str, Any]]:
+    """user_id: one owner, or the member ids of a team that shares history."""
+    owners = _owners(user_id)
+    marks = ",".join("?" * len(owners))
     with connect() as conn:
         conn.row_factory = sqlite3.Row
         rows = conn.execute(
-            "SELECT id,project_name,version_label,reason,payload_json,created_at FROM project_versions WHERE (? IS NULL OR project_name=?) AND user_id IS ? ORDER BY id DESC LIMIT 50",
-            (project_name, project_name, user_id),
+            f"SELECT id,project_name,version_label,reason,payload_json,created_at FROM project_versions WHERE (? IS NULL OR project_name=?) AND (user_id IN ({marks}) OR (? IS NULL AND user_id IS NULL)) ORDER BY id DESC LIMIT 50",
+            (project_name, project_name, *owners, owners[0] if len(owners) == 1 else 0),
         ).fetchall()
     out = []
     for r in rows:
@@ -83,10 +94,11 @@ def list_versions(project_name: str | None, user_id: int | None = None) -> list[
     return out
 
 
-def get_version(project_name:str,version_id:int,user_id:int | None = None):
+def get_version(project_name:str,version_id:int,user_id:int | list[int] | None = None):
+    owners=_owners(user_id);marks=",".join("?"*len(owners))
     with connect() as conn:
         conn.row_factory=sqlite3.Row
-        row=conn.execute('SELECT id,project_name,version_label,reason,payload_json,created_at FROM project_versions WHERE project_name=? AND id=? AND user_id IS ?',(project_name,version_id,user_id)).fetchone()
+        row=conn.execute(f'SELECT id,project_name,version_label,reason,payload_json,created_at FROM project_versions WHERE project_name=? AND id=? AND (user_id IN ({marks}) OR (? IS NULL AND user_id IS NULL))',(project_name,version_id,*owners,owners[0] if len(owners)==1 else 0)).fetchone()
     if row is None:return None
     item=dict(row);item['payload']=json.loads(item.pop('payload_json'))
     return item

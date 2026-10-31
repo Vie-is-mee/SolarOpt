@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.auth import COOKIE, router as auth_router, optional_user, require_user
-from app.billing import router as billing_router, ProjectQuota, check_ai, record_ai
+from app.billing import router as billing_router, ProjectQuota, check_ai, record_ai, team_member_ids
 from fastapi import Request
 from app.database import init_db, list_versions, save_version, get_version
 from app.schemas import (
@@ -265,17 +265,17 @@ def uncertainty_evaluate(req: UncertaintyRequest):
 
 @app.get("/api/history")
 def account_history(user=Depends(require_user)):
-    return list_versions(None, user["id"])
+    return list_versions(None, team_member_ids(user["id"]))
 
 
 @app.get("/api/projects/{project_name}/versions")
 def project_versions(project_name: str, user=Depends(require_user)):
-    return list_versions(project_name, user["id"])
+    return list_versions(project_name, team_member_ids(user["id"]))
 
 
 @app.get('/api/projects/{project_name}/versions/{version_id}')
 def project_version(project_name:str,version_id:int,user=Depends(require_user)):
-    version=get_version(project_name,version_id,user["id"])
+    version=get_version(project_name,version_id,team_member_ids(user["id"]))
     if version is None:raise HTTPException(404,'Không tìm thấy phiên bản của dự án này.')
     return version
 

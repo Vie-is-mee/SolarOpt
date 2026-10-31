@@ -43,7 +43,10 @@ Mã: `backend/app/billing.py`, giao diện `frontend/src/components/PlanCenter.t
 - **Một lượt = một dự án mới được tính phương án thành công.** Tính lại, sửa phương án hoặc so sánh 3 mục tiêu của cùng dự án (cùng tên, không phân biệt hoa thường/khoảng trắng) không trừ thêm. Đổi tên dự án sẽ tính là dự án mới.
 - AI đọc ảnh trừ một lượt mỗi lần gọi nhà cung cấp; kết quả lấy từ bộ nhớ đệm và trường hợp chưa cấu hình AI không trừ.
 - Hết lượt: máy chủ trả 402, giao diện mở bảng gói.
-- **Nâng cấp:** chưa tích hợp thanh toán. Người dùng bấm “Gửi yêu cầu nâng cấp”; quản trị viên (email trong `SOLAROPT_ADMIN_EMAILS`, phân cách bằng dấu phẩy) mở trang Quản trị, xem mức dùng và yêu cầu, rồi đặt gói 1–12 tháng. Hết hạn tự quay về gói Miễn phí.
+- **Nâng cấp:** chưa tích hợp thanh toán. Người dùng bấm “Gửi yêu cầu nâng cấp”; quản trị viên mở trang Quản trị, xem mức dùng và yêu cầu, rồi đặt gói 1–12 tháng. Hết hạn tự quay về gói Miễn phí.
+- **Quản trị viên không bị giới hạn.** Quyền lưu trong cột `users.role` và **chỉ cấp trên máy chủ**:
+  `python scripts/manage_admin.py grant email@cua-ban.com` (chạy trong thư mục `backend`, cùng `SOLAROPT_DB_PATH` với máy chủ; tài khoản phải đăng ký trên web trước). `revoke` để thu hồi, `list` để xem. Không cấp qua API hay theo danh sách email, vì chưa có xác minh email nên ai đăng ký trước bằng email đó sẽ chiếm quyền.
+- **Nhóm doanh nghiệp:** người dùng tạo nhóm và là chủ nhóm; gói Doanh nghiệp gắn với nhóm (chủ nhóm gửi yêu cầu, quản trị viên kích hoạt), mở 5 chỗ. Chủ nhóm thêm kỹ sư bằng email đã đăng ký, xóa thành viên, hoặc giải tán nhóm khi chỉ còn mình. Khi nhóm có gói trả phí còn hạn: mọi thành viên dùng chung hạn mức (đếm theo nhóm) và xem chung lịch sử dự án của nhóm. Mỗi người thuộc tối đa một nhóm; rời nhóm thì quay về gói cá nhân.
 - Giá là giả thuyết cần kiểm chứng với khách hàng; sửa ở một chỗ trong `PLANS`.
 
-API: `GET /api/account/usage`, `POST /api/account/upgrade-request`, `GET /api/admin/users`, `POST /api/admin/users/{id}/plan`.
+API: `GET /api/account/usage`, `POST /api/account/upgrade-request`, `GET|POST /api/team`, `POST /api/team/members`, `POST /api/team/members/{id}/remove`, `POST /api/team/leave`, `GET /api/admin/users`, `GET /api/admin/teams`, `POST /api/admin/users/{id}/plan`, `POST /api/admin/teams/{id}/plan`.
