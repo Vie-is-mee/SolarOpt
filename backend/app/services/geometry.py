@@ -249,6 +249,26 @@ def build_context(config:ProjectConfig,obstacles:list[RectObstacle],sun:SunPosit
     pieces=[g for g in [obstacle_union,shadow_union] if g is not None and not g.is_empty]
     return GeometryContext(roof,usable,obstacle_union,shadow_union,unary_union(pieces) if pieces else None,planes,records)
 
+SLOPED_TILT=1.0
+
+
+def contour_angle(surface,config):
+    """Drawing direction (degrees, CCW from +x, mod 180) along which a face stays level."""
+    return (-(surface.azimuth-config.north_rotation_deg))%180
+
+
+def footprint_dims(width,height,angle,surface,config):
+    """Plan footprint of a physical width x height panel lying on a face, its local x axis at angle.
+    The side running down the fall line shrinks by cos(tilt). Panels on sloped faces are only laid
+    along or across the fall line; any other angle returns None."""
+    c=math.cos(math.radians(surface.tilt)) if surface is not None else 1.0
+    if surface is None or surface.tilt<=SLOPED_TILT:return width,height
+    d=abs((angle-contour_angle(surface,config)+90)%180-90)
+    if d<.01:return width,height*c
+    if abs(d-90)<.01:return width*c,height
+    return None
+
+
 def panel_shape(x,y,width,height,rotation_deg=0):
     shape=box(x,y,x+width,y+height)
     return rotate(shape,rotation_deg,origin=(x+width/2,y+height/2)) if rotation_deg else shape

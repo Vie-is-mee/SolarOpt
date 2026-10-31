@@ -9,7 +9,7 @@ from time import perf_counter
 from shapely import prepare
 from shapely.affinity import rotate
 from app.schemas import CandidatePanel
-from app.services.geometry import panel_shape, overlap_ratio, _parts, TOP_PREFIX, installable_regions
+from app.services.geometry import panel_shape, overlap_ratio, _parts, TOP_PREFIX, installable_regions, contour_angle, footprint_dims, SLOPED_TILT
 from app.services.energy import EnergyContext
 from app.services.design_policy import capacity, select_for_target, robust_contexts, robust_position
 
@@ -66,8 +66,11 @@ def search_layouts(req, ctx, shade_contexts, *, budget_seconds=25., diagnostics=
         angles=sorted(set(angles+[p.rotation_deg%180 for p in req.previous_panels]))
     margin=cfg.setback_m+cfg.layout_edge_reserve_m
     regions=installable_regions(ctx.surfaces,margin)
-    surfaces=[(s,r) for s,r in regions if not s.id.startswith(TOP_PREFIX)]
-    tops=[(s,r) for s,r in regions if s.id.startswith(TOP_PREFIX)]
+    # Obstacle tops and sloped faces get their own grid: tops sit inside a blocked footprint, and on a
+    # slope the panel's plan footprint shrinks along the fall line, so it must follow that face's contour.
+    own=lambda s:s.id.startswith(TOP_PREFIX) or s.tilt>SLOPED_TILT
+    surfaces=[(s,r) for s,r in regions if not own(s)]
+    tops=[(s,r) for s,r in regions if own(s)]
     centres={s.id:_face_centre(region) for s,region in surfaces+tops}
     for region in [ctx.usable_roof,ctx.obstacle_union,*(r for _,r in surfaces)]:prepare(region)
     max_count=capacity(req)
@@ -152,8 +155,8 @@ def search_layouts(req, ctx, shade_contexts, *, budget_seconds=25., diagnostics=
         if not trials:
             raise ValueError('Mái quá phức tạp để hoàn tất một lưới trong thời gian cho phép. Chọn góc xếp thủ công hoặc giảm phạm vi mái rồi thử lại.')
         if diagnostics is not None:diagnostics['limited']=True
-    # Obstacle tops sit inside their footprint, where main-roof panels are blocked by the clearance
-    # ring, so their best small grid can be added to the main grid without any overlap.
+    # Own-grid faces are disjoint from each other and from the main-grid faces, so their best grids
+    # can be added without overlap; grouped seams keep half a gap on each side.
     extra=[]
     for t,(surface,region) in enumerate(tops):
         if not region.is_empty and perf_counter()-started<budget_seconds+5:
@@ -178,16 +181,25 @@ def _placement(centre,x,y):
 
 
 def _best_top_grid(req,ctx,energy_context,surface,region,tag,robust,centre=None):
-    """Small exhaustive grid on one obstacle top: edge-aligned and portrait/landscape, edge or centred offsets."""
+    """Small exhaustive grid on one face (obstacle top or sloped face): edge or contour aligned,
+    portrait/landscape, edge or centred offsets. Sloped faces use the plan footprint of the panel."""
     cfg,spec=req.config,req.panel
-    edge=max(zip(region.minimum_rotated_rectangle.exterior.coords,list(region.minimum_rotated_rectangle.exterior.coords)[1:]),
-             key=lambda e:math.hypot(e[1][0]-e[0][0],e[1][1]-e[0][1]))
-    lead=round(math.degrees(math.atan2(edge[1][1]-edge[0][1],edge[1][0]-edge[0][0]))%180,3)
+    region=region.intersection(surface.polygon.buffer(-cfg.panel_gap_m/2,join_style=2))
+    if region.is_empty:return []
+    if surface.tilt>SLOPED_TILT:
+        level=round(contour_angle(surface,cfg),3);angles={level,round((level+90)%180,3)}
+    else:
+        edge=max(zip(region.minimum_rotated_rectangle.exterior.coords,list(region.minimum_rotated_rectangle.exterior.coords)[1:]),
+                 key=lambda e:math.hypot(e[1][0]-e[0][0],e[1][1]-e[0][1]))
+        lead=round(math.degrees(math.atan2(edge[1][1]-edge[0][1],edge[1][0]-edge[0][0]))%180,3)
+        angles={0.0,90.0,lead,round((lead+90)%180,3)}
     best,best_value=[],0
-    for angle in sorted({0.0,90.0,lead,round((lead+90)%180,3)}):
+    for angle in sorted(angles):
         radians=math.radians(angle);co,si=math.cos(radians),math.sin(radians)
         minx,miny,maxx,maxy=rotate(region,-angle,origin=(0,0)).bounds
-        sx,sy=spec.width_m+cfg.panel_gap_m,spec.height_m+cfg.panel_gap_m
+        pw,ph=footprint_dims(spec.width_m,spec.height_m,angle,surface,cfg)
+        sx,sy=pw+cfg.panel_gap_m,ph+cfg.panel_gap_m
+        if robust:sx+=pw*.01;sy+=ph*.01
         nx,ny=int((maxx-minx+cfg.panel_gap_m+1e-7)//sx),int((maxy-miny+cfg.panel_gap_m+1e-7)//sy)
         if not nx or not ny:continue
         spare_x,spare_y=maxx-minx-(nx*sx-cfg.panel_gap_m),maxy-miny-(ny*sy-cfg.panel_gap_m)
@@ -197,17 +209,17 @@ def _best_top_grid(req,ctx,energy_context,surface,region,tag,robust,centre=None)
                 for row in range(ny):
                     for col in range(nx):
                         x,y=minx+ox+col*sx,miny+oy+row*sy
-                        cx,cy=x+spec.width_m/2,y+spec.height_m/2
-                        px,py=round(cx*co-cy*si-spec.width_m/2,6),round(cx*si+cy*co-spec.height_m/2,6)
-                        shape=panel_shape(px,py,spec.width_m,spec.height_m,angle)
+                        cx,cy=x+pw/2,y+ph/2
+                        px,py=round(cx*co-cy*si-pw/2,6),round(cx*si+cy*co-ph/2,6)
+                        shape=panel_shape(px,py,pw,ph,angle)
                         if not(region.covers(shape) and ctx.usable_roof.covers(shape) and overlap_ratio(shape,ctx.obstacle_union)<=1e-9):continue
-                        if robust and not robust_position(px,py,angle,req,robust):continue
+                        if robust and not robust_position(px,py,angle,req,robust,pw,ph):continue
                         value=energy_context.evaluate(shape,spec.power_w,surface)
                         if value.mean_cover<.55 and value.worst_cover<.50 and value.loss_pct<=SHADING_LIMITS[req.objective]:
-                            candidate=CandidatePanel(id=f'{tag}r{row}c{col}',x=px,y=py,width_m=spec.width_m,height_m=spec.height_m,
+                            candidate=CandidatePanel(id=f'{tag}r{row}c{col}',x=px,y=py,width_m=round(pw,6),height_m=round(ph,6),
                                 rotation_deg=angle,face_id=surface.id,shading_loss_pct=round(value.loss_pct,2),annual_energy_kwh=value.annual_kwh)
                             candidate.preserved=any(same_position(candidate,p) for p in req.previous_panels)
-                            candidate.placement=_placement(centre,px+spec.width_m/2,py+spec.height_m/2)
+                            candidate.placement=_placement(centre,px+pw/2,py+ph/2)
                             candidates.append(candidate)
                 total=sum(max(0,score(req,c)) for c in candidates)
                 if total>best_value:best,best_value=candidates,total
