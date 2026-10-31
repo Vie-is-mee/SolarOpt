@@ -8,7 +8,7 @@ export type Obstacle = {
   id:string; label:string; x:number; y:number; width_m:number; depth_m:number; height_m:number;
   scope:'roof'|'neighbor'; source:'manual'|'groq'|'ollama'|'gemini'|'demo'; confidence:number;
   confirmed:boolean; floors?:number|null;
-  shape?:'rect'|'ellipse'|'polygon';rotation_deg?:number;points?:Point[];base_elevation_m?:number|null;top_installable?:boolean;
+  shape?:'rect'|'ellipse'|'polygon';rotation_deg?:number;points?:Point[];base_elevation_m?:number|null;top_installable?:boolean;kind?:string|null;
 }
 export type Config = {
   irradiance_reference_tilt_deg?:number;irradiance_reference_azimuth_deg?:number;
