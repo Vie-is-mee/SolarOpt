@@ -53,7 +53,7 @@ def simulate_scene(req: SceneRequest) -> dict:
         if sun.altitude_deg>0 and irradiance_source=='pvlib_ineichen_clear_sky':
             value=pvlib.irradiance.get_total_irradiance(surface.tilt,surface.azimuth,sun.zenith_deg,sun.azimuth_deg,row.dni,row.ghi,row.dhi)
             face_irradiance=float(value['poa_global'])
-        face_results.append({'id':surface.id,'label':surface.label,'polygons':polygons(surface.polygon),'elevation_m':surface.elevation,'tilt_deg':surface.tilt,'irradiance_w_m2':round(face_irradiance,1),'area_m2':surface.polygon.area,'installable':surface.installable,'direct_sunlight':direct_sun_reaches(surface,sun,cfg)})
+        face_results.append({'id':surface.id,'label':surface.label,'polygons':polygons(surface.polygon),'elevation_m':surface.elevation,'tilt_deg':surface.tilt,'azimuth_deg':surface.azimuth,'origin':[surface.origin_x,surface.origin_y],'group':surface.group,'regions':regions(surface.polygon),'mount':surface.mount,'mount_tilt':surface.mount_tilt,'mount_azimuth':surface.mount_azimuth,'irradiance_w_m2':round(face_irradiance,1),'area_m2':surface.polygon.area,'installable':surface.installable,'direct_sunlight':direct_sun_reaches(surface,sun,cfg)})
     irradiance=sum(f['irradiance_w_m2']*f['area_m2'] for f in face_results)/max(ctx.roof.area,.001)
     cells = []
     if req.heatmap:
