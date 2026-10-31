@@ -1,14 +1,18 @@
 import {useEffect,useRef,useState,type ReactNode} from 'react'
 import App from './App'
 import {Icon} from './components/Icon'
-import {setDraftOwner} from './draftOwner'
+import {accountIdentity,setDraftOwner} from './draftOwner'
 import './account.css'
 
 type User={id:number;email:string}
 const base=import.meta.env.VITE_API_BASE||''
+class AccountError extends Error{
+ constructor(message:string,readonly status:number){super(message)}
+}
+function notifyAccountChange(){try{localStorage.setItem('solaropt-auth-change',crypto.randomUUID())}catch{}}
 async function accountRequest(path:string,body?:unknown):Promise<User>{
  const response=await fetch(base+'/api/auth/'+path,{credentials:'include',signal:AbortSignal.timeout(15000),method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json','X-SolarOpt-Request':'1'},...(body===undefined?{}:{body:JSON.stringify(body)})})
- if(!response.ok){const data=await response.json();throw new Error(typeof data.detail==='string'?data.detail:'Kiểm tra email và mật khẩu (10–128 ký tự).')}
+ if(!response.ok){const data=await response.json();throw new AccountError(typeof data.detail==='string'?data.detail:'Kiểm tra email và mật khẩu (10–128 ký tự).',response.status)}
  return response.json()
 }
 
@@ -47,10 +51,36 @@ function AuthDialog({children,busy,onDismiss}:{children:ReactNode;busy:boolean;o
 export default function Account(){
  const [user,setUser]=useState<User|null>(null),[ready,setReady]=useState(false),[mode,setMode]=useState<'login'|'register'|null>(null)
  const [email,setEmail]=useState(''),[password,setPassword]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false)
- useEffect(()=>{accountRequest('me').then(value=>{setDraftOwner(value.id);setUser(value)}).catch(()=>setDraftOwner(null)).finally(()=>setReady(true))},[])
+ const authSequence=useRef(0),authBusy=useRef(false)
+ useEffect(()=>{
+  let active=true
+  async function refresh(prompt=false){
+   if(authBusy.current)return
+   const sequence=++authSequence.current
+   try{
+    const value=await accountRequest('me')
+    if(!active||sequence!==authSequence.current)return
+    setDraftOwner(value.id);setUser(previous=>previous?.id===value.id?previous:value);setMode(null)
+   }catch(e){
+    if(!active||sequence!==authSequence.current)return
+    if(e instanceof AccountError&&e.status===401){
+     setDraftOwner(null);setUser(null)
+     if(prompt){setMode('login');setPassword('');setError('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để lưu lịch sử.')}
+    }else setError('Chưa kiểm tra được tài khoản. Kiểm tra kết nối rồi thử lại.')
+   }finally{if(active&&sequence===authSequence.current)setReady(true)}
+  }
+  const focus=()=>{void refresh()}
+  const storage=(event:StorageEvent)=>{if(event.key==='solaropt-auth-change')void refresh()}
+  const expired=(event:Event)=>{if((event as CustomEvent<string>).detail===accountIdentity())void refresh(true)}
+  void refresh()
+  window.addEventListener('focus',focus)
+  window.addEventListener('storage',storage)
+  window.addEventListener('solaropt-auth-required',expired)
+  return()=>{active=false;window.removeEventListener('focus',focus);window.removeEventListener('storage',storage);window.removeEventListener('solaropt-auth-required',expired)}
+ },[])
  function closeAuth(){if(busy)return;setMode(null);setPassword('');setError('')}
- async function submit(event:React.FormEvent){event.preventDefault();setBusy(true);setError('');try{const value=await accountRequest(mode||'login',{email,password});setDraftOwner(value.id);setUser(value);setPassword('');setMode(null)}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
- async function logout(){setBusy(true);setError('');try{await accountRequest('logout',{});setDraftOwner(null);setUser(null)}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
+ async function submit(event:React.FormEvent){event.preventDefault();authBusy.current=true;authSequence.current++;setBusy(true);setError('');try{const value=await accountRequest(mode||'login',{email,password});setDraftOwner(value.id);setUser(value);setPassword('');setMode(null);notifyAccountChange()}catch(e){setError((e as Error).message)}finally{authBusy.current=false;setBusy(false)}}
+ async function logout(){authBusy.current=true;authSequence.current++;setBusy(true);setError('');try{await accountRequest('logout',{});setDraftOwner(null);setUser(null);notifyAccountChange()}catch(e){setError((e as Error).message)}finally{authBusy.current=false;setBusy(false)}}
  if(!ready)return <p className="account-loading" role="status">Đang kiểm tra tài khoản…</p>
  return <>
   <div className="account-shell"><section className="account-bar" aria-label="Tài khoản">

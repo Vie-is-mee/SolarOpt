@@ -41,14 +41,21 @@ DUMMY_HASH = password_hash("dummy-account-password")
 
 def optional_user(request: Request) -> dict | None:
     token = request.cookies.get(COOKIE)
-    if not token or len(token) > 128:
-        return None
-    with connect() as conn:
-        row = conn.execute(
-            "SELECT users.id, users.email FROM sessions JOIN users ON users.id=sessions.user_id WHERE token_hash=? AND expires_at>?",
-            (hashlib.sha256(token.encode()).hexdigest(), int(time.time())),
-        ).fetchone()
-    return {"id": row[0], "email": row[1]} if row else None
+    row = None
+    if token and len(token) <= 128:
+        with connect() as conn:
+            row = conn.execute(
+                "SELECT users.id, users.email FROM sessions JOIN users ON users.id=sessions.user_id WHERE token_hash=? AND expires_at>?",
+                (hashlib.sha256(token.encode()).hexdigest(), int(time.time())),
+            ).fetchone()
+    user = {"id": row[0], "email": row[1]} if row else None
+    expected = request.headers.get("X-SolarOpt-User")
+    actual = str(user["id"]) if user else "guest"
+    if token and user is None:
+        request.state.invalid_session = True
+    if (token and user is None) or (expected is not None and expected != actual):
+        raise HTTPException(401, "Phiên đăng nhập đã hết hạn hoặc tài khoản đã thay đổi. Vui lòng đăng nhập lại.")
+    return user
 
 
 def require_user(user=Depends(optional_user)) -> dict:

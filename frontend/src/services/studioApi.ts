@@ -1,13 +1,17 @@
 import type {Config,Panel,Obstacle,Design,Verification,Scene,Health,Vision,Stress,Repair,Version,Objective,Sun,ProjectEvidence} from '../studioTypes'
+import {accountIdentity} from '../draftOwner'
 const base = import.meta.env.VITE_API_BASE || ''
 async function request<T>(path:string,body?:unknown,signal?:AbortSignal):Promise<T> {
+  const identity=accountIdentity()
+  const headers={'X-SolarOpt-Request':'1','X-SolarOpt-User':identity}
   const timeout = AbortSignal.timeout(120_000)
   let response:Response
-  try {response = await fetch(base+path,{credentials:'include',headers:{'X-SolarOpt-Request':'1'},method:body===undefined?'GET':'POST',...(body===undefined?{}:body instanceof FormData?{body}:{headers:{'Content-Type':'application/json','X-SolarOpt-Request':'1'},body:JSON.stringify(body)}),signal:signal ? AbortSignal.any([signal, timeout]) : timeout})}
+  try {response = await fetch(base+path,{credentials:'include',headers,method:body===undefined?'GET':'POST',...(body===undefined?{}:body instanceof FormData?{body}:{headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify(body)}),signal:signal ? AbortSignal.any([signal, timeout]) : timeout})}
   catch(error){
     if(timeout.aborted&&!signal?.aborted)throw new Error('Máy chủ tính quá thời gian chờ. Các phương án đã hoàn tất vẫn được giữ lại. Với mái lớn, chọn góc xếp thủ công hoặc giảm phạm vi mái rồi tính lại.')
     throw error
   }
+  if(response.status===401&&typeof window!=='undefined')window.dispatchEvent(new CustomEvent('solaropt-auth-required',{detail:identity}))
   if(!response.ok){let detail='';try{const data=await response.json();detail=typeof data.detail==='string'?data.detail:JSON.stringify(data.detail)}catch{}throw new Error(detail||`Yêu cầu chưa thành công (${response.status}).`)}
   return response.json()
 }

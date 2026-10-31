@@ -64,6 +64,34 @@ def test_rate_limit(client):
     response=client.post('/api/auth/login',json={'email':'x@example.com','password':PASSWORD})
     assert response.status_code==429 and response.headers['retry-after']=='900'
 
+
+def test_stale_tab_cannot_read_or_save_under_another_accounts_cookie(client,monkeypatch):
+    from app import main
+    owner=register(client)
+    old_identity=str(owner['id'])
+    client.post('/api/auth/logout')
+    other=register(client,'other@example.com')
+    monkeypatch.setattr(main,'generate_design',lambda req:pytest.fail('stale identity reached optimizer'))
+    headers={'X-SolarOpt-User':old_identity}
+    assert client.get('/api/history',headers=headers).status_code==401
+    assert client.post('/api/design/generate',headers=headers,json={'config':{},'panel':{}}).status_code==401
+    assert client.get('/api/history',headers={'X-SolarOpt-User':'guest'}).status_code==401
+    assert database.list_versions(None,other['id'])==[]
+
+
+def test_expired_or_missing_session_does_not_silently_downgrade_signed_in_designs(client,monkeypatch):
+    from app import main
+    owner=register(client)
+    monkeypatch.setattr(main,'generate_design',lambda req:pytest.fail('expired session reached optimizer'))
+    with database.connect() as conn:
+        conn.execute('UPDATE sessions SET expires_at=?',(int(time.time())-1,))
+    headers={'X-SolarOpt-User':str(owner['id'])}
+    assert client.post('/api/design/generate',headers=headers,json={'config':{},'panel':{}}).status_code==401
+    assert client.cookies.get('solaropt_session') is None
+    client.cookies.clear()
+    assert client.post('/api/design/generate',headers=headers,json={'config':{},'panel':{}}).status_code==401
+    assert database.list_versions(None,owner['id'])==[]
+
 def test_legacy_migration(tmp_path,monkeypatch):
     path=tmp_path/'legacy.db'
     with sqlite3.connect(path) as conn:

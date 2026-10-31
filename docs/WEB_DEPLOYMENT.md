@@ -34,7 +34,7 @@ Chỉ rollback sau khi xác nhận phiên bản cũ tương thích cấu trúc d
 
 ## Phạm vi và giới hạn cần nghiệm thu
 
-Đây là bản demo dùng chung, chưa có tài khoản riêng hay phân quyền từng dự án. Lịch sử hiện nhóm theo tên dự án: dùng tên duy nhất cho mỗi ca và không tải dữ liệu khách hàng bí mật lên demo dùng chung.
+Tài khoản email/mật khẩu và lịch sử riêng đã được hỗ trợ; xem [hướng dẫn tài khoản](ACCOUNTS.md). Khách có thể tính phương án nhưng không lưu lịch sử máy chủ. Caddy Basic Auth vẫn là lớp truy cập demo bên ngoài, tách biệt với tài khoản cá nhân trong ứng dụng.
 Biên mái từ ảnh cần người dùng hiệu chỉnh, đặt tỷ lệ và xác nhận. Không suy ra kích thước thật hoặc chiều cao đáng tin cậy chỉ từ một ảnh.
 Repair hiện chạy lại tối ưu; đồ thị ảnh hưởng không chứng minh đã tính lại chọn lọc.
 AI chỉ được coi là hoạt động sau khi thử với model và key thật trên máy chủ; không lấy việc có key làm bằng chứng gọi API thành công.

@@ -10,7 +10,7 @@ Browser drafts and image evidence are separated by account. They remain on that 
 
 - `SOLAROPT_DB_PATH`: SQLite file, default `backend/solaropt.db`. Existing backup and restore scripts cover accounts, sessions, and history together.
 - `SOLAROPT_COOKIE_SECURE=true`: required for HTTPS hosting; already enabled in Docker Compose. Leave false for local HTTP development.
-- Serve frontend and API on the same site through the existing Vite/Caddy proxy. For separate origins, explicitly allow the frontend in `CORS_ORIGINS`; wildcard origins are not supported with credentials. The request header `X-SolarOpt-Request: 1` is required for auth mutations and authenticated writes.
+- Serve frontend and API on the same site through the existing Vite/Caddy proxy. For separate origins, explicitly allow the frontend in `CORS_ORIGINS`; wildcard origins are not supported with credentials. The request header `X-SolarOpt-Request: 1` is required for auth mutations and authenticated writes. Workspace requests also send `X-SolarOpt-User` with the displayed user ID or `guest`; the API rejects a mismatch with the cookie session before reading or saving history.
 
 Passwords use salted scrypt hashes. Opaque session tokens are stored as SHA-256 hashes, expire after seven days, and are revoked on logout. Cookies use HttpOnly and SameSite=Lax. Login and registration share a persisted limit of 30 attempts per client IP per 15 minutes. Behind a proxy, configure trusted forwarding correctly; otherwise users may share a rate-limit bucket. Email verification and password recovery are not included in this lightweight implementation.
 
@@ -25,3 +25,5 @@ Passwords use salted scrypt hashes. Opaque session tokens are stored as SHA-256 
 Reference: [Python scrypt](https://docs.python.org/3/library/hashlib.html#hashlib.scrypt), [Starlette cookie options](https://www.starlette.dev/responses/#set-cookie).
 
 The popup supports Escape, backdrop dismissal, keyboard focus containment and a guest-mode action. Dismissal is disabled while an auth request is pending. See [Vercel deployment assessment](VERCEL_DEPLOYMENT.md) before deploying the SQLite-backed API to serverless hosting.
+
+Account changes are synchronized between tabs and revalidated on focus. Expired or revoked sessions return 401 instead of silently downgrading a signed-in calculation to an unsaved guest calculation. Invalid cookies are cleared, and the UI offers login again. Browser drafts remain under their original account key.

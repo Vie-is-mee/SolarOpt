@@ -43,6 +43,8 @@ app.include_router(auth_router)
 @app.middleware("http")
 async def private_responses(request, call_next):
     response = await call_next(request)
+    if getattr(request.state, "invalid_session", False):
+        response.delete_cookie(COOKIE, path="/api")
     if request.url.path.startswith(("/api/auth/", "/api/history", "/api/projects/")):
         response.headers["Cache-Control"] = "private, no-store"
     return response
