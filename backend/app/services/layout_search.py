@@ -9,7 +9,7 @@ from time import perf_counter
 from shapely import prepare
 from shapely.affinity import rotate
 from app.schemas import CandidatePanel
-from app.services.geometry import panel_shape, overlap_ratio, _parts
+from app.services.geometry import panel_shape, overlap_ratio, _parts, TOP_PREFIX
 from app.services.energy import EnergyContext
 from app.services.design_policy import capacity, select_for_target, robust_contexts, robust_position
 
@@ -59,7 +59,8 @@ def search_layouts(req, ctx, shade_contexts, *, budget_seconds=25., diagnostics=
     if cfg.layout_angle_deg is None:
         angles=sorted(set(angles+[p.rotation_deg%180 for p in req.previous_panels]))
     margin=cfg.setback_m+cfg.layout_edge_reserve_m
-    surfaces=[(s,s.polygon.buffer(-margin,join_style=2)) for s in ctx.surfaces if s.installable]
+    surfaces=[(s,s.polygon.buffer(-margin,join_style=2)) for s in ctx.surfaces if s.installable and not s.id.startswith(TOP_PREFIX)]
+    tops=[(s,s.polygon.buffer(-margin,join_style=2)) for s in ctx.surfaces if s.installable and s.id.startswith(TOP_PREFIX)]
     for region in [ctx.usable_roof,ctx.obstacle_union,*(r for _,r in surfaces)]:prepare(region)
     max_count=capacity(req)
     robust=robust_contexts(req) if req.objective=='robust' else []
@@ -142,7 +143,49 @@ def search_layouts(req, ctx, shade_contexts, *, budget_seconds=25., diagnostics=
         if not trials:
             raise ValueError('Mái quá phức tạp để hoàn tất một lưới trong thời gian cho phép. Chọn góc xếp thủ công hoặc giảm phạm vi mái rồi thử lại.')
         if diagnostics is not None:diagnostics['limited']=True
+    # Obstacle tops sit inside their footprint, where main-roof panels are blocked by the clearance
+    # ring, so their best small grid can be added to the main grid without any overlap.
+    extra=[]
+    for t,(surface,region) in enumerate(tops):
+        if not region.is_empty and perf_counter()-started<budget_seconds+5:
+            extra+=_best_top_grid(req,ctx,energy_context,surface,region,f't{t}',robust)
     if diagnostics is not None:
-        diagnostics.update(positions=visited, elapsed_ms=round((perf_counter()-started)*1000))
+        diagnostics.update(positions=visited, elapsed_ms=round((perf_counter()-started)*1000), obstacle_top_candidates=len(extra))
     trials[best_index]['selected']=True
-    return best,trials
+    return best+extra,trials
+
+
+def _best_top_grid(req,ctx,energy_context,surface,region,tag,robust):
+    """Small exhaustive grid on one obstacle top: edge-aligned and portrait/landscape, edge or centred offsets."""
+    cfg,spec=req.config,req.panel
+    edge=max(zip(region.minimum_rotated_rectangle.exterior.coords,list(region.minimum_rotated_rectangle.exterior.coords)[1:]),
+             key=lambda e:math.hypot(e[1][0]-e[0][0],e[1][1]-e[0][1]))
+    lead=round(math.degrees(math.atan2(edge[1][1]-edge[0][1],edge[1][0]-edge[0][0]))%180,3)
+    best,best_value=[],0
+    for angle in sorted({0.0,90.0,lead,round((lead+90)%180,3)}):
+        radians=math.radians(angle);co,si=math.cos(radians),math.sin(radians)
+        minx,miny,maxx,maxy=rotate(region,-angle,origin=(0,0)).bounds
+        sx,sy=spec.width_m+cfg.panel_gap_m,spec.height_m+cfg.panel_gap_m
+        nx,ny=int((maxx-minx+cfg.panel_gap_m+1e-7)//sx),int((maxy-miny+cfg.panel_gap_m+1e-7)//sy)
+        if not nx or not ny:continue
+        spare_x,spare_y=maxx-minx-(nx*sx-cfg.panel_gap_m),maxy-miny-(ny*sy-cfg.panel_gap_m)
+        for ox in {0.0,spare_x/2}:
+            for oy in {0.0,spare_y/2}:
+                candidates=[]
+                for row in range(ny):
+                    for col in range(nx):
+                        x,y=minx+ox+col*sx,miny+oy+row*sy
+                        cx,cy=x+spec.width_m/2,y+spec.height_m/2
+                        px,py=round(cx*co-cy*si-spec.width_m/2,6),round(cx*si+cy*co-spec.height_m/2,6)
+                        shape=panel_shape(px,py,spec.width_m,spec.height_m,angle)
+                        if not(region.covers(shape) and ctx.usable_roof.covers(shape) and overlap_ratio(shape,ctx.obstacle_union)<=1e-9):continue
+                        if robust and not robust_position(px,py,angle,req,robust):continue
+                        value=energy_context.evaluate(shape,spec.power_w,surface)
+                        if value.mean_cover<.55 and value.worst_cover<.50 and value.loss_pct<=SHADING_LIMITS[req.objective]:
+                            candidate=CandidatePanel(id=f'{tag}r{row}c{col}',x=px,y=py,width_m=spec.width_m,height_m=spec.height_m,
+                                rotation_deg=angle,face_id=surface.id,shading_loss_pct=round(value.loss_pct,2),annual_energy_kwh=value.annual_kwh)
+                            candidate.preserved=any(same_position(candidate,p) for p in req.previous_panels)
+                            candidates.append(candidate)
+                total=sum(max(0,score(req,c)) for c in candidates)
+                if total>best_value:best,best_value=candidates,total
+    return best
