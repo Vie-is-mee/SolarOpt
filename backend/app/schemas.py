@@ -35,6 +35,7 @@ class RectObstacle(StrictModel):
     rotation_deg: float = Field(default=0, ge=-360, le=360)
     points: list[Point] = Field(default_factory=list, max_length=80, description="Local footprint coordinates before rotation")
     base_elevation_m: float | None = Field(default=None, ge=0, le=500)
+    top_installable: bool = Field(default=False, description="Flat top may carry panels, e.g. stair housing or shed roof; engineer confirms structure and access")
 
     @model_validator(mode="after")
     def validate_footprint(self):

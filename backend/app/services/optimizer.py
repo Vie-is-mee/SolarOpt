@@ -115,4 +115,7 @@ def generate_design(req: DesignRequest) -> DesignResult:
     warnings.append(f"Đã so sánh {len(layout_trials)} lưới xoay/dịch; chọn theo mục tiêu trong các lưới đã thử, chưa phải tối ưu mọi cách xếp.")
     if len(selected) == 0:
         warnings.append("Solver không chọn được panel trong ngân sách/ràng buộc hiện tại.")
+    on_tops = sum(1 for p in selected if (p.face_id or "").startswith("top-"))
+    if on_tops:
+        warnings.append(f"{on_tops} tấm đặt trên nóc vật cản: cần kỹ sư xác nhận kết cấu chịu tải, lối lên bảo trì, chống gió và chi phí khung riêng.")
     return describe_goal(req, DesignResult(panels=selected, metrics=metrics, warnings=warnings, solver_status=status_name, layout_trials=layout_trials))

@@ -4,7 +4,7 @@ from dataclasses import dataclass,field
 from shapely.affinity import rotate,scale
 from shapely.geometry import Polygon,Point,box
 from shapely.ops import unary_union
-from app.schemas import ProjectConfig,RectObstacle,SunPosition
+from app.schemas import ProjectConfig,RectObstacle,RoofFace,SunPosition
 
 @dataclass
 class Surface:
@@ -149,9 +149,13 @@ def _project_prism(base,top_z,target,sun,config,bottom_z=None):
                 pieces.append(side)
     return unary_union(pieces) if pieces else None
 
+TOP_PREFIX='top-'
+
+
 def obstacle_source_surface(o,config,all_surfaces=None):
     base=obstacle_polygon(o)
-    return next((s for s in (all_surfaces or surfaces(config)) if s.polygon.covers(base.centroid)),
+    # An obstacle stands on the roof below it, never on the installable top derived from itself.
+    return next((s for s in (all_surfaces or surfaces(config)) if not s.id.startswith(TOP_PREFIX) and s.polygon.covers(base.centroid)),
         Surface('base','Mái cơ sở (ngoại suy)',roof_polygon(config),config.roof_elevation_m,config.roof_tilt_deg,config.roof_azimuth_deg))
 
 
@@ -184,11 +188,36 @@ def shadow_polygon(o:RectObstacle,sun:SunPosition|None,config:ProjectConfig|None
         return obstacle_base_z(o,x,y,source,cfg)+o.height_m
     return _project_prism(base,top,target,sun,cfg,lambda x,y:obstacle_base_z(o,x,y,source,cfg))
 
+def top_installable_obstacles(config:ProjectConfig,obstacles:list[RectObstacle]):
+    roof=roof_polygon(config)
+    return [o for o in obstacles if o.top_installable and o.scope=='roof' and o.height_m>0 and roof.covers(obstacle_polygon(o).centroid)]
+
+
+def with_obstacle_tops(config:ProjectConfig,obstacles:list[RectObstacle])->ProjectConfig:
+    """Add each flat, installable obstacle top as a horizontal roof face at its top elevation.
+    The obstacle itself still blocks the roof below and casts its shadow."""
+    tops=top_installable_obstacles(config,obstacles)
+    if not tops:return config
+    planes=surfaces(config);faces=list(config.roof_faces)
+    for o in tops:
+        footprint=obstacle_polygon(o);source=obstacle_source_surface(o,config,planes)
+        top=max(obstacle_base_z(o,x,y,source,config) for x,y in footprint.exterior.coords)+o.height_m
+        coords=[(round(x,4),round(y,4)) for x,y in footprint.exterior.coords[:-1]][:80]
+        faces.append(RoofFace(id=TOP_PREFIX+o.id,label=f'Nóc {o.label}',polygon=[{'x':x,'y':y} for x,y in coords],
+                              elevation_m=min(300,top),tilt_deg=0,azimuth_deg=180,installable=True))
+    return config.model_copy(update={'roof_faces':faces})
+
+
 def build_context(config:ProjectConfig,obstacles:list[RectObstacle],sun:SunPosition|None)->GeometryContext:
+    config=with_obstacle_tops(config,obstacles)
     roof=roof_polygon(config);planes=surfaces(config)
     usable_parts=[s.polygon.buffer(-config.setback_m,join_style=2) for s in planes if s.installable]
     usable=unary_union(usable_parts) if usable_parts else Polygon()
-    obstacle_shapes=[obstacle_polygon(o).buffer(config.obstacle_clearance_m,join_style=2) for o in obstacles]
+    def blocked(o):
+        shape=obstacle_polygon(o).buffer(config.obstacle_clearance_m,join_style=2)
+        # Installable top: only the clearance ring and the top's own edge setback stay blocked.
+        return shape.difference(obstacle_polygon(o).buffer(-config.setback_m,join_style=2)) if o.top_installable and o.scope=='roof' else shape
+    obstacle_shapes=[blocked(o) for o in obstacles]
     records=[]
     for o in obstacles:
         shapes=[]

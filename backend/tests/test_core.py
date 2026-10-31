@@ -32,3 +32,27 @@ def test_area_upper_bound_never_below_selected_panels():
     m = result.metrics
     assert m.usable_area_m2 is not None and 0 < m.usable_area_m2 < cfg.roof_width_m * cfg.roof_height_m
     assert m.area_upper_bound_panels >= m.panel_count > 0
+
+
+def test_installable_obstacle_top_adds_panels_without_breaking_checks():
+    from app.services.geometry import build_context
+    cfg = ProjectConfig(budget_vnd=1_000_000_000, roof_elevation_m=6)
+    panel = PanelSpec(price_vnd=4_000_000)
+    stair = dict(id="stair", label="Tum thang", x=1, y=1, width_m=4.6, depth_m=3, height_m=2.7)
+    plain = generate_design(DesignRequest(config=cfg, panel=panel, obstacles=[RectObstacle(**stair)]))
+    obs = [RectObstacle(**stair, top_installable=True)]
+    ctx = build_context(cfg, obs, None)
+    top = next(s for s in ctx.surfaces if s.id == "top-stair")
+    assert top.elevation == 6 + 2.7 and top.installable
+    result = generate_design(DesignRequest(config=cfg, panel=panel, obstacles=obs))
+    on_top = [p for p in result.panels if p.face_id == "top-stair"]
+    assert len(on_top) >= 3 and result.metrics.panel_count >= plain.metrics.panel_count + 3
+    assert any("nóc vật cản" in w for w in result.warnings)
+    assert verify_design(VerifyRequest(config=cfg, panel=panel, obstacles=obs, design=result)).valid
+
+
+def test_obstacle_top_flag_ignored_for_neighbours():
+    from app.services.geometry import build_context
+    cfg = ProjectConfig()
+    house = RectObstacle(id="nb", label="Nhà bên", x=13, y=0, width_m=5, depth_m=5, height_m=8, scope="neighbor", top_installable=True)
+    assert not any(s.id.startswith("top-") for s in build_context(cfg, [house], None).surfaces)
