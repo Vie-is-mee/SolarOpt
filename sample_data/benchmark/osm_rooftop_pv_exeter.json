@@ -1,0 +1,1028 @@
+{
+ "source": "OpenStreetMap via Overpass API",
+ "license": "ODbL 1.0, © OpenStreetMap contributors",
+ "retrieved": "2026-10-31",
+ "note": "Array outlines are contributor-mapped from aerial imagery; no rooftop obstacles are mapped.",
+ "cases": [
+  {
+   "osm_building_way": 733416878,
+   "building_tags": {
+    "building": "yes",
+    "building:levels": "5",
+    "roof:shape": "flat"
+   },
+   "building_lonlat": [
+    [
+     -3.5200421,
+     50.7315591
+    ],
+    [
+     -3.5200189,
+     50.7314933
+    ],
+    [
+     -3.5200565,
+     50.7314682
+    ],
+    [
+     -3.5201234,
+     50.7315083
+    ],
+    [
+     -3.5203185,
+     50.7313781
+    ],
+    [
+     -3.5201568,
+     50.7312811
+    ],
+    [
+     -3.5199595,
+     50.7314129
+    ],
+    [
+     -3.5197446,
+     50.7312839
+    ],
+    [
+     -3.51993,
+     50.7311601
+    ],
+    [
+     -3.5197466,
+     50.7310501
+    ],
+    [
+     -3.5195803,
+     50.7311612
+    ],
+    [
+     -3.5195108,
+     50.7311194
+    ],
+    [
+     -3.5194051,
+     50.73119
+    ],
+    [
+     -3.5194728,
+     50.7312306
+    ],
+    [
+     -3.5194396,
+     50.7312527
+    ],
+    [
+     -3.5195324,
+     50.7313084
+    ],
+    [
+     -3.5195044,
+     50.7313271
+    ],
+    [
+     -3.5197502,
+     50.7314748
+    ],
+    [
+     -3.5191001,
+     50.7315668
+    ],
+    [
+     -3.5191423,
+     50.7316865
+    ],
+    [
+     -3.5200421,
+     50.7315591
+    ]
+   ],
+   "arrays": [
+    {
+     "osm_way": 841769488,
+     "lonlat": [
+      [
+       -3.5202814,
+       50.7313863
+      ],
+      [
+       -3.5202254,
+       50.7313532
+      ],
+      [
+       -3.5200967,
+       50.7314402
+      ],
+      [
+       -3.5201527,
+       50.7314734
+      ],
+      [
+       -3.5202814,
+       50.7313863
+      ]
+     ],
+     "tags": {
+      "generator:method": "photovoltaic",
+      "generator:output:electricity": "yes",
+      "generator:source": "solar",
+      "generator:type": "solar_photovoltaic_panel",
+      "power": "generator"
+     }
+    },
+    {
+     "osm_way": 841769489,
+     "lonlat": [
+      [
+       -3.5201923,
+       50.7313423
+      ],
+      [
+       -3.5201402,
+       50.7313107
+      ],
+      [
+       -3.5200153,
+       50.7313932
+      ],
+      [
+       -3.5200674,
+       50.7314248
+      ],
+      [
+       -3.5201923,
+       50.7313423
+      ]
+     ],
+     "tags": {
+      "generator:method": "photovoltaic",
+      "generator:output:electricity": "yes",
+      "generator:source": "solar",
+      "generator:type": "solar_photovoltaic_panel",
+      "power": "generator"
+     }
+    },
+    {
+     "osm_way": 841769490,
+     "lonlat": [
+      [
+       -3.5198539,
+       50.7311835
+      ],
+      [
+       -3.5197979,
+       50.7311505
+      ],
+      [
+       -3.5196815,
+       50.7312296
+      ],
+      [
+       -3.5197375,
+       50.7312626
+      ],
+      [
+       -3.5198539,
+       50.7311835
+      ]
+     ],
+     "tags": {
+      "generator:method": "photovoltaic",
+      "generator:output:electricity": "yes",
+      "generator:source": "solar",
+      "generator:type": "solar_photovoltaic_panel",
+      "power": "generator"
+     }
+    },
+    {
+     "osm_way": 841769491,
+     "lonlat": [
+      [
+       -3.5197578,
+       50.7311463
+      ],
+      [
+       -3.5197005,
+       50.7311122
+      ],
+      [
+       -3.5196107,
+       50.7311728
+      ],
+      [
+       -3.519668,
+       50.7312068
+      ],
+      [
+       -3.5197578,
+       50.7311463
+      ]
+     ],
+     "tags": {
+      "generator:method": "photovoltaic",
+      "generator:output:electricity": "yes",
+      "generator:source": "solar",
+      "generator:type": "solar_photovoltaic_panel",
+      "power": "generator"
+     }
+    },
+    {
+     "osm_way": 841769492,
+     "lonlat": [
+      [
+       -3.5196274,
+       50.7315603
+      ],
+      [
+       -3.5196406,
+       50.7316031
+      ],
+      [
+       -3.5194389,
+       50.7316281
+      ],
+      [
+       -3.5194257,
+       50.7315852
+      ],
+      [
+       -3.5196274,
+       50.7315603
+      ]
+     ],
+     "tags": {
+      "generator:method": "photovoltaic",
+      "generator:output:electricity": "yes",
+      "generator:source": "solar",
+      "generator:type": "solar_photovoltaic_panel",
+      "power": "generator"
+     }
+    },
+    {
+     "osm_way": 841769493,
+     "lonlat": [
+      [
+       -3.5196236,
+       50.7315489
+      ],
+      [
+       -3.5196113,
+       50.7315123
+      ],
+      [
+       -3.5194138,
+       50.7315388
+      ],
+      [
+       -3.5194261,
+       50.7315754
+      ],
+      [
+       -3.5196236,
+       50.7315489
+      ]
+     ],
+     "tags": {
+      "generator:method": "photovoltaic",
+      "generator:output:electricity": "yes",
+      "generator:source": "solar",
+      "generator:type": "solar_photovoltaic_panel",
+      "power": "generator"
+     }
+    },
+    {
+     "osm_way": 841769494,
+     "lonlat": [
+      [
+       -3.5192501,
+       50.7315997
+      ],
+      [
+       -3.5192371,
+       50.7315579
+      ],
+      [
+       -3.5191144,
+       50.7315732
+      ],
+      [
+       -3.5191274,
+       50.731615
+      ],
+      [
+       -3.5192501,
+       50.7315997
+      ]
+     ],
+     "tags": {
+      "generator:method": "photovoltaic",
+      "generator:output:electricity": "yes",
+      "generator:source": "solar",
+      "generator:type": "solar_photovoltaic_panel",
+      "power": "generator"
+     }
+    },
+    {
+     "osm_way": 841769495,
+     "lonlat": [
+      [
+       -3.5192577,
+       50.7316114
+      ],
+      [
+       -3.5192697,
+       50.7316508
+      ],
+      [
+       -3.5191478,
+       50.7316657
+      ],
+      [
+       -3.5191358,
+       50.7316263
+      ],
+      [
+       -3.5192577,
+       50.7316114
+      ]
+     ],
+     "tags": {
+      "generator:method": "photovoltaic",
+      "generator:output:electricity": "yes",
+      "generator:source": "solar",
+      "generator:type": "solar_photovoltaic_panel",
+      "power": "generator"
+     }
+    },
+    {
+     "osm_way": 841769496,
+     "lonlat": [
+      [
+       -3.5198198,
+       50.7313482
+      ],
+      [
+       -3.5199437,
+       50.7314197
+      ],
+      [
+       -3.5198988,
+       50.7314501
+      ],
+      [
+       -3.5197764,
+       50.7313766
+      ],
+      [
+       -3.5198198,
+       50.7313482
+      ]
+     ],
+     "tags": {
+      "generator:method": "photovoltaic",
+      "generator:output:electricity": "yes",
+      "generator:source": "solar",
+      "generator:type": "solar_photovoltaic_panel",
+      "power": "generator"
+     }
+    },
+    {
+     "osm_way": 841769497,
+     "lonlat": [
+      [
+       -3.5196591,
+       50.7313481
+      ],
+      [
+       -3.5197765,
+       50.7314152
+      ],
+      [
+       -3.5197935,
+       50.7314033
+      ],
+      [
+       -3.5198494,
+       50.7314353
+      ],
+      [
+       -3.5197893,
+       50.7314775
+      ],
+      [
+       -3.5196158,
+       50.7313784
+      ],
+      [
+       -3.5196591,
+       50.7313481
+      ]
+     ],
+     "tags": {
+      "generator:method": "photovoltaic",
+      "generator:output:electricity": "yes",
+      "generator:source": "solar",
+      "generator:type": "solar_photovoltaic_panel",
+      "power": "generator"
+     }
+    }
+   ]
+  },
+  {
+   "osm_building_way": 780007669,
+   "building_tags": {
+    "building": "yes",
+    "building:levels": "7",
+    "roof:shape": "flat"
+   },
+   "building_lonlat": [
+    [
+     -3.5237142,
+     50.7267252
+    ],
+    [
+     -3.5235614,
+     50.7268264
+    ],
+    [
+     -3.5235243,
+     50.7268495
+    ],
+    [
+     -3.523384,
+     50.7267611
+    ],
+    [
+     -3.5237115,
+     50.7265522
+    ],
+    [
+     -3.5237889,
+     50.7266001
+    ],
+    [
+     -3.5236534,
+     50.7266869
+    ],
+    [
+     -3.5237142,
+     50.7267252
+    ]
+   ],
+   "arrays": [
+    {
+     "osm_way": 780007672,
+     "lonlat": [
+      [
+       -3.5237581,
+       50.7266194
+      ],
+      [
+       -3.5236972,
+       50.7265845
+      ],
+      [
+       -3.5236632,
+       50.7266083
+      ],
+      [
+       -3.5237241,
+       50.7266432
+      ],
+      [
+       -3.5237581,
+       50.7266194
+      ]
+     ],
+     "tags": {
+      "generator:method": "photovoltaic",
+      "generator:output:electricity": "yes",
+      "generator:source": "solar",
+      "generator:type": "solar_photovoltaic_panel",
+      "power": "generator"
+     }
+    },
+    {
+     "osm_way": 780007673,
+     "lonlat": [
+      [
+       -3.5236702,
+       50.7266347
+      ],
+      [
+       -3.5236314,
+       50.7266111
+      ],
+      [
+       -3.5235182,
+       50.7266856
+      ],
+      [
+       -3.5235764,
+       50.7267211
+      ],
+      [
+       -3.5236406,
+       50.7266788
+      ],
+      [
+       -3.5236212,
+       50.726667
+      ],
+      [
+       -3.5236702,
+       50.7266347
+      ]
+     ],
+     "tags": {
+      "generator:method": "photovoltaic",
+      "generator:output:electricity": "yes",
+      "generator:source": "solar",
+      "generator:type": "solar_photovoltaic_panel",
+      "power": "generator"
+     }
+    },
+    {
+     "osm_way": 780007674,
+     "lonlat": [
+      [
+       -3.5235683,
+       50.7267205
+      ],
+      [
+       -3.5235131,
+       50.7266884
+      ],
+      [
+       -3.5234039,
+       50.7267636
+      ],
+      [
+       -3.5234203,
+       50.7267732
+      ],
+      [
+       -3.5234353,
+       50.7267629
+      ],
+      [
+       -3.5234502,
+       50.7267716
+      ],
+      [
+       -3.5234331,
+       50.7267834
+      ],
+      [
+       -3.523457,
+       50.7267972
+      ],
+      [
+       -3.5235683,
+       50.7267205
+      ]
+     ],
+     "tags": {
+      "generator:method": "photovoltaic",
+      "generator:output:electricity": "yes",
+      "generator:source": "solar",
+      "generator:type": "solar_photovoltaic_panel",
+      "power": "generator"
+     }
+    },
+    {
+     "osm_way": 780007675,
+     "lonlat": [
+      [
+       -3.5237655,
+       50.7266904
+      ],
+      [
+       -3.5237402,
+       50.7266754
+      ],
+      [
+       -3.5237168,
+       50.7266913
+      ],
+      [
+       -3.5236984,
+       50.7266804
+      ],
+      [
+       -3.5236645,
+       50.7267034
+      ],
+      [
+       -3.5236426,
+       50.7266904
+      ],
+      [
+       -3.5236218,
+       50.7267045
+      ],
+      [
+       -3.5236874,
+       50.7267433
+      ],
+      [
+       -3.5237655,
+       50.7266904
+      ]
+     ],
+     "tags": {
+      "generator:method": "photovoltaic",
+      "generator:output:electricity": "yes",
+      "generator:source": "solar",
+      "generator:type": "solar_photovoltaic_panel",
+      "power": "generator"
+     }
+    },
+    {
+     "osm_way": 780007676,
+     "lonlat": [
+      [
+       -3.5235704,
+       50.7267326
+      ],
+      [
+       -3.5236289,
+       50.7267681
+      ],
+      [
+       -3.5235162,
+       50.7268426
+      ],
+      [
+       -3.5234864,
+       50.7268246
+      ],
+      [
+       -3.5235212,
+       50.7268016
+      ],
+      [
+       -3.5235065,
+       50.7267927
+      ],
+      [
+       -3.5235681,
+       50.726752
+      ],
+      [
+       -3.5235541,
+       50.7267435
+      ],
+      [
+       -3.5235704,
+       50.7267326
+      ]
+     ],
+     "tags": {
+      "generator:method": "photovoltaic",
+      "generator:output:electricity": "yes",
+      "generator:source": "solar",
+      "generator:type": "solar_photovoltaic_panel",
+      "power": "generator"
+     }
+    }
+   ]
+  },
+  {
+   "osm_building_way": 516819627,
+   "building_tags": {
+    "building": "yes",
+    "building:levels": "4",
+    "roof:shape": "flat"
+   },
+   "building_lonlat": [
+    [
+     -3.519181,
+     50.7290985
+    ],
+    [
+     -3.5191412,
+     50.7290569
+    ],
+    [
+     -3.5190777,
+     50.7290812
+    ],
+    [
+     -3.5190538,
+     50.7290562
+    ],
+    [
+     -3.5189968,
+     50.7290781
+    ],
+    [
+     -3.5189738,
+     50.7290846
+    ],
+    [
+     -3.5189132,
+     50.7291083
+    ],
+    [
+     -3.5188994,
+     50.7290941
+    ],
+    [
+     -3.5187827,
+     50.7291398
+    ],
+    [
+     -3.518868,
+     50.7292271
+    ],
+    [
+     -3.5189784,
+     50.7291835
+    ],
+    [
+     -3.5189366,
+     50.7291386
+    ],
+    [
+     -3.5190339,
+     50.7291023
+    ],
+    [
+     -3.51907,
+     50.729141
+    ],
+    [
+     -3.519181,
+     50.7290985
+    ]
+   ],
+   "arrays": [
+    {
+     "osm_way": 1100705750,
+     "lonlat": [
+      [
+       -3.5189509,
+       50.7291715
+      ],
+      [
+       -3.518916,
+       50.729135
+      ],
+      [
+       -3.5188315,
+       50.7291674
+      ],
+      [
+       -3.5188664,
+       50.7292039
+      ],
+      [
+       -3.5189509,
+       50.7291715
+      ]
+     ],
+     "tags": {
+      "generator:method": "photovoltaic",
+      "generator:output:electricity": "yes",
+      "generator:source": "solar",
+      "generator:type": "solar_photovoltaic_panel",
+      "power": "generator"
+     }
+    },
+    {
+     "osm_way": 1100705751,
+     "lonlat": [
+      [
+       -3.5191704,
+       50.7290983
+      ],
+      [
+       -3.519134,
+       50.7290608
+      ],
+      [
+       -3.5190866,
+       50.7290794
+      ],
+      [
+       -3.519123,
+       50.7291168
+      ],
+      [
+       -3.5191704,
+       50.7290983
+      ]
+     ],
+     "tags": {
+      "generator:method": "photovoltaic",
+      "generator:output:electricity": "yes",
+      "generator:source": "solar",
+      "generator:type": "solar_photovoltaic_panel",
+      "power": "generator"
+     }
+    },
+    {
+     "osm_way": 1100705752,
+     "lonlat": [
+      [
+       -3.5191197,
+       50.7291188
+      ],
+      [
+       -3.5190835,
+       50.7290818
+      ],
+      [
+       -3.519066,
+       50.7290886
+      ],
+      [
+       -3.5191022,
+       50.7291256
+      ],
+      [
+       -3.5191197,
+       50.7291188
+      ]
+     ],
+     "tags": {
+      "generator:method": "photovoltaic",
+      "generator:output:electricity": "yes",
+      "generator:source": "solar",
+      "generator:type": "solar_photovoltaic_panel",
+      "power": "generator"
+     }
+    },
+    {
+     "osm_way": 1100705753,
+     "lonlat": [
+      [
+       -3.5190121,
+       50.7290998
+      ],
+      [
+       -3.5190707,
+       50.729077
+      ],
+      [
+       -3.5190599,
+       50.7290659
+      ],
+      [
+       -3.5190014,
+       50.7290887
+      ],
+      [
+       -3.5190121,
+       50.7290998
+      ]
+     ],
+     "tags": {
+      "generator:method": "photovoltaic",
+      "generator:output:electricity": "yes",
+      "generator:source": "solar",
+      "generator:type": "solar_photovoltaic_panel",
+      "power": "generator"
+     }
+    },
+    {
+     "osm_way": 1100705754,
+     "lonlat": [
+      [
+       -3.5190919,
+       50.7291281
+      ],
+      [
+       -3.5190571,
+       50.7290906
+      ],
+      [
+       -3.5190483,
+       50.7290938
+      ],
+      [
+       -3.5190832,
+       50.7291314
+      ],
+      [
+       -3.5190919,
+       50.7291281
+      ]
+     ],
+     "tags": {
+      "generator:method": "photovoltaic",
+      "generator:output:electricity": "yes",
+      "generator:source": "solar",
+      "generator:type": "solar_photovoltaic_panel",
+      "power": "generator"
+     }
+    }
+   ]
+  },
+  {
+   "osm_building_way": 780007667,
+   "building_tags": {
+    "building": "yes",
+    "building:levels": "8",
+    "roof:shape": "flat"
+   },
+   "building_lonlat": [
+    [
+     -3.523754,
+     50.7267503
+    ],
+    [
+     -3.5238563,
+     50.7266824
+    ],
+    [
+     -3.5239832,
+     50.7266023
+    ],
+    [
+     -3.5238832,
+     50.726536
+    ],
+    [
+     -3.5238142,
+     50.7265802
+    ],
+    [
+     -3.5237889,
+     50.7266001
+    ],
+    [
+     -3.5236534,
+     50.7266869
+    ],
+    [
+     -3.5237142,
+     50.7267252
+    ],
+    [
+     -3.523754,
+     50.7267503
+    ]
+   ],
+   "arrays": [
+    {
+     "osm_way": 780007670,
+     "lonlat": [
+      [
+       -3.5239163,
+       50.7266309
+      ],
+      [
+       -3.5238339,
+       50.7265821
+      ],
+      [
+       -3.523738,
+       50.726647
+      ],
+      [
+       -3.5237492,
+       50.7266536
+      ],
+      [
+       -3.5238165,
+       50.7266081
+      ],
+      [
+       -3.5238407,
+       50.7266225
+      ],
+      [
+       -3.5238208,
+       50.7266359
+      ],
+      [
+       -3.5238301,
+       50.7266414
+      ],
+      [
+       -3.5238087,
+       50.7266559
+      ],
+      [
+       -3.5238464,
+       50.7266782
+      ],
+      [
+       -3.5239163,
+       50.7266309
+      ]
+     ],
+     "tags": {
+      "generator:method": "photovoltaic",
+      "generator:output:electricity": "yes",
+      "generator:source": "solar",
+      "generator:type": "solar_photovoltaic_panel",
+      "power": "generator"
+     }
+    }
+   ]
+  }
+ ]
+}
