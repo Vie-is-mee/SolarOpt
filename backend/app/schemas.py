@@ -326,6 +326,30 @@ class VisionObstacle(StrictModel):
     requires_placement: bool = False
 
 
+class DimensionLabel(StrictModel):
+    text: str = Field(default="", max_length=40)
+    value_m: float | None = Field(default=None, gt=0, le=10000)
+    interpretation: str = Field(default="", max_length=80)
+    axis: Literal["horizontal", "vertical", "other"] = "other"
+    start: NormalizedPoint | None = None
+    end: NormalizedPoint | None = None
+    length_px: float | None = None
+    m_per_px: float | None = None
+    outlier: bool = False
+
+
+class DimensionCheck(StrictModel):
+    labels: list[DimensionLabel] = Field(default_factory=list, max_length=20)
+    scale_m_per_px: float | None = None
+    scale_spread_pct: float | None = None
+    consistent: bool | None = None
+    suggested_width_m: float | None = Field(default=None, gt=0, le=100)
+    suggested_height_m: float | None = Field(default=None, gt=0, le=100)
+    width_basis: str = ""
+    height_basis: str = ""
+    notes: list[str] = []
+
+
 class VisionResult(StrictModel):
     mode: Literal["gemini", "groq", "ollama", "manual", "demo"]
     model: str = ""
@@ -348,6 +372,7 @@ class VisionResult(StrictModel):
     relevant: bool = True
     image_type: Literal["roof_photo", "roof_drawing", "partial_roof", "other", ""] = ""
     reject_reason: str = Field(default="", max_length=300)
+    dimensions: DimensionCheck | None = None
 
     @model_validator(mode="after")
     def validate_extraction(self):

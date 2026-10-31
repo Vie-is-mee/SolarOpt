@@ -17,7 +17,8 @@ export const studioApi={
   validateProject:(config:Config,panel:Panel,obstacles:Obstacle[],evidence?:ProjectEvidence|null)=>request<{valid:boolean}>('/api/projects/validate',{config,panel,obstacles,evidence}),
   health:()=>request<Health>('/api/health'),
   scene:(config:Config,obstacles:Obstacle[],date:string,hour_local:number,signal?:AbortSignal)=>request<Scene>('/api/solar/scene',{config,obstacles,date,hour_local},signal),
-  analyze:(file:File,context:File[],kind:string,config:Config)=>{const data=new FormData();data.append('file',file);context.forEach(f=>data.append('context_files',f));data.append('input_kind',kind);data.append('roof_width_m',String(config.roof_width_m));data.append('roof_height_m',String(config.roof_height_m));return request<Vision>('/api/vision/analyze',data)},
+  analyze:(file:File,context:File[],kind:string,config:Config)=>{const data=new FormData();data.append('file',file);context.forEach(f=>data.append('context_files',f));data.append('input_kind',kind);// Unknown sizes are omitted, e.g. when the drawing itself is read for its dimensions.
+  if(config.roof_width_m>0)data.append('roof_width_m',String(config.roof_width_m));if(config.roof_height_m>0)data.append('roof_height_m',String(config.roof_height_m));return request<Vision>('/api/vision/analyze',data)},
   design:(config:Config,panel:Panel,obstacles:Obstacle[],objective:Objective,evidence?:ProjectEvidence|null)=>request<Design>('/api/design/generate',{config,panel,obstacles,objective,evidence}),
   verify:(config:Config,panel:Panel,obstacles:Obstacle[],design:Design,sun:Sun|null)=>request<Verification>('/api/design/verify',{config,panel,obstacles,design,sun}),
   stress:(config:Config,panel:Panel,obstacles:Obstacle[],design:Design,sun:Sun|null)=>request<Stress>('/api/design/stress-test',{config,panel,obstacles,design,sun}),
