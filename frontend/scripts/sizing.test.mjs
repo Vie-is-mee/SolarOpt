@@ -43,6 +43,12 @@ test('missing assumptions are reported instead of producing a suggestion',()=>{
  assert(points[0].missing.length>0)
 })
 
+test('a price per kWp scales the investment with the size being evaluated',()=>{
+ const a={...complete(),cost_mode:'per_kwp',capex_million_per_kwp:12}
+ assert.equal(evaluateSize(a,design,20).total,12e6*11.6)
+ assert(Math.abs(evaluateSize(a,design,10).total-12e6*5.8)<1e-3)
+})
+
 test('another option is costed on the unit prices entered for the design on screen',()=>{
  const a=complete(),half={...design,panels:panels.slice(0,10),metrics:{...design.metrics,panel_count:10,peak_power_kwp:5.8,estimated_cost_vnd:42_000_000,annual_energy_kwh:panels.slice(0,10).reduce((s,p)=>s+p.annual_energy_kwh,0)}}
  const asOption=evaluateSize(a,half,10,design.metrics.peak_power_kwp),asSubset=evaluateSize(a,design,10)
