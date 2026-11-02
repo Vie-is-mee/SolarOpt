@@ -1,4 +1,5 @@
 import {useEffect,useRef,useState} from 'react'
+import {Icon} from './Icon'
 import * as THREE from 'three'
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js'
 import type {Config,Design,Obstacle,Scene} from '../studioTypes'
@@ -187,6 +188,14 @@ export default function Roof3D({config,obstacles,scene,design,photo,sunDate}:{co
  const [glError,setGlError]=useState(''),[epoch,setEpoch]=useState(0)
  const [look,setLook]=useState<Look>('real'),[tool,setTool]=useState<Tool>('orbit'),[picked,setPicked]=useState<number|null>(null),[points,setPoints]=useState<THREE.Vector3[]>([])
  const toolRef=useRef<Tool>(tool);toolRef.current=tool
+ // One collapsible menu and one help popover keep the scene clear; Esc or a click elsewhere closes them.
+ const [open,setOpen]=useState<'menu'|'help'|null>(null),chrome=useRef<HTMLDivElement>(null)
+ useEffect(()=>{if(!open)return
+  const away=(e:PointerEvent)=>{if(!chrome.current?.contains(e.target as Node))setOpen(null)}
+  const key=(e:KeyboardEvent)=>{if(e.key==='Escape')setOpen(null)}
+  document.addEventListener('pointerdown',away);window.addEventListener('keydown',key)
+  return()=>{document.removeEventListener('pointerdown',away);window.removeEventListener('keydown',key)}},[open])
+ useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key==='Escape'&&!open){setPicked(null);setTool('orbit')}};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key)},[open])
  useEffect(()=>{
   const el=host.current!
   // WebGL can be unavailable (old driver, too many contexts, GPU reset). Show a message, never crash the app.
@@ -333,18 +342,29 @@ export default function Roof3D({config,obstacles,scene,design,photo,sunDate}:{co
  return <div className="roof-3d">
   {glError&&<div className="roof-3d-error" role="alert"><p>{glError}</p><button type="button" className="button secondary" onClick={()=>setEpoch(e=>e+1)}>Tải lại 3D</button></div>}
   <div ref={host} className={'roof-3d-view'+(tool==='measure'?' measuring':'')} role="img" aria-label="Phối cảnh 3D mái nhà, vật cản, tấm pin và bóng theo giờ"/>
-  <div className="roof-3d-bar left">
-   <div className="seg" role="group" aria-label="Kiểu hiển thị tấm pin"><button type="button" className={look==='real'?'on':''} onClick={()=>setLook('real')}>Phối cảnh</button><button type="button" className={look==='loss'?'on':''} disabled={!panels.length} onClick={()=>setLook('loss')}>Tổn thất bóng</button></div>
-   <button type="button" className={'tool'+(tool==='measure'?' on':'')} onClick={()=>setTool(t=>t==='measure'?'orbit':'measure')} aria-pressed={tool==='measure'}>Đo khoảng cách</button>
+  <div ref={chrome} className="roof-3d-chrome">
+   <div className="roof-3d-menu">
+    {tool==='measure'&&<button type="button" className="roof-3d-chip" onClick={()=>setTool('orbit')} title="Thoát chế độ đo (Esc)">Đang đo <span aria-hidden="true">×</span></button>}
+    <button type="button" className={'roof-3d-toggle'+(open==='menu'?' on':'')} aria-expanded={open==='menu'} aria-haspopup="menu" aria-label="Góc nhìn và công cụ 3D" onClick={()=>setOpen(o=>o==='menu'?null:'menu')}><Icon name="layers" size={15}/><span className="label">Góc nhìn & công cụ</span><span className="caret" aria-hidden="true">▾</span></button>
+    {open==='menu'&&<div className="roof-3d-pop" role="menu">
+     <p>Góc nhìn</p>
+     <div className="views">{([['home','Tổng thể','Góc nhìn mặc định từ Đông Nam'],['top','Từ trên xuống','Nhìn thẳng xuống, giống mặt bằng'],['fromSun','Từ mặt trời','Nhìn theo tia nắng: phần không thấy được là phần đang bị che'],['sunArc','Đường mặt trời','Toàn cảnh đường đi của mặt trời trong ngày']] as const).map(([id,label,hint])=><button key={id} type="button" role="menuitem" title={hint} disabled={id==='fromSun'&&(!sun||sun.altitude_deg<=0)} onClick={()=>{state.current?.views?.[id]();setOpen(null)}}>{label}</button>)}</div>
+     <p>Màu tấm pin</p>
+     <div className="seg" role="group" aria-label="Kiểu hiển thị tấm pin"><button type="button" className={look==='real'?'on':''} onClick={()=>setLook('real')}>Phối cảnh</button><button type="button" className={look==='loss'?'on':''} disabled={!panels.length} onClick={()=>setLook('loss')}>Tổn thất bóng</button></div>
+     <p>Công cụ</p>
+     <div className="views"><button type="button" role="menuitemcheckbox" aria-checked={tool==='measure'} className={'item'+(tool==='measure'?' on':'')} title="Bấm hai điểm bất kỳ trên mô hình" onClick={()=>{setTool(t=>t==='measure'?'orbit':'measure');setOpen(null)}}>Đo khoảng cách</button>
+     <button type="button" role="menuitem" className="item" title="Ảnh độ phân giải cao, đúng góc đang xem" onClick={()=>{snapshot();setOpen(null)}}>Tải ảnh PNG</button></div>
+    </div>}
+   </div>
+   <div className="roof-3d-help">
+    <button type="button" className={'roof-3d-round'+(open==='help'?' on':'')} aria-label="Hướng dẫn thao tác 3D" aria-expanded={open==='help'} onClick={()=>setOpen(o=>o==='help'?null:'help')}>?</button>
+    {open==='help'&&<div className="roof-3d-pop up" role="dialog" aria-label="Hướng dẫn thao tác">
+     <ul><li><b>Kéo</b> để xoay · <b>chuột phải kéo</b> để dịch · <b>cuộn</b> để phóng</li><li><b>Bấm một tấm</b> để xem sản lượng và bóng của tấm đó</li><li><b>Esc</b> bỏ chọn hoặc thoát chế độ đo</li></ul>
+     {(sun||photo)&&<small>{sun?`Nắng lúc này: cao ${sun.altitude_deg.toFixed(0)}°, hướng ${sun.azimuth_deg.toFixed(0)}°`:''}{sun&&photo?' · ':''}{photo?'Mái dùng ảnh chụp thật':''}</small>}
+    </div>}
+   </div>
   </div>
-  <div className="roof-3d-bar right">
-   <button type="button" onClick={()=>state.current?.views?.home()} title="Góc nhìn mặc định từ Đông Nam">Tổng thể</button>
-   <button type="button" onClick={()=>state.current?.views?.top()} title="Nhìn thẳng từ trên xuống, giống mặt bằng">Từ trên</button>
-   <button type="button" onClick={()=>state.current?.views?.fromSun()} disabled={!sun||sun.altitude_deg<=0} title="Nhìn theo hướng tia nắng: phần không thấy được là phần đang bị che">Từ mặt trời</button>
-   <button type="button" onClick={()=>state.current?.views?.sunArc()} title="Toàn cảnh đường đi của mặt trời trong ngày">Đường mặt trời</button>
-   <button type="button" className="strong" onClick={snapshot} title="Tải ảnh PNG độ phân giải cao của góc nhìn hiện tại">Tải ảnh</button>
-  </div>
-  {look==='loss'&&<div className="roof-3d-legend"><span>Tổn thất bóng cả năm</span>{[0,2.5,5,7.5,10].map(v=><i key={v} style={{background:lossColor(v)}}>{v===10?'≥ 10%':fmt(v,v%1?1:0)+'%'}</i>)}</div>}
+  {look==='loss'&&<div className="roof-3d-legend" aria-label="Thang tổn thất bóng cả năm"><span>Tổn thất bóng</span><b style={{background:`linear-gradient(90deg,${[0,2.5,5,7.5,10].map(v=>lossColor(v)).join(',')})`}}/><em>0%</em><em>≥ 10%</em></div>}
   {panel&&<div className="roof-3d-card" role="status"><button type="button" className="x" onClick={()=>setPicked(null)} aria-label="Bỏ chọn tấm">×</button>
    <strong>{panelLabel(picked!)}<span style={{background:lossColor(panel.shading_loss_pct)}}>{fmt(panel.shading_loss_pct)}% bóng</span></strong>
    <dl><dt>Điện năng</dt><dd>{fmt(panel.annual_energy_kwh,0)} kWh/năm · {mean?(panel.annual_energy_kwh>=mean?'+':'')+fmt((panel.annual_energy_kwh/mean-1)*100):'0'}% so với trung bình</dd>
@@ -355,6 +375,5 @@ export default function Roof3D({config,obstacles,scene,design,photo,sunDate}:{co
   {tool==='measure'&&<div className="roof-3d-card measure" role="status"><strong>Đo khoảng cách</strong>
    {span?<dl><dt>Khoảng cách</dt><dd>{fmt(span.d,2)} m</dd><dt>Theo phương ngang</dt><dd>{fmt(span.flat,2)} m</dd><dt>Chênh cao</dt><dd>{fmt(span.rise,2)} m</dd></dl>
     :<p>{points.length?'Bấm điểm thứ hai.':'Bấm hai điểm bất kỳ trên mái, vật cản hoặc tấm pin.'}</p>}</div>}
-  <div className="roof-3d-info">{photo?'Mái dùng ảnh chụp thật · ':''}{tool==='measure'?'Đang đo · bấm tiếp để đo đoạn mới':'Bấm vào một tấm để xem chi tiết'} · kéo để xoay · cuộn để phóng{sun?` · nắng ${sun.altitude_deg.toFixed(0)}°, hướng ${sun.azimuth_deg.toFixed(0)}°`:''}</div>
  </div>
 }

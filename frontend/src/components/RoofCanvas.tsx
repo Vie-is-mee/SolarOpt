@@ -1,4 +1,4 @@
-import {lazy,Suspense,useEffect,useRef,useState} from 'react'
+import {Component,lazy,Suspense,useEffect,useRef,useState,type ReactNode} from 'react'
 import {panelBadges} from '../panelLabels'
 import {panelLabel,panelCorners} from '../layoutMeasurements'
 import type {Config,Obstacle,Scene,Design,Point} from '../studioTypes'
@@ -7,7 +7,13 @@ import {footprint,outerRoof,pathOf,polygonObstacle} from '../editorGeometry'
 import {simplify,smoothStroke,strokeLength} from '../freehand'
 export type ViewMode='plan'|'shadow'|'heat'|'3d'
 // three.js is loaded only when the 3D view is opened.
-const Roof3D=lazy(()=>import('./Roof3D'))
+const load3D=()=>lazy(()=>import('./Roof3D'))
+// A failed chunk load (offline, dev server restart, low memory) must not blank the whole studio.
+class Load3DBoundary extends Component<{children:ReactNode;onRetry:()=>void;onLeave:()=>void},{failed:boolean}>{
+ state={failed:false}
+ static getDerivedStateFromError(){return {failed:true}}
+ render(){return this.state.failed?<div className="roof-3d-loading failed" role="alert"><p>Chưa tải được phối cảnh 3D. Có thể máy đang thiếu bộ nhớ hoặc mạng vừa ngắt.</p><div><button type="button" className="button secondary" onClick={()=>{this.setState({failed:false});this.props.onRetry()}}>Thử lại</button><button type="button" className="button secondary" onClick={this.props.onLeave}>Về bản vẽ 2D</button></div></div>:this.props.children}
+}
 type Props={comparisonRoof?:Point[];datumIndex?:number;highlightPanels?:string[];idPrefix?:string;config:Config;obstacles:Obstacle[];scene:Scene|null;design:Design|null;selected:string|null;onSelect:(id:string|null)=>void;onMove:(id:string,x:number,y:number)=>void;onRoof:(points:Point[])=>void;mode:ViewMode;setMode:(v:ViewMode)=>void;editable:boolean;loading:boolean;sample:boolean;onPatch?:(id:string,p:Partial<Obstacle>)=>void;onGeometry?:(p:Partial<Config>)=>void;onAddPolygon?:(p:Point[])=>void;onMoveMany?:(moves:Move[])=>void;onDeleteMany?:(ids:string[])=>void;onEditStart?:()=>void;onEditEnd?:()=>void;referenceImage?:string|null;sunDate?:string}
 type Drag={kind:'move'|'move-many'|'resize'|'rotate'|'object-vertex'|'roof-vertex'|'face-vertex'|'opening-vertex';start:Point;object?:Obstacle;index?:number;id?:string;points?:Point[];corner?:number;opening?:number;originals?:{id:string;x:number;y:number}[]}
 type Move={id:string;x:number;y:number}
@@ -17,6 +23,7 @@ export function RoofCanvas({comparisonRoof=[],datumIndex=0,config,obstacles,scen
  const svg=useRef<SVGSVGElement>(null),drag=useRef<Drag|null>(null),pending=useRef<Partial<Config>|null>(null)
  const pointers=useRef(new Map<number,Point>()),gesture=useRef<{kind:'pan'|'pinch';start:Point;pan:Point;zoom:number;dist:number}|null>(null)
  const [dragging,setDragging]=useState(false)
+ const [Roof3D,setRoof3D]=useState(load3D)
  // Multi-selection (Shift/Ctrl+click, Shift+drag marquee, Ctrl+A); a drag on any picked object moves them together.
  const [multi,setMulti]=useState<string[]>([]),marquee=useRef<{a:Point;b:Point}|null>(null),[marqueeView,setMarqueeView]=useState<{a:Point;b:Point}|null>(null)
  const picked=multi.length>1?multi:selected?[selected]:[]
@@ -149,8 +156,8 @@ export function RoofCanvas({comparisonRoof=[],datumIndex=0,config,obstacles,scen
   {!editable&&activePanel&&<div className="panel-selection-info" role="status"><strong>{panelLabel(design!.panels.indexOf(activePanel))}</strong><span>{activePanel.width_m} × {activePanel.height_m} m · góc {activePanel.rotation_deg||0}°</span><span>V1 từ A: X {(corner!.x-datumA.x).toFixed(3)} m · Y {(corner!.y-datumA.y).toFixed(3)} m</span><small>Viền vàng: đang chọn · viền đỏ: cần kiểm tra</small></div>}
   {editable&&<div className="geometry-tools">{([['move','Kéo / sửa đỉnh'],['roof','Vẽ biên mái'],['face','Vẽ phần mái cao/thấp'],['opening','Vẽ khoảng trống'],['object','Vẽ vật cản đa giác']] as [Tool,string][]).map(([id,label])=><button key={id} className={tool===id?'active':''} onClick={()=>{setTool(id);setPoints([])}}>{label}</button>)}{tool!=='move'&&<button disabled={points.length<3} onClick={()=>finish()}>Khép biên ({points.length})</button>}{tool!=='move'&&<p className="pen-hint"><Icon name="move" size={13}/>Giữ chuột và kéo để vẽ nét tự do (tự làm mượt) · bấm để thêm từng đỉnh · kéo về điểm đầu để khép · <kbd>Enter</kbd> khép biên · <kbd>Backspace</kbd> xóa đỉnh cuối · <kbd>Esc</kbd> hủy</p>}</div>}
   {referenceImage&&<label className="reference-opacity">Ảnh nền để canh biên<input aria-label="Độ rõ ảnh nền" type="range" min="0" max=".85" step=".05" value={opacity} onChange={e=>setOpacity(Number(e.target.value))}/>{Math.round(opacity*100)}%</label>}
-  <div className={`canvas-surface ${tool!=='move'?'drawing':''}`}><div className="map-label"><span className="map-dot"/> MẶT BẰNG MÁI <span>{sample?'Dữ liệu mẫu':!config.roof_polygon.length?'Khung số đo · kiểm tra biên mái':'Dữ liệu dự án'}</span><span className={`measurement-badge ${c.dimensions_verified?'verified':'estimated'}`}>{measurementLabel}</span></div>
-  {mode==='3d'?<Suspense fallback={<div className="roof-3d-loading">Đang tải phối cảnh 3D…</div>}><Roof3D config={c} obstacles={obstacles} scene={scene} design={design} photo={referenceImage} sunDate={sunDate}/></Suspense>:<svg ref={svg} viewBox="0 0 900 630" className="roof-svg" role="img" aria-label="Bản vẽ mái tương tác, vật cản, bóng và tấm pin" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
+  <div className={`canvas-surface ${tool!=='move'?'drawing':''}`}>{mode!=='3d'&&<div className="map-label"><span className="map-dot"/> MẶT BẰNG MÁI <span>{sample?'Dữ liệu mẫu':!config.roof_polygon.length?'Khung số đo · kiểm tra biên mái':'Dữ liệu dự án'}</span><span className={`measurement-badge ${c.dimensions_verified?'verified':'estimated'}`}>{measurementLabel}</span></div>}
+  {mode==='3d'?<Load3DBoundary onRetry={()=>setRoof3D(load3D)} onLeave={()=>setMode('plan')}><Suspense fallback={<div className="roof-3d-loading">Đang tải phối cảnh 3D…</div>}><Roof3D config={c} obstacles={obstacles} scene={scene} design={design} photo={referenceImage} sunDate={sunDate}/></Suspense></Load3DBoundary>:<svg ref={svg} viewBox="0 0 900 630" className="roof-svg" role="img" aria-label="Bản vẽ mái tương tác, vật cản, bóng và tấm pin" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
    <defs><pattern id={`${idPrefix}-map-grid`} width="25" height="25" patternUnits="userSpaceOnUse"><path d="M25 0H0V25" fill="none" stroke="#bdd1c9" strokeWidth=".5"/></pattern><pattern id={`${idPrefix}-panel-grid`} width=".29" height=".39" patternUnits="userSpaceOnUse"><path d="M.29 0H0V.39" fill="none" stroke="#b0e4ff" strokeWidth=".012" opacity=".5"/></pattern><linearGradient id={`${idPrefix}-roof-fill`}><stop stopColor="#fffef7"/><stop offset="1" stopColor="#e2ebe5"/></linearGradient><linearGradient id={`${idPrefix}-panel-fill`}><stop stopColor="#235b7d"/><stop offset="1" stopColor="#143a59"/></linearGradient><clipPath id={`${idPrefix}-roof-clip`}><path d={roofPath} clipRule="evenodd"/></clipPath></defs>
    <rect width="900" height="630" fill={`url(#${idPrefix}-map-grid)`}/>
    <g transform={`translate(${tx},${ty}) scale(${scale},${-scale})`}>
