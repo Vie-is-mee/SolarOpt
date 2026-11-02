@@ -137,7 +137,6 @@ tr.recommended td{background:#eef7e9!important}
 .hour-labels{font-size:11.5px;color:var(--muted)}
 .play-button{width:36px;height:36px;background:var(--brand);border-color:var(--brand);color:#fff}
 .activity-header h3{font-size:15px;color:var(--ink)}.activity-item strong{font-size:13.5px;color:var(--ink-2)}.activity-item p{font-size:12.5px;color:var(--muted)}
-.roof-3d-info{font-size:12px;color:var(--ink-2)}
 .object-list strong{font-size:13.5px;color:var(--ink)}.object-list small{font-size:12px;color:var(--muted)}
 .check-results strong{font-size:14px;color:var(--ink)}.check-results p{font-size:12.5px;color:var(--muted)}
 .source-fact{font-size:13px;color:var(--muted)}.source-fact strong{font-size:13px;color:var(--ink-2)}
@@ -177,26 +176,40 @@ body{background-image:linear-gradient(180deg,rgba(247,251,243,.94),rgba(242,247,
 .asset-icon{grid-row:span 2;display:grid;place-items:center;width:28px;height:28px;border-radius:8px;background:var(--surface-2);color:var(--ink-2);font-size:15px}
 .asset-icon.tree_round,.asset-icon.tree_cone,.asset-icon.tree_palm{color:#3f7a35;background:#e8f3e1}
 .asset-icon.house{color:#7a6a4f;background:#f4efe4}.asset-icon.tank{color:#5d7280;background:#eaf0f3}
-.roof-3d-bar{position:absolute;top:10px;display:flex;flex-wrap:wrap;gap:6px;z-index:2}
-.roof-3d-bar.left{left:10px;right:10px}.roof-3d-bar.right{top:auto;bottom:44px;right:10px;left:10px;justify-content:flex-end}
-.roof-3d-bar button{font-size:12px;font-weight:600;color:#1f4535;background:#ffffffe8;border:1px solid #d6e2d8;border-radius:8px;padding:6px 10px;box-shadow:0 1px 2px rgba(21,62,48,.12);backdrop-filter:blur(6px);cursor:pointer}
-.roof-3d-bar button:hover:not(:disabled){background:#f1f7f1}.roof-3d-bar button:disabled{opacity:.45;cursor:default}
-.roof-3d-bar button.strong{background:#236b50;color:#fff;border-color:#236b50}.roof-3d-bar button.strong:hover{background:#1b5640}
-.roof-3d-bar button.tool.on{background:#fff1e8;border-color:#ff8a4c;color:#a3400f}
-.roof-3d-bar .seg{display:flex;background:#ffffffe8;border:1px solid #d6e2d8;border-radius:9px;padding:2px;box-shadow:0 1px 2px rgba(21,62,48,.12)}
-.roof-3d-bar .seg button{border:0;box-shadow:none;background:transparent;padding:5px 10px}.roof-3d-bar .seg button.on{background:#236b50;color:#fff}
 .roof-3d-view.measuring{cursor:crosshair}
-.roof-3d-legend{position:absolute;right:10px;top:52px;display:flex;align-items:center;gap:4px;font-size:11px;color:#3d5a4b;background:#ffffffe8;border:1px solid #d6e2d8;border-radius:8px;padding:5px 8px}
-.roof-3d-legend span{margin-right:4px;font-weight:600}.roof-3d-legend i{font-style:normal;color:#fff;font-weight:700;padding:1px 6px;border-radius:4px}
-.roof-3d-card{position:absolute;left:10px;top:52px;width:min(290px,calc(100% - 20px));background:#fffffff2;border:1px solid #d6e2d8;border-radius:12px;padding:10px 12px;box-shadow:0 6px 18px rgba(21,62,48,.16);font-size:12px;color:#22392e;z-index:2}
-.roof-3d-card strong{display:flex;align-items:center;gap:8px;font-size:14px;color:#153e30;margin-bottom:6px}
-.roof-3d-card strong span{font-size:11px;color:#fff;padding:1px 7px;border-radius:999px}
-.roof-3d-card dl{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;margin:0}.roof-3d-card dt{color:#6b7d72}.roof-3d-card dd{margin:0;font-weight:600}
-.roof-3d-card p{margin:8px 0 0;color:#7a4b12;background:#fff6e2;border-radius:6px;padding:6px 8px}
+/* 3D overlays: one menu (top right), one help button (bottom left), legend and panel card stay small. */
+.roof-3d-chrome{position:absolute;inset:0;pointer-events:none;z-index:2}
+.roof-3d-chrome :where(button){font-family:inherit;cursor:pointer}
+.roof-3d-menu{position:absolute;top:10px;right:10px;display:flex;align-items:flex-start;gap:6px;pointer-events:auto}
+.roof-3d-toggle,.roof-3d-chip,.roof-3d-round{display:inline-flex;white-space:nowrap;align-items:center;gap:6px;height:32px;font-size:12px;font-weight:600;color:#1f4535;background:#ffffffeb;border:1px solid #d6e2d8;border-radius:9px;padding:0 10px;box-shadow:0 1px 3px rgba(21,62,48,.14);backdrop-filter:blur(6px)}
+.roof-3d-toggle:hover,.roof-3d-round:hover{background:#f1f7f1}.roof-3d-toggle.on,.roof-3d-round.on{border-color:#236b50;box-shadow:0 0 0 2px #236b5026}
+.roof-3d-toggle .caret{font-size:10px;color:#6b7d72;margin-left:2px}
+.roof-3d-chip{background:#fff1e8;border-color:#ff8a4c;color:#a3400f}.roof-3d-chip span{font-size:15px;line-height:1}
+.roof-3d-round{width:32px;justify-content:center;padding:0;border-radius:50%;font-size:14px}
+.roof-3d-pop{position:absolute;top:38px;right:0;width:236px;max-height:calc(min(58vh,600px) - 58px);overflow:auto;background:#fffffff7;border:1px solid #d6e2d8;border-radius:12px;padding:8px;box-shadow:0 10px 28px rgba(21,62,48,.2);font-size:12px;color:#22392e;backdrop-filter:blur(8px)}
+.roof-3d-pop>p{margin:6px 4px 4px;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6b7d72}.roof-3d-pop>p:first-child{margin-top:2px}
+.roof-3d-pop .views{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.roof-3d-pop .views button,.roof-3d-pop .item{border:1px solid transparent;background:#f3f7f3;border-radius:7px;padding:7px 8px;font-size:12px;font-weight:600;color:#1f4535;text-align:left}
+.roof-3d-pop .views button:hover:not(:disabled),.roof-3d-pop .item:hover{background:#e6f0e8}.roof-3d-pop button:disabled{opacity:.45;cursor:default}
+.roof-3d-pop .item.on{background:#fff1e8;border-color:#ff8a4c;color:#a3400f}
+.roof-3d-pop .seg{display:flex;background:#f3f7f3;border-radius:8px;padding:2px}
+.roof-3d-pop .seg button{flex:1;border:0;background:transparent;border-radius:6px;padding:6px 8px;font-size:12px;font-weight:600;color:#1f4535}.roof-3d-pop .seg button.on{background:#236b50;color:#fff}
+.roof-3d-help{position:absolute;left:10px;bottom:10px;pointer-events:auto}
+.roof-3d-pop.up{top:auto;bottom:40px;left:0;right:auto;width:270px}
+.roof-3d-pop ul{margin:0;padding:2px 4px 2px 18px;display:grid;gap:4px;line-height:1.45}.roof-3d-pop.up small{display:block;margin:6px 4px 0;padding-top:6px;border-top:1px solid #e3ebe5;color:#6b7d72;font-size:11px}
+.roof-3d-legend{position:absolute;right:10px;bottom:10px;display:grid;grid-template-columns:auto 96px;grid-template-rows:auto auto;column-gap:8px;align-items:center;font-size:10.5px;color:#3d5a4b;background:#ffffffe8;border:1px solid #d6e2d8;border-radius:8px;padding:5px 9px;pointer-events:none;z-index:1}
+.roof-3d-legend span{grid-row:span 2;font-weight:600}.roof-3d-legend b{height:7px;border-radius:4px}
+.roof-3d-legend em{grid-column:2;grid-row:2;font-style:normal;font-size:9.5px;color:#6b7d72}.roof-3d-legend em+em{text-align:right}
+.roof-3d-card{position:absolute;left:10px;top:10px;width:min(250px,calc(100% - 20px));background:#fffffff2;border:1px solid #d6e2d8;border-radius:10px;padding:8px 10px;box-shadow:0 4px 14px rgba(21,62,48,.14);font-size:11.5px;color:#22392e;z-index:2}
+.roof-3d-card strong{display:flex;align-items:center;gap:8px;font-size:13px;color:#153e30;margin:0 18px 5px 0}
+.roof-3d-card strong span{font-size:10.5px;color:#fff;padding:1px 7px;border-radius:999px}
+.roof-3d-card dl{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;margin:0}.roof-3d-card dt{color:#6b7d72}.roof-3d-card dd{margin:0;font-weight:600}
+.roof-3d-card p{margin:6px 0 0;color:#7a4b12;background:#fff6e2;border-radius:6px;padding:5px 7px;font-size:11px}
 .roof-3d-card.measure p{color:#3d5a4b;background:transparent;padding:0;margin:0}
-.roof-3d-card .x{position:absolute;right:6px;top:4px;border:0;background:transparent;font-size:18px;line-height:1;color:#6b7d72;cursor:pointer}
-.roof-3d-bar.left,.roof-3d-bar.right{pointer-events:none}.roof-3d-bar>*{pointer-events:auto}
-@media (max-width:640px){.roof-3d-legend{top:auto;bottom:88px;left:10px;right:auto;flex-wrap:wrap}.roof-3d-card{top:auto;bottom:88px}}
+.roof-3d-card .x{position:absolute;right:4px;top:2px;border:0;background:transparent;font-size:18px;line-height:1;color:#6b7d72;cursor:pointer;padding:2px 5px}
+.roof-3d{container-type:inline-size}
+@container (max-width:560px){.roof-3d-card{top:50px}}
+@container (max-width:380px){.roof-3d-toggle{width:32px;justify-content:center;padding:0}.roof-3d-toggle .label,.roof-3d-toggle .caret{display:none}}
 
 /* Two input kinds side by side. */
 .input-kind{grid-template-columns:repeat(2,1fr);gap:10px}
@@ -292,3 +305,4 @@ kbd{display:inline-block;padding:1px 6px;border:1px solid #cfdcc9;border-bottom-
 .kpi-tiles strong{font-size:17px}
 .roof-3d-error{position:absolute;inset:0;z-index:3;display:grid;place-content:center;gap:10px;text-align:center;padding:20px;background:#f4f7f2f2;color:#3d5a4b;font-size:13px}
 .roof-3d-error p{margin:0;max-width:420px}
+.roof-3d-loading.failed{display:grid;place-content:center;gap:10px;text-align:center;padding:20px;font-size:13px;color:#3d5a4b}.roof-3d-loading.failed p{margin:0;max-width:380px}.roof-3d-loading.failed div{display:flex;gap:8px;justify-content:center}
