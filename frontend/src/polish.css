@@ -177,8 +177,26 @@ body{background-image:linear-gradient(180deg,rgba(247,251,243,.94),rgba(242,247,
 .asset-icon{grid-row:span 2;display:grid;place-items:center;width:28px;height:28px;border-radius:8px;background:var(--surface-2);color:var(--ink-2);font-size:15px}
 .asset-icon.tree_round,.asset-icon.tree_cone,.asset-icon.tree_palm{color:#3f7a35;background:#e8f3e1}
 .asset-icon.house{color:#7a6a4f;background:#f4efe4}.asset-icon.tank{color:#5d7280;background:#eaf0f3}
-.roof-3d-sun{position:absolute;right:12px;bottom:52px;font-size:12.5px;font-weight:600;color:#7a530d;background:#fff8e6;border:1px solid #f0d9a3;border-radius:9px;padding:7px 11px;box-shadow:var(--shadow-1)}
-.roof-3d-sun:hover{background:#fdf0cc}
+.roof-3d-bar{position:absolute;top:10px;display:flex;flex-wrap:wrap;gap:6px;z-index:2}
+.roof-3d-bar.left{left:10px;right:10px}.roof-3d-bar.right{top:auto;bottom:44px;right:10px;left:10px;justify-content:flex-end}
+.roof-3d-bar button{font-size:12px;font-weight:600;color:#1f4535;background:#ffffffe8;border:1px solid #d6e2d8;border-radius:8px;padding:6px 10px;box-shadow:0 1px 2px rgba(21,62,48,.12);backdrop-filter:blur(6px);cursor:pointer}
+.roof-3d-bar button:hover:not(:disabled){background:#f1f7f1}.roof-3d-bar button:disabled{opacity:.45;cursor:default}
+.roof-3d-bar button.strong{background:#236b50;color:#fff;border-color:#236b50}.roof-3d-bar button.strong:hover{background:#1b5640}
+.roof-3d-bar button.tool.on{background:#fff1e8;border-color:#ff8a4c;color:#a3400f}
+.roof-3d-bar .seg{display:flex;background:#ffffffe8;border:1px solid #d6e2d8;border-radius:9px;padding:2px;box-shadow:0 1px 2px rgba(21,62,48,.12)}
+.roof-3d-bar .seg button{border:0;box-shadow:none;background:transparent;padding:5px 10px}.roof-3d-bar .seg button.on{background:#236b50;color:#fff}
+.roof-3d-view.measuring{cursor:crosshair}
+.roof-3d-legend{position:absolute;right:10px;top:52px;display:flex;align-items:center;gap:4px;font-size:11px;color:#3d5a4b;background:#ffffffe8;border:1px solid #d6e2d8;border-radius:8px;padding:5px 8px}
+.roof-3d-legend span{margin-right:4px;font-weight:600}.roof-3d-legend i{font-style:normal;color:#fff;font-weight:700;padding:1px 6px;border-radius:4px}
+.roof-3d-card{position:absolute;left:10px;top:52px;width:min(290px,calc(100% - 20px));background:#fffffff2;border:1px solid #d6e2d8;border-radius:12px;padding:10px 12px;box-shadow:0 6px 18px rgba(21,62,48,.16);font-size:12px;color:#22392e;z-index:2}
+.roof-3d-card strong{display:flex;align-items:center;gap:8px;font-size:14px;color:#153e30;margin-bottom:6px}
+.roof-3d-card strong span{font-size:11px;color:#fff;padding:1px 7px;border-radius:999px}
+.roof-3d-card dl{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;margin:0}.roof-3d-card dt{color:#6b7d72}.roof-3d-card dd{margin:0;font-weight:600}
+.roof-3d-card p{margin:8px 0 0;color:#7a4b12;background:#fff6e2;border-radius:6px;padding:6px 8px}
+.roof-3d-card.measure p{color:#3d5a4b;background:transparent;padding:0;margin:0}
+.roof-3d-card .x{position:absolute;right:6px;top:4px;border:0;background:transparent;font-size:18px;line-height:1;color:#6b7d72;cursor:pointer}
+.roof-3d-bar.left,.roof-3d-bar.right{pointer-events:none}.roof-3d-bar>*{pointer-events:auto}
+@media (max-width:640px){.roof-3d-legend{top:auto;bottom:88px;left:10px;right:auto;flex-wrap:wrap}.roof-3d-card{top:auto;bottom:88px}}
 
 /* Two input kinds side by side. */
 .input-kind{grid-template-columns:repeat(2,1fr);gap:10px}
@@ -272,3 +290,5 @@ kbd{display:inline-block;padding:1px 6px;border:1px solid #cfdcc9;border-bottom-
 .corner-table tbody tr:not(:last-child) td:not([rowspan]){border-bottom:1px dashed #e6eee1}
 .table-scroll:has(.cost-table){max-height:none}
 .kpi-tiles strong{font-size:17px}
+.roof-3d-error{position:absolute;inset:0;z-index:3;display:grid;place-content:center;gap:10px;text-align:center;padding:20px;background:#f4f7f2f2;color:#3d5a4b;font-size:13px}
+.roof-3d-error p{margin:0;max-width:420px}
