@@ -15,7 +15,7 @@ from functools import lru_cache
 from shapely import prepare
 
 from app.schemas import DesignMetrics, SunRequest
-from app.services.geometry import build_context, overlap_ratio, panel_shape
+from app.services.geometry import build_context, overlap_ratio, overlap_ratios, panel_shape
 from app.services.solar import sun_position
 
 MODEL_NOTE = ("Nắng năm được quy đổi riêng theo hướng/độ dốc từng mặt mái bằng pvlib "
@@ -119,6 +119,21 @@ class EnergyContext:
         annual = self.annual.get(surface.id, 0) if surface is not None else 0
         kwh = round(power_w / 1000 * annual * self.cfg.performance_ratio * (1 - loss / 100), 2)
         return PanelEnergy(kwh, loss, mean, worst, surface.id if surface is not None else None)
+
+
+    def evaluate_many(self, shapes, power_w, surfaces):
+        """evaluate() for an array of shapes on known surfaces, with identical results:
+        shadow overlaps are computed per context in one vectorised call, the sums stay in Python order."""
+        covers = [overlap_ratios(shapes, c.shadow_union) for c in self.shades]
+        out = []
+        for i, surface in enumerate(surfaces):
+            column = [float(c[i]) for c in covers]
+            mean, worst = sum(column) / max(1, len(column)), max(column, default=0)
+            loss = round(min(70., (.72 * mean + .28 * worst) * 78), 2)
+            annual = self.annual.get(surface.id, 0)
+            kwh = round(power_w / 1000 * annual * self.cfg.performance_ratio * (1 - loss / 100), 2)
+            out.append(PanelEnergy(kwh, loss, mean, worst, surface.id))
+        return out
 
 
 def recalculate_panels(cfg, spec, obstacles, panels):

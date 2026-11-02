@@ -28,12 +28,58 @@ class TraceRequest(StrictModel):
     quad: list[NormalizedPoint] = Field(default_factory=list,max_length=4)
     quad_aspect_ratio: float | None = Field(default=None,ge=.02,le=50)
     detail: float = Field(default=.003,ge=.0005,le=.02)
+    straighten: bool = True
 
 
 def data_url(image, ext=".png"):
     ok, data=cv2.imencode(ext,image)
     if not ok: raise ValueError("Không mã hóa được ảnh.")
     return "data:image/"+("jpeg" if ext==".jpg" else "png")+";base64,"+base64.b64encode(data).decode()
+
+
+def _skew_deg(points):
+    """Dominant wall direction of an outline (image coords, y down), in (-45, 45].
+    Edges are weighted by length modulo 90°, so an L-shaped or stepped roof keeps its own axes.
+    cv2.getRotationMatrix2D with this angle turns those walls onto the image axes.
+    Returns 0 for outlines without a dominant direction (under 35 % of the perimeter)."""
+    pts=np.asarray(points,np.float64).reshape(-1,2);d=np.roll(pts,-1,axis=0)-pts
+    length=np.hypot(d[:,0],d[:,1]);angle=np.degrees(np.arctan2(d[:,1],d[:,0]))%90
+    if len(pts)<3 or length.sum()<=0:return 0.
+    gap=lambda a:(angle-a+45)%90-45
+    best=max(np.arange(0,90,.5),key=lambda a:length[np.abs(gap(a))<=1.5].sum())
+    near=np.abs(gap(best))<=1.5
+    if length[near].sum()<.35*length.sum():return 0.
+    skew=(best+np.average(gap(best)[near],weights=length[near]))%90
+    return float(skew-90 if skew>45 else skew)
+
+
+def _refine_band(image,mask,keep,drop,w,h):
+    """Re-decide a band around a GrabCut edge by colour. GrabCut with a box alone tends to swell
+    by 2-4 % of the image along soft or compressed edges, enough to fail the measured-frame check.
+    Colour clusters come from the confident inside and from a ring just outside (not the whole
+    photo), so textured sheet roofs and shaded parts keep several clusters each. The user's
+    keep/remove points always win. Returns the GrabCut mask unchanged if refinement looks wrong."""
+    band=max(4,round(min(h,w)*.02));kernel=np.ones((3,3),np.uint8)
+    lab=cv2.cvtColor(image,cv2.COLOR_BGR2LAB).astype(np.float32);original=mask;current=mask.copy()
+    def centres(pixels):
+        pixels=pixels[::max(1,len(pixels)//4000)]
+        k=min(3,len(pixels))
+        _,_,c=cv2.kmeans(pixels,k,None,(cv2.TERM_CRITERIA_EPS+cv2.TERM_CRITERIA_MAX_ITER,20,.5),2,cv2.KMEANS_PP_CENTERS)
+        return c
+    for _ in range(3):
+        inner=cv2.erode(current,kernel,iterations=band);outer=cv2.dilate(current,kernel,iterations=band)
+        ring=(cv2.dilate(current,kernel,iterations=3*band)==1)&(outer==0)
+        if inner.sum()<50 or ring.sum()<50:return original
+        fg,bg=centres(lab[inner==1]),centres(lab[ring])
+        edge=(outer==1)&(inner==0);pixels=lab[edge]
+        near=lambda c:np.min(np.linalg.norm(pixels[:,None,:]-c[None],axis=2),axis=1)
+        updated=current.copy();updated[edge]=near(fg)<near(bg)
+        current=cv2.morphologyEx(updated,cv2.MORPH_OPEN,kernel)
+    radius=max(2,int(min(h,w)*.008))
+    for points,value in [(keep,1),(drop,0)]:
+        for p in points:cv2.circle(current,(int(p.x*w/100),int(p.y*h/100)),radius,value,-1)
+    before,after=int(original.sum()),int(current.sum())
+    return current if before and .7<=after/before<=1.15 else original
 
 
 def decode_image(url):
@@ -58,6 +104,7 @@ def prepare_image(data,mime):
 
 def extract_roof(req:TraceRequest):
     start=perf_counter();image=decode_image(req.image_data_url);h,w=image.shape[:2]
+    cv2.setRNGSeed(0)   # GrabCut and k-means draw from OpenCV's shared RNG: same photo, same outline
     notes=[]
     if req.quad:
         if len(req.quad)!=4:raise ValueError("Chọn đủ bốn góc theo vòng quanh một mặt phẳng hình chữ nhật.")
@@ -122,7 +169,7 @@ def extract_roof(req:TraceRequest):
         try:
             cv2.grabCut(image,mask,None,np.zeros((1,65),np.float64),np.zeros((1,65),np.float64),4,cv2.GC_INIT_WITH_MASK)
         except cv2.error as exc:raise ValueError("Chưa tách được vùng mái. Chọn lại khung, thêm điểm giữ mái và loại nền.") from exc
-        mask=np.uint8((mask==cv2.GC_FGD)|(mask==cv2.GC_PR_FGD))
+        mask=_refine_band(image,np.uint8((mask==cv2.GC_FGD)|(mask==cv2.GC_PR_FGD)),req.foreground,req.background,w,h)
         algorithm='opencv_grabcut'
         notes.append("Tách vùng theo màu và cạnh; bóng, cây hoặc mái cùng màu có thể làm sai biên. Thêm điểm giữ/loại hoặc chấm biên để sửa.")
     else:raise ValueError("Phương pháp tách biên không hợp lệ.")
@@ -138,11 +185,27 @@ def extract_roof(req:TraceRequest):
     while len(approx)>50:
         tolerance*=1.3;approx=cv2.approxPolyDP(contour,tolerance,True).reshape(-1,2)
     if len(approx)<3:raise ValueError("Đường biên chưa hợp lệ.")
-    bx,by,bw,bh=cv2.boundingRect(approx)
-    # Keep exact tight pixel extents to avoid accidental independent X/Y stretching.
-    ex,ey=max(1,bw-1),max(1,bh-1)
+    # A roof photographed at an angle has an axis-aligned box larger than its sides, so measured
+    # width/length could never match it. Straighten the roof along its minimum-area rectangle;
+    # the frame then measures the roof's own sides and the caller turns north by the same angle.
+    skew=_skew_deg(approx) if req.straighten else 0.
+    matrix=cv2.getRotationMatrix2D(tuple(float(v) for v in approx.mean(axis=0)),skew,1) if abs(skew)>=1 else None
+    turn=(lambda pts:np.asarray(pts,np.float64)@matrix[:,:2].T+matrix[:,2]) if matrix is not None else (lambda pts:np.asarray(pts,np.float64))
+    if matrix is None:
+        skew=0.
+        bx,by,bw,bh=cv2.boundingRect(approx)
+        # Keep exact tight pixel extents to avoid accidental independent X/Y stretching.
+        ex,ey=max(1,bw-1),max(1,bh-1)
+        crop=image[by:by+bh,bx:bx+bw]
+    else:
+        straight=turn(approx);bx,by=(float(v) for v in straight.min(axis=0))
+        ex,ey=(max(1.,float(v)) for v in straight.max(axis=0)-straight.min(axis=0))
+        shifted=matrix.copy();shifted[:,2]-=(bx,by)
+        crop=cv2.warpAffine(image,shifted,(int(np.ceil(ex))+1,int(np.ceil(ey))+1),flags=cv2.INTER_LINEAR,borderMode=cv2.BORDER_REPLICATE)
+        notes.append(f"Mái nghiêng {abs(skew):.1f}° trong ảnh; bản vẽ đã được xoay thẳng theo cạnh mái và hướng Bắc xoay theo cùng góc.")
+    frame=lambda pts:[{'x':round(float(px-bx)/ex*100,5),'y':round((1-float(py-by)/ey)*100,5)} for px,py in turn(pts)]
     polygon_image=[{'x':round(float(px)/w*100,5),'y':round(float(py)/h*100,5)} for px,py in approx]
-    polygon_roof=[{'x':round(float(px-bx)/ex*100,5),'y':round((1-float(py-by)/ey)*100,5)} for px,py in approx]
+    polygon_roof=frame(approx)
     # Preserve interior rings, and check simplified topology before returning.
     from shapely.geometry import Polygon
     outer_shape=Polygon(approx)
@@ -160,7 +223,7 @@ def extract_roof(req:TraceRequest):
         if len(accepted)>=24:notes.append("Chỉ giữ tối đa 24 khoảng trống; cần kiểm tra phần còn lại.");break
         accepted.append(shape)
         opening_image.append([{'x':round(float(px)/w*100,5),'y':round(float(py)/h*100,5)} for px,py in ring])
-        opening_roof.append([{'x':round(float(px-bx)/ex*100,5),'y':round((1-float(py-by)/ey)*100,5)} for px,py in ring])
+        opening_roof.append(frame(ring))
     if opening_image:notes.append(f"Giữ {len(opening_image)} khoảng trống từ mặt nạ. Vùng tối cũng có thể bị nhận nhầm; kỹ sư phải kiểm tra trên ảnh.")
     overlay=image.copy();cv2.drawContours(overlay,[approx],-1,(60,190,245),2)
     tint=overlay.copy();cv2.fillPoly(tint,[approx],(70,180,90));overlay=cv2.addWeighted(overlay,.78,tint,.22,0)
@@ -170,6 +233,6 @@ def extract_roof(req:TraceRequest):
         overlay[hole_mask.astype(bool)]=image[hole_mask.astype(bool)]
         cv2.polylines(overlay,[ring],True,(70,90,230),2)
     return {'algorithm':algorithm,'polygon_image_pct':polygon_image,'roof_polygon_pct':polygon_roof,'openings_image_pct':opening_image,'roof_openings_pct':opening_roof,'discarded_regions':len(significant),'roof_bbox_image_pct':[bx/w*100,by/h*100,ex/w*100,ey/h*100],
-        'roof_aspect_ratio':ex/ey,'roof_width_px':ex,'roof_height_px':ey,'image_width_px':w,'image_height_px':h,
-        'roof_crop_data_url':data_url(image[by:by+bh,bx:bx+bw],'.jpg'),'overlay_data_url':data_url(overlay,'.jpg'),
+        'roof_aspect_ratio':ex/ey,'roof_width_px':ex,'roof_height_px':ey,'image_width_px':w,'image_height_px':h,'straighten_deg':round(skew,3),
+        'roof_crop_data_url':data_url(crop,'.jpg'),'overlay_data_url':data_url(overlay,'.jpg'),
         'elapsed_ms':round((perf_counter()-start)*1000,1),'notes':notes+['Độ dài theo mét chỉ xác định sau khi hiệu chuẩn bằng số đo thật. Đây chưa phải kiểm chứng độ chính xác hình học ngoài hiện trường.']}
