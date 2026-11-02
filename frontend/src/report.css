@@ -1,0 +1,95 @@
+/* Project report: A4 sheets on screen (preview), flowing pages with page numbers in print. */
+.project-report{--rp-ink:#1c2b24;--rp-forest:#153e30;--rp-green:#236b50;--rp-muted:#66756d;--rp-line:#dfe6df;--rp-soft:#f3f6f1;--rp-amber:#e2a526;--rp-red:#c4402e;
+ color:var(--rp-ink);font:10pt/1.55 'Inter','Segoe UI',system-ui,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.project-report *{box-sizing:border-box}
+.rp-sheet{background:#fff;width:210mm;min-height:297mm;margin:0 auto 24px;padding:16mm 16mm 18mm;box-shadow:0 1px 3px rgba(21,62,48,.12),0 12px 32px rgba(21,62,48,.10);position:relative}
+.rp-running{display:flex;align-items:center;gap:8px;font-size:8pt;color:var(--rp-muted);border-bottom:1px solid var(--rp-line);padding-bottom:6px;margin-bottom:18px}
+.rp-running img{width:16px;height:16px}.rp-running span:first-of-type{font-weight:700;color:var(--rp-forest)}.rp-running span:last-child{margin-left:auto}
+.rp-eyebrow{font-size:8pt;letter-spacing:.08em;text-transform:uppercase;color:var(--rp-green);font-weight:700;margin:0 0 4px}
+.rp-title{font-size:18pt;line-height:1.2;color:var(--rp-forest);margin:0 0 16px;font-weight:700}
+.project-report h3{font-size:10.5pt;color:var(--rp-forest);margin:0 0 8px;font-weight:700}
+.project-report figure{margin:0}
+
+/* Cover */
+.rp-cover{display:flex;flex-direction:column;background:linear-gradient(180deg,#f3f7f1 0,#fff 46%)}
+.rp-brand{display:flex;align-items:center;gap:12px;margin-bottom:22mm}
+.rp-brand img{width:44px;height:44px}.rp-brand strong{display:block;font-size:15pt;color:var(--rp-forest);letter-spacing:-.01em}.rp-brand span{font-size:9pt;color:var(--rp-muted)}
+.rp-cover h1{font-size:28pt;line-height:1.1;color:var(--rp-forest);margin:2px 0 8px;letter-spacing:-.02em}
+.rp-meta{color:var(--rp-muted);margin:0 0 12px}
+.rp-badges{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px}
+.rp-badges span{font-size:8pt;font-weight:600;padding:3px 10px;border-radius:999px;background:#fff6dd;color:#7a5200;border:1px solid #f0d68c}
+.rp-badges span.ok{background:#e6f3ec;color:var(--rp-green);border-color:#b9dbc8}.rp-badges span.bad{background:#fbe9e5;color:#9b3324;border-color:#efc4b8}
+.rp-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.rp-kpis.small{grid-template-columns:repeat(4,1fr)}
+.rp-kpi{border:1px solid var(--rp-line);border-radius:10px;padding:9px 11px;background:#fff;break-inside:avoid}
+.rp-kpi span{display:block;font-size:7.5pt;text-transform:uppercase;letter-spacing:.05em;color:var(--rp-muted);font-weight:600}
+.rp-kpi strong{display:block;font-size:15pt;color:var(--rp-forest);line-height:1.25;font-variant-numeric:tabular-nums}
+.rp-kpi strong small{font-size:8.5pt;font-weight:600;color:var(--rp-muted)}
+.rp-kpi em{display:block;font-style:normal;font-size:7.5pt;color:var(--rp-muted)}
+.rp-cover-map{border:1px solid var(--rp-line);border-radius:10px;padding:8px;background:#fff;margin-bottom:14px}
+.rp-cover-map .rp-map{max-height:88mm}
+.rp-summary{border-left:3px solid var(--rp-green);padding:2px 0 2px 12px;margin-bottom:12px}.rp-summary p{margin:0}
+.rp-disclaimer{margin-top:auto;font-size:8pt;color:var(--rp-muted);border-top:1px solid var(--rp-line);padding-top:8px}
+
+/* Plan and charts */
+.rp-map{display:block;width:100%;height:auto;max-height:150mm}
+.rp-map-label{fill:#fff;font-weight:600;text-anchor:middle;font-family:'Inter',sans-serif}
+.rp-map-obstacle{fill:#5d5547;font-size:13px;font-weight:600;text-anchor:middle;font-family:'Inter',sans-serif}
+.rp-map-north{fill:var(--rp-forest);font-size:13px;font-weight:700;text-anchor:middle;font-family:'Inter',sans-serif}
+.rp-map-scale{fill:var(--rp-forest);font-size:13px;font-family:'Inter',sans-serif}
+.rp-legend{display:flex;flex-wrap:wrap;align-items:center;gap:4px;font-size:7.5pt;color:var(--rp-muted);margin-top:6px}
+.rp-legend span{margin-right:6px}.rp-legend i{font-style:normal;color:#fff;font-weight:600;padding:1px 7px;border-radius:4px}
+.rp-figure{margin-bottom:14px;break-inside:avoid}
+.rp-figure figcaption{font-size:8pt;color:var(--rp-muted);margin-top:4px}
+.rp-chart{display:block;width:100%;height:auto;font-family:'Inter',sans-serif}
+.rp-grid{stroke:var(--rp-line);stroke-width:1}.rp-zero{stroke:#9aa79f;stroke-width:1.2}
+.rp-axis{fill:var(--rp-muted);font-size:10.5px}.rp-axis.end{text-anchor:end}.rp-axis.mid{text-anchor:middle}
+.rp-value{fill:var(--rp-ink);font-size:10px;font-weight:600;text-anchor:middle}
+.rp-bar{fill:var(--rp-green)}.rp-bar.neg{fill:var(--rp-red)}
+.rp-line{fill:none;stroke:var(--rp-amber);stroke-width:2.5}
+.rp-marker{stroke:var(--rp-forest);stroke-dasharray:4 4}
+.rp-wf.base{fill:#9fc2b0}.rp-wf.loss{fill:var(--rp-red);opacity:.85}.rp-wf.result{fill:var(--rp-green)}
+.rp-wf-link{stroke:#9aa79f;stroke-dasharray:3 3}
+
+/* Tables */
+.rp-two{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;align-items:start}
+.rp-two-wide{grid-template-columns:1.25fr 1fr}
+.rp-table{width:100%;border-collapse:collapse;font-size:8.5pt;margin-bottom:14px;break-inside:auto}
+.rp-table caption{text-align:left;font-weight:700;color:var(--rp-forest);font-size:9.5pt;padding-bottom:6px}
+.rp-table th,.rp-table td{padding:5px 8px;border-bottom:1px solid var(--rp-line);text-align:left;vertical-align:top}
+.rp-table tbody th{font-weight:600;color:var(--rp-muted);width:38%}
+.rp-data thead th{background:var(--rp-forest);color:#fff;font-weight:600;font-size:8pt;border:0}
+.rp-data thead th:first-child{border-radius:6px 0 0 0}.rp-data thead th:last-child{border-radius:0 6px 0 0}
+.rp-data tbody tr:nth-child(even) td{background:var(--rp-soft)}
+.rp-table .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rp-table td.neg{color:var(--rp-red)}
+.rp-table tfoot td{font-weight:700;border-top:2px solid var(--rp-forest);border-bottom:0}
+.rp-table tr.sub td{color:var(--rp-muted)}
+.rp-table tr.rp-selected td{background:#e6f3ec!important;font-weight:600}
+.rp-table tr{break-inside:avoid}.rp-table.rp-keep{break-inside:avoid}.rp-table thead{display:table-header-group}
+.rp-hist td:last-child{width:45%}.rp-hist i{display:block;height:10px;border-radius:3px;min-width:2px}
+.rp-chip{display:inline-block;font-size:7.5pt;font-weight:700;padding:1px 8px;border-radius:999px;white-space:nowrap}
+.rp-chip.pass{background:#e6f3ec;color:var(--rp-green)}.rp-chip.warn{background:#fff3d6;color:#7a5200}.rp-chip.fail{background:#fbe9e5;color:#9b3324}
+.rp-note{font-size:8.5pt;color:var(--rp-muted)}
+.rp-empty{border:1px dashed #c9d3cc;border-radius:10px;padding:14px;background:var(--rp-soft)}.rp-empty p{margin:0}
+.rp-warnings ul,.rp-list{margin:0 0 14px;padding-left:18px}.rp-warnings li,.rp-list li{margin-bottom:5px}
+.rp-signatures{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:22px;break-inside:avoid}
+.rp-signatures div{text-align:center}.rp-signatures strong{display:block;color:var(--rp-forest)}.rp-signatures span{font-size:8pt;color:var(--rp-muted)}
+.rp-signatures i{display:block;height:26mm;border-bottom:1px solid #9aa79f;margin:0 10px 6px}.rp-signatures small{font-size:8pt;color:var(--rp-muted)}
+.rp-appendix .installation-guide{box-shadow:none;border:0;padding:0}
+
+/* Preview dialog */
+.report-preview{position:fixed;inset:0;z-index:80;background:#e7ece6;overflow:auto;padding:0 12px 32px}
+.report-toolbar{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:10px;max-width:210mm;margin:0 auto 18px;padding:12px 0;background:#e7ece6}
+.report-toolbar h2{font-size:16px;margin:0;color:#153e30}.report-toolbar p{margin:0;font-size:12px;color:#66756d}.report-toolbar .spacer{flex:1}
+@media screen and (max-width:860px){.report-preview .rp-sheet{width:100%;min-height:0;padding:20px 16px}.rp-two,.rp-two-wide,.rp-kpis.small{grid-template-columns:1fr}.rp-kpis{grid-template-columns:1fr 1fr}.report-toolbar{flex-wrap:wrap}}
+
+@media print{
+ @page{size:A4;margin:14mm 14mm 16mm;@bottom-left{content:"SolarOpt · Báo cáo thiết kế sơ bộ";font:7.5pt 'Inter',sans-serif;color:#66756d}@bottom-right{content:"Trang " counter(page) " / " counter(pages);font:7.5pt 'Inter',sans-serif;color:#66756d}}
+ .report-preview{display:none!important}
+ .print-report .rp-sheet{width:auto;min-height:0;margin:0;padding:0;box-shadow:none;break-before:page}
+ .print-report .rp-sheet:first-child{break-before:auto;min-height:0;height:266mm;overflow:hidden}
+ .print-report .rp-cover{background:none}
+ .print-report .rp-brand{margin-bottom:12mm}
+ .print-report .rp-cover-map .rp-map{max-height:78mm}
+}

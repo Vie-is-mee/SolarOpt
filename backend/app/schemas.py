@@ -232,6 +232,7 @@ class DesignResult(BaseModel):
     target_energy_kwh_year: float | None = None
     target_met: bool | None = None
     robustness_checks: list[RobustnessCheck] = Field(default_factory=list)
+    monthly_energy_kwh: list[float] = Field(default_factory=list, description="Annual energy spread by month (clear-sky seasonality)")
 
 
 class VerifyRequest(BaseModel):

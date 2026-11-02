@@ -10,7 +10,7 @@ except Exception:  # Cho phép chạy demo tối thiểu trước khi cài OR-To
 
 from app.services.layout_search import search_layouts, same_position, score
 from app.services.design_policy import capacity, select_for_target
-from app.services.energy import representative_contexts, summarize, MODEL_NOTE
+from app.services.energy import representative_contexts, summarize, monthly_energy, MODEL_NOTE
 
 from app.schemas import DesignMetrics, DesignRequest, DesignResult
 from app.services.geometry import build_context
@@ -36,6 +36,7 @@ def area_upper_bound(cfg, spec, ctx):
 
 def describe_goal(req, result):
     result.objective=req.objective
+    result.monthly_energy_kwh=monthly_energy(req.config,req.obstacles,result.panels)
     if req.objective=='min_cost':
         result.target_energy_kwh_year=req.config.target_energy_kwh_year
         result.target_met=sum(round(p.annual_energy_kwh*100) for p in result.panels)>=math.ceil(req.config.target_energy_kwh_year*100-1e-7)
