@@ -11,7 +11,6 @@ type Usage={plan:string;plan_name:string;plan_until:number|null;limits:Limits;us
 type AdminUser={id:number;email:string;role:string;plan:string;plan_name:string;plan_until:number|null;used:{projects:number;ai_reads:number};limits:Limits;pending_request:{plan:string;note:string}|null;team:{name:string;role:string}|null}
 type AdminTeam={id:number;name:string;plan:string;plan_until:number|null;owner:string;members:number;seats:number;used:{projects:number;ai_reads:number};limits:Limits;pending_request:{plan:string;note:string}|null}
 const base=import.meta.env.VITE_API_BASE||''
-const money=(n:number)=>n?vnd(n,'đ/tháng'):'0 đ'
 const date=(t:number|null)=>t?new Date(t*1000).toLocaleDateString('vi-VN'):'—'
 const of=(used:number,limit:number|null)=>limit===null?`${used} · không giới hạn`:`${used}/${limit}`
 async function call<T>(path:string,body?:unknown):Promise<T>{
@@ -20,12 +19,34 @@ async function call<T>(path:string,body?:unknown):Promise<T>{
  return r.json()
 }
 
-function Modal({title,onClose,children,wide=false}:{title:string;onClose:()=>void;children:ReactNode;wide?:boolean}){
+// Line drawing for the plans header: rooftops with panel rows under a low sun. Drawn in code (thin strokes in
+// the brand greens) so it stays crisp and matches the app instead of a stock photo.
+function PlanArt(){
+ // House: walls from the ground line G, gable roof; a panel array lies on the left slope (A eave -> B ridge).
+ const G=168,house=(x:number,w:number,h:number)=>{const A={x,y:G-h},B={x:x+w/2,y:G-h-w*.36},len=Math.hypot(B.x-A.x,B.y-A.y),u={x:(B.x-A.x)/len,y:(B.y-A.y)/len},n={x:u.y,y:-u.x}
+  const at=(t:number,d=0)=>({x:A.x+(B.x-A.x)*t+n.x*d,y:A.y+(B.y-A.y)*t+n.y*d}),p=[at(.16,1.5),at(.84,1.5),at(.84,8),at(.16,8)]
+  return <g key={x}><path d={`M${x} ${G}V${A.y}L${B.x} ${B.y}L${x+w} ${A.y}V${G}`} className="pa-house"/>
+   <path d={`M${p.map(q=>q.x.toFixed(1)+' '+q.y.toFixed(1)).join('L')}Z`} className="pa-panel"/>
+   {[.38,.61].map(t=>{const q1=at(t,1.5),q2=at(t,8);return <path key={t} d={`M${q1.x} ${q1.y}L${q2.x} ${q2.y}`} className="pa-cell"/>})}
+   <rect x={x+w*.6} y={G-h*.58} width={w*.16} height={h*.58} className="pa-door"/><rect x={x+w*.18} y={G-h*.7} width={w*.18} height={h*.24} className="pa-door"/></g>}
+ return <svg className="plan-art" viewBox="0 0 1000 170" preserveAspectRatio="xMaxYMax slice" aria-hidden="true">
+  <defs><linearGradient id="pa-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#f4f9ee"/><stop offset="1" stopColor="#e5f1dc"/></linearGradient></defs>
+  <rect width="1000" height="170" fill="url(#pa-sky)"/>
+  <path d="M720 168a170 170 0 0 1 280 -92" className="pa-arc"/><path d="M760 168a130 130 0 0 1 220 -70" className="pa-arc"/>
+  <circle cx="905" cy="58" r="19" className="pa-sun"/>{Array.from({length:12},(_,i)=>{const a=Math.PI*2*i/12,c=Math.cos(a),s=Math.sin(a);return <path key={i} d={`M${905+c*27} ${58-s*27}L${905+c*35} ${58-s*35}`} className="pa-ray"/>})}
+  <path d="M380 160C520 146 640 152 760 140S900 144 1000 132V170H380Z" className="pa-hill"/>
+  {[[480,74,34],[575,96,44],[690,70,30],[780,104,48],[905,78,36]].map(([x,w,h])=>house(x,w,h))}
+  <path d="M380 168.5H1000" className="pa-ground"/>
+ </svg>
+}
+const PLAN_ICON:Record<string,string>={free:'sun',pro:'bolt',business:'building'}
+function Modal({title,onClose,children,wide=false,art=false}:{title:string;onClose:()=>void;children:ReactNode;wide?:boolean;art?:boolean}){
  const ref=useRef<HTMLDialogElement>(null)
  useEffect(()=>{const d=ref.current!;d.showModal();return()=>d.close()},[])
  return <dialog ref={ref} className={`account-dialog plan-dialog${wide?' wide':''}`} aria-label={title} onCancel={e=>{e.preventDefault();onClose()}}>
   <button type="button" className="account-close icon-button" aria-label="Đóng" onClick={onClose}><Icon name="close" size={20}/></button>
-  <div className="plan-body"><h2>{title}</h2>{children}</div>
+  {art&&<div className="plan-hero"><PlanArt/><div><span className="plan-eyebrow">SolarOpt Studio</span><h2>{title}</h2></div></div>}
+  <div className="plan-body">{!art&&<h2>{title}</h2>}{children}</div>
  </dialog>
 }
 
@@ -61,10 +82,12 @@ export function PlanCenter({signedIn,onLogin}:{signedIn:boolean;onLogin:()=>void
   {signedIn&&<button className="button secondary small" onClick={()=>show('team')}>{team?`Nhóm: ${team.name}`:'Nhóm'}</button>}
   {usage.is_admin&&<button className="button secondary small" onClick={()=>show('admin')}>Quản trị</button>}
 
-  {open==='plans'&&<Modal title="Gói sử dụng SolarOpt" onClose={()=>setOpen(null)}>
+  {open==='plans'&&<Modal title="Gói sử dụng SolarOpt" art onClose={()=>setOpen(null)}>
    <p className="plan-note">{left===0?'Bạn đã dùng hết lượt của gói hiện tại. ':''}Mỗi dự án chỉ trừ một lượt; tính lại hoặc so sánh 3 phương án của cùng dự án không trừ thêm.{usage.plan_until?` Gói hiện tại hiệu lực đến ${date(usage.plan_until)}.`:''}</p>
-   <div className="plan-grid">{Object.entries(usage.plans).map(([id,p])=><article key={id} className={usage.plan===id?'current':''}>
-    <h3>{p.name}</h3><strong>{money(p.price_vnd_month)}</strong>
+   <div className="plan-grid">{Object.entries(usage.plans).map(([id,p])=><article key={id} className={`plan-card plan-${id}${usage.plan===id?' current':''}`}>
+    {id==='pro'&&<span className="plan-ribbon">Phổ biến</span>}
+    <div className="plan-card-head"><span className="plan-icon"><Icon name={PLAN_ICON[id]||'sparkles'} size={18}/></span><h3>{p.name}</h3></div>
+    <div className="plan-price"><strong>{p.price_vnd_month?vnd(p.price_vnd_month,''):'0'}</strong><small>{p.price_vnd_month?'đ / tháng':'đ · miễn phí'}</small></div>
     <ul>{p.features.map(f=><li key={f}>{f}</li>)}</ul>
     {usage.plan===id?<span className="badge">Đang dùng</span>:id==='free'?(usage.plan==='guest'?<button className="button secondary small" onClick={()=>{setOpen(null);onLogin()}}>Đăng ký miễn phí</button>:null)
      :!signedIn?<button className="button secondary small" onClick={()=>{setOpen(null);onLogin()}}>Đăng nhập để nâng cấp</button>

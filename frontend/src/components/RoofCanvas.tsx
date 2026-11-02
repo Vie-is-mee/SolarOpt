@@ -8,14 +8,18 @@ import {simplify,smoothStroke,strokeLength} from '../freehand'
 export type ViewMode='plan'|'shadow'|'heat'|'3d'
 // three.js is loaded only when the 3D view is opened.
 const Roof3D=lazy(()=>import('./Roof3D'))
-type Props={comparisonRoof?:Point[];datumIndex?:number;highlightPanels?:string[];idPrefix?:string;config:Config;obstacles:Obstacle[];scene:Scene|null;design:Design|null;selected:string|null;onSelect:(id:string|null)=>void;onMove:(id:string,x:number,y:number)=>void;onRoof:(points:Point[])=>void;mode:ViewMode;setMode:(v:ViewMode)=>void;editable:boolean;loading:boolean;sample:boolean;onPatch?:(id:string,p:Partial<Obstacle>)=>void;onGeometry?:(p:Partial<Config>)=>void;onAddPolygon?:(p:Point[])=>void;onEditStart?:()=>void;onEditEnd?:()=>void;referenceImage?:string|null;sunDate?:string}
-type Drag={kind:'move'|'resize'|'rotate'|'object-vertex'|'roof-vertex'|'face-vertex'|'opening-vertex';start:Point;object?:Obstacle;index?:number;id?:string;points?:Point[];corner?:number;opening?:number}
+type Props={comparisonRoof?:Point[];datumIndex?:number;highlightPanels?:string[];idPrefix?:string;config:Config;obstacles:Obstacle[];scene:Scene|null;design:Design|null;selected:string|null;onSelect:(id:string|null)=>void;onMove:(id:string,x:number,y:number)=>void;onRoof:(points:Point[])=>void;mode:ViewMode;setMode:(v:ViewMode)=>void;editable:boolean;loading:boolean;sample:boolean;onPatch?:(id:string,p:Partial<Obstacle>)=>void;onGeometry?:(p:Partial<Config>)=>void;onAddPolygon?:(p:Point[])=>void;onMoveMany?:(moves:Move[])=>void;onDeleteMany?:(ids:string[])=>void;onEditStart?:()=>void;onEditEnd?:()=>void;referenceImage?:string|null;sunDate?:string}
+type Drag={kind:'move'|'move-many'|'resize'|'rotate'|'object-vertex'|'roof-vertex'|'face-vertex'|'opening-vertex';start:Point;object?:Obstacle;index?:number;id?:string;points?:Point[];corner?:number;opening?:number;originals?:{id:string;x:number;y:number}[]}
+type Move={id:string;x:number;y:number}
 type Tool='move'|'roof'|'face'|'opening'|'object'
 const rounded=(v:number)=>Math.round(v*100)/100
-export function RoofCanvas({comparisonRoof=[],datumIndex=0,config,obstacles,scene,design,selected,onSelect,onMove,onRoof,mode,setMode,editable,loading,sample,idPrefix='roof',highlightPanels=[],onPatch,onGeometry,onAddPolygon,onEditStart,onEditEnd,referenceImage,sunDate}:Props){
+export function RoofCanvas({comparisonRoof=[],datumIndex=0,config,obstacles,scene,design,selected,onSelect,onMove,onRoof,mode,setMode,editable,loading,sample,idPrefix='roof',highlightPanels=[],onPatch,onGeometry,onAddPolygon,onEditStart,onEditEnd,referenceImage,sunDate,onMoveMany,onDeleteMany}:Props){
  const svg=useRef<SVGSVGElement>(null),drag=useRef<Drag|null>(null),pending=useRef<Partial<Config>|null>(null)
  const pointers=useRef(new Map<number,Point>()),gesture=useRef<{kind:'pan'|'pinch';start:Point;pan:Point;zoom:number;dist:number}|null>(null)
  const [dragging,setDragging]=useState(false)
+ // Multi-selection (Shift/Ctrl+click, Shift+drag marquee, Ctrl+A); a drag on any picked object moves them together.
+ const [multi,setMulti]=useState<string[]>([]),marquee=useRef<{a:Point;b:Point}|null>(null),[marqueeView,setMarqueeView]=useState<{a:Point;b:Point}|null>(null)
+ const picked=multi.length>1?multi:selected?[selected]:[]
  // Pen stroke in drawing units while the pointer is down (freehand drawing tools).
  const stroke=useRef<Point[]|null>(null),[strokeView,setStrokeView]=useState<Point[]|null>(null)
  const [measurePanel,setMeasurePanel]=useState(''),[showMeasurements,setShowMeasurements]=useState(true)
@@ -23,8 +27,13 @@ export function RoofCanvas({comparisonRoof=[],datumIndex=0,config,obstacles,scen
  useEffect(()=>{const el=svg.current;if(!el)return;const observer=new ResizeObserver(()=>{const width=el.getBoundingClientRect().width;if(width>0)setViewportRatio(width/900)});observer.observe(el);return()=>observer.disconnect()},[])
  const [tool,setTool]=useState<Tool>('move'),[points,setPoints]=useState<Point[]>([]),[draft,setDraft]=useState<Partial<Config>|null>(null),[zoom,setZoom]=useState(1),[pan,setPan]=useState<Point>({x:0,y:0}),[opacity,setOpacity]=useState(.4),[selectedFace,setSelectedFace]=useState<string|null>(null)
  const c={...config,...draft},roof=outerRoof(c),faces=c.roof_faces||[],holes=c.roof_openings||[]
- const minX=Math.min(-2,...obstacles.map(o=>Math.max(-c.roof_width_m-12,o.x-1))),minY=Math.min(-2,...obstacles.map(o=>Math.max(-c.roof_height_m-12,o.y-1)))
- const maxX=Math.max(c.roof_width_m+2,...comparisonRoof.map(p=>p.x+2),...obstacles.map(o=>Math.min(c.roof_width_m*2+12,o.x+o.width_m+1))),maxY=Math.max(c.roof_height_m+2,...comparisonRoof.map(p=>p.y+2),...obstacles.map(o=>Math.min(c.roof_height_m*2+12,o.y+o.depth_m+1)))
+ const rawMinX=Math.min(-2,...obstacles.map(o=>Math.max(-c.roof_width_m-12,o.x-1))),rawMinY=Math.min(-2,...obstacles.map(o=>Math.max(-c.roof_height_m-12,o.y-1)))
+ const rawMaxX=Math.max(c.roof_width_m+2,...comparisonRoof.map(p=>p.x+2),...obstacles.map(o=>Math.min(c.roof_width_m*2+12,o.x+o.width_m+1))),rawMaxY=Math.max(c.roof_height_m+2,...comparisonRoof.map(p=>p.y+2),...obstacles.map(o=>Math.min(c.roof_height_m*2+12,o.y+o.depth_m+1)))
+ // The view is fitted when the scene's make-up changes, not on every move, so dragging an object does not
+ // re-centre everything under the pointer. "Đặt lại góc nhìn" refits.
+ const extent=useRef<{key:string;b:number[]}|null>(null),extentKey=`${c.roof_width_m}|${c.roof_height_m}|${obstacles.length}|${comparisonRoof.length}`
+ if(!extent.current||extent.current.key!==extentKey)extent.current={key:extentKey,b:[rawMinX,rawMinY,rawMaxX,rawMaxY]}
+ const [minX,minY,maxX,maxY]=extent.current.b
  const focusPanel=design?.panels.find(p=>p.id===measurePanel)||design?.panels[0]
  // Base view for a zoom level; pan (viewBox px) shifts it so wheel/pinch zoom keeps the point under the pointer fixed.
  const baseView=(z:number)=>{const s=Math.min(740/(maxX-minX),460/(maxY-minY))*z,focus=z>1&&!editable&&focusPanel;return{scale:s,tx:450-(focus?focusPanel.x+focusPanel.width_m/2:(minX+maxX)/2)*s,ty:315+(focus?focusPanel.y+focusPanel.height_m/2:(minY+maxY)/2)*s}}
@@ -40,6 +49,8 @@ export function RoofCanvas({comparisonRoof=[],datumIndex=0,config,obstacles,scen
  const transform=useRef({scale:fitScale,tx:fitTx,ty:fitTy});if(!dragging&&!drag.current)transform.current={scale:fitScale,tx:fitTx,ty:fitTy}
  const {scale,tx,ty}=transform.current
  const sx=(x:number)=>tx+x*scale,sy=(y:number)=>ty-y*scale
+ // Sun glyph sits on a ring around the roof and pans/zooms with it: only its direction matters, as in 3D.
+ const sunRadius=Math.min(330,Math.hypot(c.roof_width_m,c.roof_height_m)/2*scale+70)
  const roofPath=pathOf(roof)+holes.map(pathOf).join('')
  const datumA=roof[Math.min(datumIndex,roof.length-1)],activePanel=design?.panels.find(p=>p.id===measurePanel)||design?.panels[0],corner=activePanel?panelCorners(activePanel)[0]:null
  const measurementLabel=c.dimensions_source==='measured'?'Theo số đo thực tế':c.dimensions_verified?'Đã đối chiếu số đo':c.dimensions_source==='reference'?'Đã hiệu chuẩn':'Kích thước giả định'
@@ -61,15 +72,21 @@ export function RoofCanvas({comparisonRoof=[],datumIndex=0,config,obstacles,scen
    drag.current={kind:'roof-vertex',start:point,index,points:list}
   }else if(editable&&faceVertex){const id=faceVertex.getAttribute('data-face-id')!,index=Number(faceVertex.getAttribute('data-face-vertex'));onEditStart?.();drag.current={kind:'face-vertex',start:point,id,index,points:faces.find(f=>f.id===id)!.polygon};setSelectedFace(id)
   }else if(editable&&opening){onEditStart?.();const hole=Number(opening.getAttribute('data-opening'));drag.current={kind:'opening-vertex',start:point,index:Number(opening.getAttribute('data-opening-vertex')),opening:hole,points:holes[hole]}
-  }else if(object){const id=object.getAttribute('data-obstacle')!,o=obstacles.find(v=>v.id===id)!;onSelect(id);setSelectedFace(null)
-   if(editable){onEditStart?.();drag.current={kind:target.hasAttribute('data-rotate')?'rotate':target.hasAttribute('data-resize')?'resize':target.hasAttribute('data-object-vertex')?'object-vertex':'move',start:point,object:structuredClone(o),id,corner:Number(target.getAttribute('data-resize')),index:Number(target.getAttribute('data-object-vertex')),points:footprint(o)}}
-  }else{onSelect(null);const f=target.closest('[data-face]');setSelectedFace(f?.getAttribute('data-face')||null);gesture.current={kind:'pan',start:viewPoint(e),pan,zoom,dist:1};e.currentTarget.setPointerCapture(e.pointerId)}
+  }else if(object){const id=object.getAttribute('data-obstacle')!,o=obstacles.find(v=>v.id===id)!;setSelectedFace(null)
+   if(e.shiftKey||e.ctrlKey||e.metaKey){const next=picked.includes(id)?picked.filter(v=>v!==id):[...picked,id];setMulti(next);onSelect(next[next.length-1]??null);return}
+   const group=picked.length>1&&picked.includes(id)&&!target.hasAttribute('data-rotate')&&!target.hasAttribute('data-resize')&&!target.hasAttribute('data-object-vertex')?picked:null
+   if(!group){setMulti([]);onSelect(id)}
+   if(editable&&group){onEditStart?.();drag.current={kind:'move-many',start:point,originals:group.flatMap(g=>{const v=obstacles.find(x=>x.id===g);return v?[{id:g,x:v.x,y:v.y}]:[]})}}
+   else if(editable){onEditStart?.();drag.current={kind:target.hasAttribute('data-rotate')?'rotate':target.hasAttribute('data-resize')?'resize':target.hasAttribute('data-object-vertex')?'object-vertex':'move',start:point,object:structuredClone(o),id,corner:Number(target.getAttribute('data-resize')),index:Number(target.getAttribute('data-object-vertex')),points:footprint(o)}}
+  }else if(editable&&e.shiftKey){marquee.current={a:point,b:point};setMarqueeView({a:point,b:point});e.currentTarget.setPointerCapture(e.pointerId);return
+  }else{onSelect(null);setMulti([]);const f=target.closest('[data-face]');setSelectedFace(f?.getAttribute('data-face')||null);gesture.current={kind:'pan',start:viewPoint(e),pan,zoom,dist:1};e.currentTarget.setPointerCapture(e.pointerId)}
   if(drag.current){e.preventDefault();setDragging(true);e.currentTarget.setPointerCapture(e.pointerId)}
  }
  function move(e:React.PointerEvent<SVGSVGElement>){if(pointers.current.has(e.pointerId))pointers.current.set(e.pointerId,viewPoint(e))
   const g=gesture.current
   if(g?.kind==='pinch'&&pointers.current.size>=2){const {mid,dist}=pinchState();zoomFrom(g.zoom,{x:g.pan.x+mid.x-g.start.x,y:g.pan.y+mid.y-g.start.y},g.zoom*dist/g.dist,mid);return}
   if(g?.kind==='pan'){const v=viewPoint(e);setPan({x:g.pan.x+v.x-g.start.x,y:g.pan.y+v.y-g.start.y});return}
+  if(marquee.current){marquee.current={...marquee.current,b:cursor(e)};setMarqueeView({...marquee.current});return}
   if(stroke.current){const p=clampDraw(cursor(e)),last=stroke.current[stroke.current.length-1];if(Math.hypot(p.x-last.x,p.y-last.y)*scale>1.5){stroke.current.push(p);setStrokeView([...stroke.current])}return}
   const d=drag.current;if(!d)return;const p=cursor(e),o=d.object
   if(d.kind==='roof-vertex'||d.kind==='face-vertex'||d.kind==='opening-vertex'){
@@ -77,6 +94,7 @@ export function RoofCanvas({comparisonRoof=[],datumIndex=0,config,obstacles,scen
    if(d.kind==='roof-vertex')preview({roof_polygon:list})
    else if(d.kind==='face-vertex')preview({roof_faces:faces.map(f=>f.id===d.id?{...f,polygon:list}:f)})
    else preview({roof_openings:holes.map((h,i)=>i===d.opening?list:h)})
+  }else if(d.kind==='move-many'&&d.originals){onMoveMany?.(d.originals.map(v=>({id:v.id,x:rounded(v.x+p.x-d.start.x),y:rounded(v.y+p.y-d.start.y)})))
   }else if(o){
    if(d.kind==='move')onMove(o.id,rounded(o.x+p.x-d.start.x),rounded(o.y+p.y-d.start.y))
    else if(d.kind==='rotate')onPatch?.(o.id,{rotation_deg:rounded(Math.atan2(p.y-o.y-o.depth_m/2,p.x-o.x-o.width_m/2)*180/Math.PI-90)})
@@ -89,7 +107,11 @@ export function RoofCanvas({comparisonRoof=[],datumIndex=0,config,obstacles,scen
    }
   }
  }
- function up(e:React.PointerEvent<SVGSVGElement>){if(stroke.current){const s=stroke.current;stroke.current=null;setStrokeView(null);pointers.current.delete(e.pointerId);commitStroke(s);return}
+ function up(e:React.PointerEvent<SVGSVGElement>){if(marquee.current){const {a,b}=marquee.current;marquee.current=null;setMarqueeView(null);pointers.current.delete(e.pointerId)
+  const x0=Math.min(a.x,b.x),x1=Math.max(a.x,b.x),y0=Math.min(a.y,b.y),y1=Math.max(a.y,b.y)
+  const ids=obstacles.filter(o=>{const cx=o.x+o.width_m/2,cy=o.y+o.depth_m/2;return cx>=x0&&cx<=x1&&cy>=y0&&cy<=y1}).map(o=>o.id)
+  setMulti(ids);onSelect(ids[ids.length-1]??null);return}
+  if(stroke.current){const s=stroke.current;stroke.current=null;setStrokeView(null);pointers.current.delete(e.pointerId);commitStroke(s);return}
  pointers.current.delete(e.pointerId);if(gesture.current){if(gesture.current.kind==='pan'||pointers.current.size<2)gesture.current=null;if(!drag.current)return}
  if(pending.current){onGeometry?.(pending.current);pending.current=null;setDraft(null)}drag.current=null;setDragging(false);onEditEnd?.()}
  function clampDraw(p:Point){const w=tool==='object'?100:config.roof_width_m,h=tool==='object'?100:config.roof_height_m;return{x:Math.max(0,Math.min(w,p.x)),y:Math.max(0,Math.min(h,p.y))}}
@@ -113,6 +135,12 @@ export function RoofCanvas({comparisonRoof=[],datumIndex=0,config,obstacles,scen
     else if((k==='Backspace'||k==='Delete'||undoKey)&&points.length)setPoints(a=>a.slice(0,-1))
     else return
     e.preventDefault();e.stopImmediatePropagation();return}
+   const mod=e.ctrlKey||e.metaKey
+   if(mod&&k.toLowerCase()==='a'&&obstacles.length){setMulti(obstacles.map(o=>o.id));onSelect(obstacles[obstacles.length-1].id);e.preventDefault();e.stopImmediatePropagation();return}
+   if(k==='Escape'&&multi.length){setMulti([]);return}
+   if((k==='Delete'||k==='Backspace')&&picked.length>1){onDeleteMany?.(picked);setMulti([]);e.preventDefault();e.stopImmediatePropagation();return}
+   if(k.startsWith('Arrow')&&picked.length&&!mod){const step=e.shiftKey?1:.1,dx=k==='ArrowRight'?step:k==='ArrowLeft'?-step:0,dy=k==='ArrowUp'?step:k==='ArrowDown'?-step:0
+    onEditStart?.();onMoveMany?.(picked.flatMap(id=>{const o=obstacles.find(v=>v.id===id);return o?[{id,x:rounded(o.x+dx),y:rounded(o.y+dy)}]:[]}));onEditEnd?.();e.preventDefault();e.stopImmediatePropagation();return}
    if((k==='Delete'||k==='Backspace')&&selectedFace){onEditStart?.();onGeometry?.({roof_faces:faces.filter(f=>f.id!==selectedFace)});onEditEnd?.();setSelectedFace(null);e.preventDefault();e.stopImmediatePropagation()}}
   window.addEventListener('keydown',key,true);return()=>window.removeEventListener('keydown',key,true)})
  return <section className="canvas-card">
@@ -135,13 +163,14 @@ export function RoofCanvas({comparisonRoof=[],datumIndex=0,config,obstacles,scen
     {comparisonRoof.length>0&&<path data-original-roof="true" d={pathOf(comparisonRoof)} fill="none" stroke="#45474b" strokeWidth=".06" strokeDasharray=".16 .1"/>}
     {design?.panels.map(p=><g key={p.id} data-panel={p.id} data-panel-warning={highlightPanels.includes(p.id)?'true':undefined} data-active-panel={activePanel?.id===p.id?'true':undefined} role={!editable?'button':undefined} tabIndex={!editable?0:undefined} aria-label={`Chọn ${panelLabel(design.panels.indexOf(p))}`} aria-pressed={!editable?activePanel?.id===p.id:undefined} onKeyDown={e=>{if(!editable&&(e.key==='Enter'||e.key===' ')){e.preventDefault();setMeasurePanel(p.id)}}} transform={`rotate(${p.rotation_deg||0} ${p.x+p.width_m/2} ${p.y+p.height_m/2})`}><title>{panelLabel(design.panels.indexOf(p))} · {p.width_m} × {p.height_m} m · góc {p.rotation_deg||0}°</title><rect x={p.x} y={p.y} width={p.width_m} height={p.height_m} rx=".035" fill={`url(#${idPrefix}-panel-fill)`} stroke={highlightPanels.includes(p.id)?'#e84a32':activePanel?.id===p.id?'#f2bd48':p.preserved?'#51d2ad':'#91b1c3'} strokeWidth={highlightPanels.includes(p.id)?.12:activePanel?.id===p.id?2.5/scale:.035}/><rect x={p.x} y={p.y} width={p.width_m} height={p.height_m} fill={`url(#${idPrefix}-panel-grid)`}/></g>)}
     {obstacles.map(o=><g key={o.id} data-obstacle={o.id} className={editable?'obstacle-draggable':''} tabIndex={0} role="button" aria-label={`Chọn ${o.label}`} onKeyDown={e=>{if(e.key==='Enter')onSelect(o.id);if(editable&&['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)){e.preventDefault();onEditStart?.();onMove(o.id,rounded(o.x+(e.key==='ArrowRight'?.1:e.key==='ArrowLeft'?-.1:0)),rounded(o.y+(e.key==='ArrowUp'?.1:e.key==='ArrowDown'?-.1:0)));onEditEnd?.()}}}>
-     <polygon points={footprint(o).map(p=>`${p.x},${p.y}`).join(' ')} fill={o.scope==='neighbor'?'#99afa6':o.shape==='ellipse'?'#d7e5e8':'#c4bcae'} fillOpacity={o.top_installable&&o.scope==='roof'?.35:undefined} stroke={selected===o.id?'#f4ad43':o.top_installable&&o.scope==='roof'?'#3f8f5f':o.confirmed?'#718b7d':'#bd8b41'} strokeWidth={selected===o.id?.08:.035} strokeDasharray={o.confirmed?undefined:'.1 .07'}/>
-     {editable&&selected===o.id&&<>{footprint({...o,shape:'rect'}).map((p,i)=><rect key={i} data-resize={i} x={p.x-handleRadius} y={p.y-handleRadius} width={handleRadius*2} height={handleRadius*2} fill="white" stroke="#df9830" strokeWidth={1.3/scale}/>)}{o.shape==='polygon'&&footprint(o).map((p,i)=><circle key={i} data-object-vertex={i} cx={p.x} cy={p.y} r={handleRadius*1.1} fill="#6db6be" stroke="white" strokeWidth={1/scale}/>)}<circle data-rotate="true" cx={o.x+o.width_m/2} cy={o.y+o.depth_m+.65} r={handleRadius*1.4} fill="#9b74c9" stroke="white" strokeWidth={1/scale}/></>}
+     <polygon points={footprint(o).map(p=>`${p.x},${p.y}`).join(' ')} fill={o.scope==='neighbor'?'#99afa6':o.shape==='ellipse'?'#d7e5e8':'#c4bcae'} fillOpacity={o.top_installable&&o.scope==='roof'?.35:undefined} stroke={picked.includes(o.id)?'#f4ad43':o.top_installable&&o.scope==='roof'?'#3f8f5f':o.confirmed?'#718b7d':'#bd8b41'} strokeWidth={picked.includes(o.id)?.08:.035} strokeDasharray={o.confirmed?undefined:'.1 .07'}/>
+     {editable&&selected===o.id&&picked.length<2&&<>{footprint({...o,shape:'rect'}).map((p,i)=><rect key={i} data-resize={i} x={p.x-handleRadius} y={p.y-handleRadius} width={handleRadius*2} height={handleRadius*2} fill="white" stroke="#df9830" strokeWidth={1.3/scale}/>)}{o.shape==='polygon'&&footprint(o).map((p,i)=><circle key={i} data-object-vertex={i} cx={p.x} cy={p.y} r={handleRadius*1.1} fill="#6db6be" stroke="white" strokeWidth={1/scale}/>)}<circle data-rotate="true" cx={o.x+o.width_m/2} cy={o.y+o.depth_m+.65} r={handleRadius*1.4} fill="#9b74c9" stroke="white" strokeWidth={1/scale}/></>}
     </g>)}
     {editable&&tool==='move'&&<>{roof.map((p,i)=>{const q=roof[(i+1)%roof.length];return <g key={i}>{roof.length<=16&&<circle data-roof-edge={i} cx={(p.x+q.x)/2} cy={(p.y+q.y)/2} r={handleRadius*.7} fill="#f6dc9d" stroke="#b28d4d" strokeWidth={1/scale}/>}<circle data-roof-vertex={i} cx={p.x} cy={p.y} r={handleRadius*1.15} fill="white" stroke="#cb8a37" strokeWidth={1.6/scale} onDoubleClick={()=>{if(roof.length>3)onRoof(roof.filter((_,j)=>j!==i))}}/></g>})}{faces.filter(f=>f.id===selectedFace).flatMap(f=>f.polygon.map((p,i)=><circle key={f.id+i} data-face-id={f.id} data-face-vertex={i} cx={p.x} cy={p.y} r={handleRadius} fill="#a4cee0" stroke="white" strokeWidth={1/scale}/>))}{holes.flatMap((h,j)=>h.map((p,i)=><circle key={`${j}-${i}`} data-opening={j} data-opening-vertex={i} cx={p.x} cy={p.y} r={handleRadius} fill="#c48f82" stroke="white" strokeWidth={1/scale}/>))}</>}
     {points.length>0&&<polyline points={[...points,...(strokeView||[])].map(p=>`${p.x},${p.y}`).join(' ')} fill="none" stroke="#d59038" strokeWidth={2.2/scale} strokeLinecap="round" strokeLinejoin="round"/>}
     {strokeView&&!points.length&&<polyline points={strokeView.map(p=>`${p.x},${p.y}`).join(' ')} fill="none" stroke="#d59038" strokeWidth={2.2/scale} strokeLinecap="round" strokeLinejoin="round"/>}
     {points.length>2&&<line x1={points[0].x} y1={points[0].y} x2={points[points.length-1].x} y2={points[points.length-1].y} stroke="#d59038" strokeWidth={1.2/scale} strokeDasharray={`${4/scale} ${4/scale}`} opacity=".6"/>}
+    {marqueeView&&<rect x={Math.min(marqueeView.a.x,marqueeView.b.x)} y={Math.min(marqueeView.a.y,marqueeView.b.y)} width={Math.abs(marqueeView.b.x-marqueeView.a.x)} height={Math.abs(marqueeView.b.y-marqueeView.a.y)} fill="#f4ad43" fillOpacity=".12" stroke="#d99a2b" strokeWidth={1.2/scale} strokeDasharray={`${5/scale} ${3/scale}`} pointerEvents="none"/>}
     {points.map((p,i)=><circle key={i} cx={p.x} cy={p.y} r={(i===0?4.5:2.6)/scale} fill={i===0?'#fff':'#d59038'} stroke="#d59038" strokeWidth={1.4/scale} pointerEvents="none"/>)}
    </g>
    {!editable&&corner&&<g className="panel-v1-marker" pointerEvents="none"><circle data-panel-v1="true" cx={sx(corner.x)} cy={sy(corner.y)} r={4/Math.max(.2,viewportRatio)} fill="#ffffff" stroke="#b38218" strokeWidth={1.5/Math.max(.2,viewportRatio)}/></g>}
@@ -156,9 +185,9 @@ export function RoofCanvas({comparisonRoof=[],datumIndex=0,config,obstacles,scen
    {obstacles.map(o=><g key={'label'+o.id} pointerEvents="none"><rect x={sx(o.x+o.width_m/2)-46} y={sy(o.y+o.depth_m)+7} width="92" height="21" rx="5" fill="white" opacity=".88"/><text x={sx(o.x+o.width_m/2)} y={sy(o.y+o.depth_m)+21} textAnchor="middle" fill="#446458" fontSize="10">{o.label.slice(0,18)}</text></g>)}
    {faces.map(f=>{const x=f.polygon.reduce((s,p)=>s+p.x,0)/f.polygon.length,y=f.polygon.reduce((s,p)=>s+p.y,0)/f.polygon.length;return <g key={f.id} pointerEvents="none"><rect x={sx(x)-55} y={sy(y)-18} width="110" height="31" rx="5" fill="white" opacity=".9"/><text x={sx(x)} y={sy(y)-5} textAnchor="middle" fill="#446458" fontSize="10">{f.label.slice(0,18)}</text><text x={sx(x)} y={sy(y)+7} textAnchor="middle" fill="#6c7d73" fontSize="9">Cao {f.elevation_m} m · dốc {f.tilt_deg}°</text></g>})}
    <g transform={`translate(835 87) rotate(${-c.north_rotation_deg})`}><circle r="31" fill="white" opacity=".85"/><path d="M0-22-7 9 0 5 7 9Z" fill="#2b6a51"/><text y="-39" textAnchor="middle" fill="#254f3c" fontSize="12" fontWeight="700">BẮC</text></g>
-   {scene&&scene.sun.altitude_deg>0&&<g transform={`translate(${450+Math.sin((scene.sun.azimuth_deg-c.north_rotation_deg)*Math.PI/180)*320},${315-Math.cos((scene.sun.azimuth_deg-c.north_rotation_deg)*Math.PI/180)*240})`}><circle r="24" fill="#f5bd50" opacity=".16"/><circle r="15" fill="#f4b83c"/>{Array.from({length:8},(_,i)=><path key={i} transform={`rotate(${i*45})`} d="M0-21V-26" stroke="#e7a52c" strokeWidth="1.5"/>)}</g>}
-  </svg>}{mode!=='3d'&&<><div className="canvas-legend"><span><i style={{background:'#244a48'}}/>Bóng che</span><span><i style={{background:'#2d6080'}}/>Tấm pin</span><span><i style={{background:'#bca06d'}}/>Chưa xác nhận</span></div><div className="canvas-zoom" title="Ctrl + cuộn chuột hoặc chụm hai ngón để phóng; kéo vùng trống để dịch bản vẽ"><button aria-label="Thu nhỏ" onClick={()=>zoomAt.current(zoom-.15,{x:450,y:315})}>−</button><span>{Math.round(zoom*100)}%</span><button aria-label="Phóng to" onClick={()=>zoomAt.current(zoom+.25,{x:450,y:315})}>+</button><button aria-label="Đặt lại góc nhìn" onClick={()=>{setZoom(1);setPan({x:0,y:0})}}><Icon name="grid" size={15}/></button></div></>}</div>
+   {scene&&scene.sun.altitude_deg>0&&<g transform={`translate(${sx(c.roof_width_m/2)+Math.sin((scene.sun.azimuth_deg-c.north_rotation_deg)*Math.PI/180)*sunRadius},${sy(c.roof_height_m/2)-Math.cos((scene.sun.azimuth_deg-c.north_rotation_deg)*Math.PI/180)*sunRadius})`}><circle r="24" fill="#f5bd50" opacity=".16"/><circle r="15" fill="#f4b83c"/>{Array.from({length:8},(_,i)=><path key={i} transform={`rotate(${i*45})`} d="M0-21V-26" stroke="#e7a52c" strokeWidth="1.5"/>)}</g>}
+  </svg>}{mode!=='3d'&&<><div className="canvas-legend"><span><i style={{background:'#244a48'}}/>Bóng che</span><span><i style={{background:'#2d6080'}}/>Tấm pin</span><span><i style={{background:'#bca06d'}}/>Chưa xác nhận</span></div><div className="canvas-zoom" title="Ctrl + cuộn chuột hoặc chụm hai ngón để phóng; kéo vùng trống để dịch bản vẽ"><button aria-label="Thu nhỏ" onClick={()=>zoomAt.current(zoom-.15,{x:450,y:315})}>−</button><span>{Math.round(zoom*100)}%</span><button aria-label="Phóng to" onClick={()=>zoomAt.current(zoom+.25,{x:450,y:315})}>+</button><button aria-label="Đặt lại góc nhìn" onClick={()=>{extent.current=null;setZoom(1);setPan({x:0,y:0})}}><Icon name="grid" size={15}/></button></div></>}</div>
   {editable&&mode==='plan'&&<div className="canvas-measurement-note">Chế độ bản vẽ đang ẩn bóng che. <button className="text-button" onClick={()=>setMode('shadow')}>Hiện bóng che</button></div>}
-  <div className="canvas-measurement-note">{c.dimensions_source==='measured'?'Mái đã quy đổi theo hai số đo người dùng nhập; cần kiểm tra phối cảnh và vị trí vật cản.':c.dimensions_verified?'Kích thước đã được kỹ sư đối chiếu số đo.':c.dimensions_source==='reference'?'Hiệu chuẩn theo đoạn tham chiếu; cần kiểm tra phối cảnh và đối chiếu số đo khác.':'Số đo ước lượng theo dữ liệu nhập/tỷ lệ ảnh; chưa dùng làm kích thước thi công.'}</div><div className="canvas-bottom"><span><Icon name={editable?'move':'compass'} size={14}/>{editable?'Kéo đỉnh để sửa mái · nút giữa cạnh thêm đỉnh · bấm đúp đỉnh để xóa · nút tím xoay vật thể · Delete xóa vật đang chọn · Ctrl+Z hoàn tác · Ctrl+Y làm lại':'Mặt bằng theo mét · các cao độ phải được kỹ sư kiểm tra'}</span></div>
+  <div className="canvas-measurement-note">{c.dimensions_source==='measured'?'Mái đã quy đổi theo hai số đo người dùng nhập; cần kiểm tra phối cảnh và vị trí vật cản.':c.dimensions_verified?'Kích thước đã được kỹ sư đối chiếu số đo.':c.dimensions_source==='reference'?'Hiệu chuẩn theo đoạn tham chiếu; cần kiểm tra phối cảnh và đối chiếu số đo khác.':'Số đo ước lượng theo dữ liệu nhập/tỷ lệ ảnh; chưa dùng làm kích thước thi công.'}</div><div className="canvas-bottom"><span><Icon name={editable?'move':'compass'} size={14}/>{editable?'Kéo đỉnh để sửa mái · nút giữa cạnh thêm đỉnh · bấm đúp đỉnh để xóa · nút tím xoay vật thể · Shift+kéo quét chọn nhiều · Ctrl+A chọn tất cả · kéo một vật đã chọn để dời cả nhóm · mũi tên dịch 0,1 m · Delete xóa · Ctrl+Z hoàn tác · Ctrl+Y làm lại':'Mặt bằng theo mét · các cao độ phải được kỹ sư kiểm tra'}</span></div>
  </section>
 }
