@@ -204,9 +204,9 @@ def _grid_cache(req,ctx,shade_contexts,surfaces):
     digest=hashlib.sha256()
     digest.update(json.dumps([req.config.model_dump(mode='json'),req.panel.model_dump(mode='json'),
                               [o.model_dump(mode='json') for o in req.obstacles]],sort_keys=True).encode())
-    for geometry in [ctx.usable_roof,ctx.obstacle_union,*(region for _,region in surfaces),*(c.shadow_union for c in shade_contexts)]:
+    for geometry in [ctx.usable_roof,ctx.obstacle_union,*(region for _,region in surfaces),*(c.shadow_union for c in shade_contexts or [])]:
         digest.update(b'|'+(geometry.wkb if geometry is not None else b''))
-    digest.update('|'.join(s.id for s,_ in surfaces).encode())
+    digest.update(('|'.join(s.id for s,_ in surfaces)+('|hourly' if shade_contexts is None else '|instants')).encode())
     key=digest.hexdigest()
     with _GRID_LOCK:
         bucket=_GRID_CACHE.pop(key,None)

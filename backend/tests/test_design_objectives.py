@@ -20,14 +20,12 @@ def test_clear_roof_can_legitimately_have_identical_options():
     assert all(next(t for t in r.layout_trials if t.selected).shading_rejected_count==0 for r in results)
 
 
-def test_shaded_roof_objectives_really_filter_and_change_layout(monkeypatch):
-    # Controlled sun isolates policy differences from seasonal sampling.
-    import app.services.energy as energy
-    monkeypatch.setattr(energy,'sun_position',lambda _:SunPosition(altitude_deg=60,azimuth_deg=90,zenith_deg=30))
+def test_shaded_roof_objectives_really_filter_and_change_layout():
+    # Hourly sun all year: a 6 m wall shades its neighbours beyond the durability cap (10 %).
     cfg=ProjectConfig(roof_width_m=10,roof_height_m=8,setback_m=.1,obstacle_clearance_m=0,
                       layout_angle_deg=0,panel_gap_m=.1,budget_vnd=500_000_000)
     panel=PanelSpec(width_m=1,height_m=2)
-    obstacles=[RectObstacle(id='wall',x=8,y=0,width_m=1,depth_m=8,height_m=3)]
+    obstacles=[RectObstacle(id='wall',x=8,y=0,width_m=1,depth_m=8,height_m=6)]
     results={o:generate_design(DesignRequest(config=cfg,panel=panel,obstacles=obstacles,objective=o)) for o in OBJECTIVES}
     for objective,result in results.items():
         assert result.panels

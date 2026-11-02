@@ -247,7 +247,7 @@ export function ProjectReport(p:ReportProps){
 
   <Sheet title="Giả định, giới hạn và xác nhận" eyebrow="06 · Phạm vi" project={project}>
    <ul className="rp-list">
-    <li>Bức xạ năm quy đổi riêng cho từng mặt mái bằng pvlib với 12 ngày trời quang đại diện; bóng che tính tại 9 thời điểm (xuân phân, hạ chí, đông chí lúc 9, 12, 15 giờ). Chưa phải mô phỏng 8.760 giờ với thời tiết thực.</li>
+    <li>Bức xạ năm quy đổi riêng cho từng mặt mái bằng pvlib với 12 ngày trời quang đại diện; bóng che tính cho mọi giờ có nắng của 12 ngày đó (khoảng 140 thời điểm), trên lưới khoảng 10 cm. Mỗi tấm được xét theo 3 chuỗi cell có diode bypass: chuỗi bị che 1/3 diện tích thì mất toàn bộ phần trực xạ; tổn thất được tính theo trực xạ từng giờ, ánh sáng tán xạ coi như không bị che. Chưa phải mô phỏng 8.760 giờ với thời tiết thực.</li>
     <li>Tổn thất ngoài bóng che (nhiệt độ, dây dẫn, bộ biến đổi điện, bụi) gộp trong hệ số hiệu năng PR {num(config.performance_ratio*100)}%.</li>
     <li>Vật cản là khối đứng theo mặt bằng; chưa xét cây có tán, kính phản xạ, địa hình.</li>
     <li>Chưa thiết kế đấu chuỗi, chọn bộ biến đổi điện, kiểm tra tải trọng mái, tải gió và phòng cháy.</li>

@@ -10,7 +10,7 @@ except Exception:  # Cho phép chạy demo tối thiểu trước khi cài OR-To
 
 from app.services.layout_search import search_layouts, same_position, score
 from app.services.design_policy import capacity, select_for_target
-from app.services.energy import representative_contexts, summarize, monthly_energy, MODEL_NOTE
+from app.services.energy import summarize, monthly_energy, MODEL_NOTE
 
 from app.schemas import DesignMetrics, DesignRequest, DesignResult
 from app.services.geometry import build_context
@@ -57,7 +57,7 @@ def generate_design(req: DesignRequest) -> DesignResult:
     # Hình học vật cản là ràng buộc cứng. Bóng che dùng nhiều thời điểm đại diện trong năm,
     # không phụ thuộc riêng thanh kéo giờ trên giao diện (thanh kéo chỉ để trực quan hóa).
     ctx = build_context(cfg, req.obstacles, None)
-    shade_contexts = representative_contexts(cfg, req.obstacles)
+    shade_contexts = None   # hourly shadow raster with the bypass-diode substring model (energy.ShadeSeries)
     search_info={}
     candidates, layout_trials = search_layouts(req, ctx, shade_contexts, diagnostics=search_info)
     search_warnings=(["Đã đạt giới hạn thời gian tìm kiếm; chỉ so sánh các lưới đã tính hoàn tất. Có thể chọn góc xếp thủ công để tập trung tìm kiếm."] if search_info.get('limited') else [])
