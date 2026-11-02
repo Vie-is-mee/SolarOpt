@@ -72,7 +72,8 @@ export default function Account(){
   }
   const focus=()=>{void refresh()}
   const storage=(event:StorageEvent)=>{if(event.key==='solaropt-auth-change')void refresh()}
-  const expired=(event:Event)=>{if((event as CustomEvent<string>).detail===accountIdentity())void refresh(true)}
+  // Only a signed-in session can expire; a guest's 401 (e.g. history) is expected and must not open the login dialog.
+  const expired=(event:Event)=>{const who=(event as CustomEvent<string>).detail;if(who!=='guest'&&who===accountIdentity())void refresh(true)}
   void refresh()
   window.addEventListener('focus',focus)
   window.addEventListener('storage',storage)

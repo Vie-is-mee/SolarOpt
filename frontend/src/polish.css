@@ -309,3 +309,5 @@ kbd{display:inline-block;padding:1px 6px;border:1px solid #cfdcc9;border-bottom-
 .roof-3d-error{position:absolute;inset:0;z-index:3;display:grid;place-content:center;gap:10px;text-align:center;padding:20px;background:#f4f7f2f2;color:#3d5a4b;font-size:13px}
 .roof-3d-error p{margin:0;max-width:420px}
 .roof-3d-loading.failed{display:grid;place-content:center;gap:10px;text-align:center;padding:20px;font-size:13px;color:#3d5a4b}.roof-3d-loading.failed p{margin:0;max-width:380px}.roof-3d-loading.failed div{display:flex;gap:8px;justify-content:center}
+
+.canvas-notice{position:absolute;left:50%;top:14px;transform:translateX(-50%);z-index:3;max-width:min(440px,calc(100% - 28px));font-size:12.5px;line-height:1.45;color:#5b3d0c;background:#fff6e2;border:1px solid #f0d49a;border-radius:9px;padding:8px 12px;box-shadow:0 4px 14px rgba(21,62,48,.14);pointer-events:none}
