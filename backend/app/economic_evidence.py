@@ -1,4 +1,6 @@
 """User-supplied quote assumptions, stored with evidence; no prescribed prices."""
+from typing import Literal
+
 from pydantic import BaseModel,ConfigDict,Field
 
 
@@ -28,6 +30,9 @@ class EconomicAssumptions(BaseModel):
     loan_rate_pct:float|None=Field(default=None,ge=0,le=100)
     loan_years:int=Field(default=5,ge=1,le=40)
     daytime_use_kwh_month:float|None=Field(default=None,ge=0,le=1e9)
+    # 'per_kwp': one all-in installed price (EPC, tax included) times kWp, for early estimates before itemised quotes.
+    cost_mode:Literal['itemized','per_kwp']='itemized'
+    capex_million_per_kwp:float|None=Field(default=None,ge=0,le=200)
     source:str=Field(default='',max_length=4000)
 
 

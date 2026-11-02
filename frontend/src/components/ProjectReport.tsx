@@ -1,6 +1,6 @@
 import {useId} from 'react'
 import type {CalibrationRecord,Config,Design,Obstacle,Objective,Panel,Point,Scene,Stress,Verification} from '../studioTypes'
-import {calculateEconomics,type Economics} from '../economics'
+import {CAPEX_LABEL,calculateEconomics,type Economics} from '../economics'
 import {footprint,outerRoof} from '../editorGeometry'
 import {panelCorners,panelLabel} from '../layoutMeasurements'
 import {faceSummary,lossBreakdown,lossColor,niceStep,shadingHistogram} from '../reportData'
@@ -101,7 +101,7 @@ export function ProjectReport(p:ReportProps){
  const roof=outerRoof(config),area=Math.abs(ring(roof))-(config.roof_openings||[]).reduce((s,h)=>s+Math.abs(ring(h)),0)
  const faceLabels=Object.fromEntries([...(config.roof_faces||[]).map(f=>[f.id,f.label]),...(p.scene?.faces||[]).map(f=>[f.id,f.label])])
  const m=design?.metrics,specific=m&&m.peak_power_kwp?m.annual_energy_kwh/m.peak_power_kwp:0
- const econ=design?calculateEconomics(economics,m!.estimated_cost_vnd,m!.annual_energy_kwh):null,econReady=!!econ&&!econ.missing.length
+ const econ=design?calculateEconomics(economics,m!.estimated_cost_vnd,m!.annual_energy_kwh,m!.peak_power_kwp):null,perKwp=economics.cost_mode==='per_kwp',econReady=!!econ&&!econ.missing.length
  const losses=design?lossBreakdown(design.panels,config.performance_ratio):null,faces=design?faceSummary(design.panels,panel.power_w,faceLabels):[]
  const efficiency=panel.power_w/(panel.width_m*panel.height_m*1000)*100
  const status=p.stale?'Kết quả cũ: đầu vào đã thay đổi sau lần tính':p.approved?`Kỹ sư đã duyệt · bản #${p.approved}`:p.confirmed?'Đầu vào đã xác nhận · chưa lưu bản duyệt':'Đầu vào chưa xác nhận'
@@ -128,7 +128,7 @@ export function ProjectReport(p:ReportProps){
      <Kpi label="Điện năng năm đầu" value={num(m.annual_energy_kwh)} unit="kWh" note="sơ bộ, trời quang quy đổi"/>
      <Kpi label="Sản lượng riêng" value={num(specific)} unit="kWh/kWp"/>
      <Kpi label="Tổn thất bóng TB" value={num(m.average_shading_loss_pct,1)} unit="%" note={`cao nhất ${num(m.maximum_shading_loss_pct??0,1)}%`}/>
-     <Kpi label="Tổng đầu tư" value={econReady?vnd(econ!.total):'—'} note={econReady?`${num(econ!.total/(m.peak_power_kwp*1000))} đ/Wp`:'chưa nhập đủ chi phí'}/>
+     <Kpi label="Tổng đầu tư" value={econReady?vnd(econ!.total):'—'} note={econReady&&econ!.costPerKwp!==null?`${num(econ!.costPerKwp/1e6,1)} triệu đ/kWp`:'chưa nhập đủ chi phí'}/>
      <Kpi label="Hoàn vốn" value={econReady&&econ!.payback!==null?num(econ!.payback,1):'—'} unit={econReady&&econ!.payback!==null?'năm':undefined} note={econReady?`NPV ${vnd(econ!.npv)}`:undefined}/>
     </div>
     <figure className="rp-cover-map"><PanelMap config={config} obstacles={p.obstacles} design={design} labels={false}/><LossLegend/></figure>
@@ -203,20 +203,24 @@ export function ProjectReport(p:ReportProps){
    <Sheet title="Hiệu quả kinh tế" eyebrow="04 · Kinh tế" project={project}>
     {econReady&&econ?<>
      <div className="rp-kpis small">
-      <Kpi label="Tổng đầu tư" value={vnd(econ.total)} note={`${num(econ.total/(m.peak_power_kwp*1000))} đ/Wp`}/>
+      <Kpi label="Tổng đầu tư" value={vnd(econ.total)} note={econ.costPerKwp!==null?`${num(econ.costPerKwp/1e6,1)} triệu đ/kWp · ≈ ${num(econ.costPerKwp/1e6,1)} tỷ đ/MWp`:undefined}/>
       <Kpi label="Hoàn vốn" value={econ.payback!==null?num(econ.payback,1)+' năm':'Chưa hoàn vốn'}/>
       <Kpi label={`NPV (${num(economics.discount_pct??0,1)}%)`} value={vnd(econ.npv)}/>
       <Kpi label={`Lợi ích ròng ${economics.years} năm`} value={vnd(econ.netBenefit)}/>
      </div>
      <figure className="rp-figure"><h3>Dòng tiền {economics.years} năm</h3><CashflowChart rows={econ.rows} payback={econ.payback}/><figcaption>Cột: dòng tiền ròng từng năm (đỏ là năm âm). Đường cam: lũy kế từ năm 0.</figcaption></figure>
      <div className="rp-two">
-      <table className="rp-table rp-data"><caption>Chi phí đầu tư</caption><tbody>
+      <table className="rp-table rp-data"><caption>Chi phí đầu tư</caption><tbody>{perKwp?<>
+       <tr><td>{CAPEX_LABEL} (EPC, đã gồm thuế)</td><td className="num">{num(economics.capex_million_per_kwp??0,1)} triệu đ/kWp</td></tr>
+       <tr><td>Công suất hệ</td><td className="num">{num(m.peak_power_kwp,2)} kWp</td></tr>
+       <tr className="sub"><td colSpan={2}>Ước tính theo suất đầu tư trọn gói; chưa tách thiết bị, thi công, lãi nhà thầu và thuế.</td></tr>
+      </>:<>
        <tr><td>Tấm pin ({num(m.panel_count)} tấm)</td><td className="num">{vnd(m.estimated_cost_vnd)}</td></tr>
        {economics.costs.map(c=><tr key={c.name}><td>{c.name}</td><td className="num">{vnd(c.amount??0)}</td></tr>)}
        <tr className="sub"><td>Dự phòng {num(economics.contingency_pct??0,1)}%</td><td className="num">{vnd(econ.contingency)}</td></tr>
        <tr className="sub"><td>Lãi đơn vị lắp đặt {num(economics.markup_pct??0,1)}%</td><td className="num">{vnd(econ.profit)}</td></tr>
        <tr className="sub"><td>Thuế {num(economics.vat_pct??0,1)}%</td><td className="num">{vnd(econ.tax)}</td></tr>
-      </tbody><tfoot><tr><td>Tổng đầu tư</td><td className="num">{vnd(econ.total)}</td></tr></tfoot></table>
+      </>}</tbody><tfoot><tr><td>Tổng đầu tư</td><td className="num">{vnd(econ.total)}</td></tr></tfoot></table>
       <table className="rp-table"><caption>Giả định kinh tế</caption><tbody>
        <tr><th>Giá điện tránh mua</th><td>{num(economics.buy_price??0)} đ/kWh · tăng {num(economics.price_growth_pct??0,1)}%/năm</td></tr>
        <tr><th>Dùng tại chỗ</th><td>{num(economics.self_use_pct??0)}% · điện dư {num(economics.sell_price??0)} đ/kWh</td></tr>

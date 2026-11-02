@@ -1,4 +1,4 @@
-import {calculateEconomics,economicFields,type Economics} from '../economics'
+import {CAPEX_LABEL,calculateEconomics,economicFields,type Economics} from '../economics'
 import type {Design} from '../studioTypes'
 import {grouped,vnd} from '../format'
 import {MoneyInput} from './MoneyInput'
@@ -13,8 +13,10 @@ const GROUPS:{title:string;keys:(keyof Economics)[]}[]=[
 ]
 const EXTRA:Partial<Record<keyof Economics,[string,string]>>={years:['Số năm phân tích','năm'],replacement_year:['Năm thay thiết bị','năm'],loan_years:['Kỳ hạn vay','năm']}
 export function EconomicsPanel({value,onChange,design,print=false}:{value:Economics;onChange?:(v:Economics)=>void;design:Design;print?:boolean}){
- const r=calculateEconomics(value,design.metrics.estimated_cost_vnd,design.metrics.annual_energy_kwh)
- const low=calculateEconomics(value,design.metrics.estimated_cost_vnd,design.metrics.annual_energy_kwh*.85)
+ const kwp=design.metrics.peak_power_kwp,perKwp=value.cost_mode==='per_kwp'
+ const r=calculateEconomics(value,design.metrics.estimated_cost_vnd,design.metrics.annual_energy_kwh,kwp)
+ const low=calculateEconomics(value,design.metrics.estimated_cost_vnd,design.metrics.annual_energy_kwh*.85,kwp)
+ const dec=(v:number,d=1)=>v.toLocaleString('vi-VN',{maximumFractionDigits:d})
  const meta=(k:keyof Economics):[string,string]=>{const f=economicFields.find(([key])=>key===k);return f?[f[1],f[2]]:EXTRA[k]!}
  function set(k:keyof Economics,v:number|null){onChange?.({...value,[k]:v})}
  function input(k:keyof Economics){const [label,unit]=meta(k),v=value[k] as number|null
@@ -26,15 +28,24 @@ export function EconomicsPanel({value,onChange,design,print=false}:{value:Econom
  return <section className="card economics-panel">
   <CardHead icon="chart" title="Dự toán và hiệu quả kinh tế cho khách hàng" sub="Đơn giá do kỹ sư nhập từ báo giá; ô trống là chưa biết, nhập 0 khi đã xác nhận không phát sinh"/>
   {!print&&<>
+   <h4 className="form-group-title">Cách tính vốn đầu tư</h4>
+   <div className="segmented cost-mode" role="group" aria-label="Cách tính vốn đầu tư">{([['per_kwp','Theo suất đầu tư (ước tính nhanh)'],['itemized','Theo từng hạng mục (báo giá)']] as const).map(([id,label])=><button key={id} type="button" className={(value.cost_mode??'itemized')===id?'active':''} aria-pressed={(value.cost_mode??'itemized')===id} onClick={()=>onChange?.({...value,cost_mode:id})}>{label}</button>)}</div>
+   {perKwp?<div className="field-grid three">
+    <label className="field"><span>{CAPEX_LABEL} (EPC, đã gồm thuế)</span><div className="input-wrap"><input aria-label={CAPEX_LABEL} type="number" min="0" max="200" step="0.1" value={value.capex_million_per_kwp??''} placeholder="Chưa nhập" onChange={e=>onChange?.({...value,capex_million_per_kwp:e.target.value===''?null:Number(e.target.value)})}/><small>triệu đ/kWp</small></div></label>
+    <p className="capex-note">Một con số gồm tấm pin, inverter, khung, dây, thi công, lãi nhà thầu và thuế; lấy theo báo giá trọn gói của nhà thầu. Hệ này {dec(kwp,2)} kWp{value.capex_million_per_kwp?<> → tổng đầu tư <b>{money(r.total)}</b> (quy đổi {dec(value.capex_million_per_kwp)} tỷ đ/MWp)</>:''}. Khi có báo giá chi tiết, chuyển sang “Theo từng hạng mục”.</p>
+   </div>:<>
    <h4 className="form-group-title">Chi phí thiết bị và thi công</h4>
-   <div className="field-grid three">{value.costs.map((c,i)=><MoneyInput key={i} label={c.name} value={c.amount} onChange={v=>onChange?.({...value,costs:value.costs.map((x,j)=>j===i?{...x,amount:v}:x)})}/>)}</div>
-   {GROUPS.map(g=><div key={g.title}><h4 className="form-group-title">{g.title}</h4><div className="field-grid three">{g.keys.map(input)}</div></div>)}
+   <div className="field-grid three">{value.costs.map((c,i)=><MoneyInput key={i} label={c.name} value={c.amount} onChange={v=>onChange?.({...value,costs:value.costs.map((x,j)=>j===i?{...x,amount:v}:x)})}/>)}</div></>}
+   {GROUPS.filter(g=>!perKwp||g.title!=='Giá bán và thuế').map(g=><div key={g.title}><h4 className="form-group-title">{g.title}</h4><div className="field-grid three">{g.keys.map(input)}</div></div>)}
    <label className="field"><span>Nguồn báo giá và phạm vi đã bao gồm / chưa bao gồm</span><textarea aria-label="Nguồn báo giá" value={value.source} onChange={e=>onChange?.({...value,source:e.target.value})}/></label>
   </>}
   {r.missing.length>0?<MissingList title="Dự toán chưa đủ dữ liệu — chưa dùng các tổng tạm tính để chốt giá hoặc kết luận hoàn vốn." items={r.missing}/>:<p className="muted-note">Đã điền các giả định tính toán; kỹ sư vẫn phải đối chiếu báo giá, thuế và điều kiện hợp đồng.</p>}
   <div className="table-scroll"><table className="data-table cost-table"><caption>{r.missing.length?'Tổng tạm tính — còn thiếu dữ liệu':'Dự toán theo giả định đã nhập'}</caption>
    <thead><tr><th>Khoản mục</th><th className="num">Giá trị</th><th className="share">Tỷ trọng trên tổng đầu tư</th></tr></thead>
-   <tbody>
+   <tbody>{perKwp?<>
+    {row(`${CAPEX_LABEL} ${value.capex_million_per_kwp?dec(value.capex_million_per_kwp):'—'} triệu đ/kWp × ${dec(kwp,2)} kWp (đã gồm thiết bị, thi công, lãi nhà thầu, thuế)`,value.capex_million_per_kwp?r.total:null)}
+    {row('Tổng đầu tư khách hàng',r.total,'total')}
+   </>:<>
     {row(`Tấm pin (${design.metrics.panel_count} tấm)`,design.metrics.estimated_cost_vnd)}
     {value.costs.map((c,i)=>row(c.name,c.amount,'',`c${i}`))}
     {row('Chi phí trực tiếp',r.direct,'subtotal')}
@@ -44,10 +55,11 @@ export function EconomicsPanel({value,onChange,design,print=false}:{value:Econom
     {row('Giá bán trước thuế',r.preTax,'subtotal')}
     {row('Thuế theo tỷ lệ đã nhập',r.tax)}
     {row('Tổng đầu tư khách hàng',r.total,'total')}
-   </tbody></table></div>
-  {print&&<><p>Nguồn: {value.source||'Chưa ghi nguồn báo giá'}.</p><ul>{economicFields.map(([k,l,u])=><li key={k}>{l}: {value[k]===null?'Chưa nhập':String(value[k])+' '+u}</li>)}</ul><p>Phân tích {value.years} năm; thay thiết bị năm {value.replacement_year}; vay {value.loan_years} năm.</p></>}
+   </>}</tbody></table></div>
+  {print&&<><p>Nguồn: {value.source||'Chưa ghi nguồn báo giá'}.</p><ul>{perKwp&&<li>{CAPEX_LABEL}: {value.capex_million_per_kwp??'Chưa nhập'} triệu đ/kWp (EPC, đã gồm thuế)</li>}{economicFields.filter(([k])=>!perKwp||!['contingency_pct','markup_pct','vat_pct'].includes(k)).map(([k,l,u])=><li key={k}>{l}: {value[k]===null?'Chưa nhập':String(value[k])+' '+u}</li>)}</ul><p>Phân tích {value.years} năm; thay thiết bị năm {value.replacement_year}; vay {value.loan_years} năm.</p></>}
   {!r.missing.length&&<>
    <div className="kpi-tiles">
+    {r.costPerKwp!==null&&<div><span>Suất đầu tư</span><strong>{dec(r.costPerKwp/1e6)} triệu đ/kWp</strong><small>≈ {dec(r.costPerKwp/1e6)} tỷ đ cho mỗi MWp</small></div>}
     <div><span>Lợi ích ròng năm 1</span><strong className={r.rows[1].net<0?'neg':''}>{money(r.rows[1].net)}</strong><small>sau bảo trì và trả nợ</small></div>
     <div><span>Hoàn vốn tiền khách bỏ ra</span><strong>{r.total<=(value.loan_amount??0)?'Không có vốn tự có':r.payback===null?'Chưa hoàn vốn':r.payback.toLocaleString('vi-VN',{maximumFractionDigits:1})+' năm'}</strong><small>{r.total<=(value.loan_amount??0)?'xem dòng tiền và nghĩa vụ nợ':r.payback===null?`trong ${value.years} năm phân tích`:'lần đầu lũy kế không âm'}</small></div>
     <div><span>Lợi ích ròng lũy kế</span><strong className={r.netBenefit<0?'neg':''}>{money(r.netBenefit)}</strong><small>sau {value.years} năm</small></div>

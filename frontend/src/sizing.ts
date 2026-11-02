@@ -29,7 +29,7 @@ export function evaluateSize(a:Economics,design:Design,n:number,baseKwp=design.m
  const selfUsePct=daytime!=null&&daytime>0&&energy>0?Math.min(100,daytime*12/energy*100):a.self_use_pct??0
  const scaled:Economics={...a,self_use_pct:daytime!=null&&daytime>0?selfUsePct:a.self_use_pct,loan_amount:a.loan_amount===null?null:a.loan_amount*ratio,
   costs:a.costs.map(c=>SCALABLE_COSTS.has(c.name)&&c.amount!==null?{...c,amount:c.amount*ratio}:c)}
- const panelCost=N?design.metrics.estimated_cost_vnd*n/N:0,r=calculateEconomics(scaled,panelCost,energy)
+ const panelCost=N?design.metrics.estimated_cost_vnd*n/N:0,r=calculateEconomics(scaled,panelCost,energy,kwp)
  return {panels:n,kwp,energy,panelCost,total:r.total,npv:r.npv,payback:r.payback,selfUsePct,missing:r.missing}
 }
 
