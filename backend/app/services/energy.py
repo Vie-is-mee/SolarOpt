@@ -64,6 +64,49 @@ def _tracker_sum(latitude, longitude, gcr, max_angle):
     return float((poa.to_numpy() * weights).sum()) / 1000
 
 
+@lru_cache(maxsize=2048)
+def _plane_months(latitude, longitude, tilt, azimuth, tracker=None):
+    """Share of each month in the clear-sky plane-of-array year (12 values summing to 1).
+    Same representative days and weights as _plane_sum; tracker=(gcr, max_angle) for 1-axis."""
+    import numpy as np
+    import pvlib
+    position, sky, weights = _sky(latitude, longitude)
+    if tracker:
+        track = pvlib.tracking.singleaxis(position.apparent_zenith, position.azimuth, axis_tilt=0, axis_azimuth=180,
+                                          max_angle=tracker[1], backtrack=True, gcr=tracker[0])
+        tilt, azimuth = track["surface_tilt"].fillna(0), track["surface_azimuth"].fillna(180)
+    poa = pvlib.irradiance.get_total_irradiance(
+        tilt, azimuth, position.apparent_zenith, position.azimuth, sky.dni, sky.ghi, sky.dhi,
+    )["poa_global"].fillna(0).clip(lower=0).to_numpy() * weights
+    months = poa.reshape(12, 24).sum(axis=1)
+    total = months.sum()
+    return tuple(float(v) for v in (months / total if total > 0 else np.full(12, 1 / 12)))
+
+
+def monthly_shares(cfg, surface):
+    mount = getattr(surface, "mount", None)
+    if mount == "tracker":
+        return _plane_months(cfg.latitude, cfg.longitude, 0, 180, (round(cfg.tracker_gcr, 4), cfg.tracker_max_angle_deg))
+    if mount == "tilted_rack":
+        return _plane_months(cfg.latitude, cfg.longitude, surface.mount_tilt, surface.mount_azimuth)
+    return _plane_months(cfg.latitude, cfg.longitude, surface.tilt, surface.azimuth)
+
+
+def monthly_energy(cfg, obstacles, panels):
+    """Annual panel energy spread over months by each face's clear-sky irradiance profile.
+    The annual shading loss is applied evenly, so this shows seasonality, not monthly weather."""
+    if not panels:
+        return []
+    surfaces = {s.id: s for s in build_context(cfg, obstacles, None).surfaces}
+    months = [0.0] * 12
+    for panel in panels:
+        surface = surfaces.get(panel.face_id)
+        shares = monthly_shares(cfg, surface) if surface is not None else (1 / 12,) * 12
+        for m, share in enumerate(shares):
+            months[m] += panel.annual_energy_kwh * share
+    return [round(v, 1) for v in months]
+
+
 def plane_annual_irradiance(cfg, surface):
     """Annual irradiance on the panels of a face: the face itself, a tilted rack, or a tracker."""
     reference = _plane_sum(cfg.latitude, cfg.longitude,
