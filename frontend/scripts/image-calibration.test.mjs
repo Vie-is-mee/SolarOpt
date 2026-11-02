@@ -25,6 +25,16 @@ test('small measurement rounding preserves one scale',()=>{
  const r=assessCalibration({pixelWidth:800,pixelHeight:400,measuredWidth:12,measuredHeight:6.1})
  assert.equal(r.height,6);assert.equal(r.valid,true)
 })
+test('pairs the longer measured side with the longer traced side',()=>{
+ const r=assessCalibration({pixelWidth:400,pixelHeight:800,measuredWidth:12,measuredHeight:6})
+ assert.equal(r.swapped,true);assert.equal(r.width,6);assert.equal(r.height,12);assert.equal(r.valid,true)
+})
+test('eaves-sized mismatch is applicable with a warning, a wrong trace is not',()=>{
+ const soft=assessCalibration({pixelWidth:800,pixelHeight:400,measuredWidth:12,measuredHeight:6.3})
+ assert.equal(soft.valid,false);assert.equal(soft.acceptable,true)
+ const wrong=assessCalibration({pixelWidth:800,pixelHeight:400,measuredWidth:12,measuredHeight:7})
+ assert.equal(wrong.acceptable,false)
+})
 test('missing or degenerate geometry cannot pass',()=>{
  assert.equal(assessCalibration({pixelWidth:0,pixelHeight:0,measuredWidth:12,measuredHeight:6}).valid,false)
  assert.equal(assessCalibration({pixelWidth:800,pixelHeight:400}).valid,false)

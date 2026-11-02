@@ -38,6 +38,29 @@ def test_trace_preserves_concavity_and_one_pixel_scale(method):
     assert min(p['y'] for p in result['roof_polygon_pct'])==0
 
 
+@pytest.mark.parametrize('method',['manual','grabcut'])
+def test_rotated_roof_is_straightened_to_its_own_sides(method):
+    # A 12 x 6 roof turned 20° in the photo: the axis-aligned box would read about 1.3:1, not 2:1.
+    import math
+    image=Image.new('RGB',(600,500),'#303c4a');cx,cy,a=300,250,math.radians(20)
+    corners=[(cx+dx*math.cos(a)-dy*math.sin(a),cy+dx*math.sin(a)+dy*math.cos(a)) for dx,dy in [(-200,-100),(200,-100),(200,100),(-200,100)]]
+    ImageDraw.Draw(image).polygon(corners,fill='#91b77d')
+    stream=io.BytesIO();image.save(stream,'PNG');url='data:image/png;base64,'+base64.b64encode(stream.getvalue()).decode()
+    result=extract_roof(TraceRequest(image_data_url=url,method=method,rect=[2,2,96,96],
+        polygon=[{'x':x/6,'y':y/5} for x,y in corners] if method=='manual' else [],foreground=[{'x':50,'y':50}],background=[{'x':3,'y':3}]))
+    assert result['straighten_deg']==pytest.approx(20,abs=1)
+    assert result['roof_width_px']/result['roof_height_px']==pytest.approx(2,rel=.03)
+    roof=Polygon([(p['x'],p['y']) for p in result['roof_polygon_pct']])
+    assert roof.area/10000==pytest.approx(1,abs=.03)
+    assert result['roof_crop_data_url'].startswith('data:image/jpeg')
+
+
+def test_l_shaped_roof_keeps_its_axes():
+    url,points=fixture_image()
+    result=extract_roof(TraceRequest(image_data_url=url,method='manual',polygon=[{'x':x/6,'y':y/4} for x,y in points]))
+    assert result['straighten_deg']==0
+
+
 def test_perspective_rectification_uses_known_edge_ratio():
     url,_=fixture_image()
     result=extract_roof(TraceRequest(image_data_url=url,method='rectify',

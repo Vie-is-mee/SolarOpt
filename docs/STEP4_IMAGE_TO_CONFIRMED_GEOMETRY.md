@@ -25,12 +25,14 @@ Trước đây công cụ chỉ lấy đường bao ngoài. Hiện công cụ đ
 - Có đoạn tham chiếu: mét/điểm ảnh = chiều dài thật / chiều dài đoạn trên ảnh. Cả chiều rộng và chiều dài mái dùng cùng tỷ lệ này.
 - Chưa có đoạn tham chiếu: lấy chiều rộng khung bao để suy ra tỷ lệ; chiều dài nhập ở bước 1 dùng để đối chiếu.
 - Tính khoảng cách theo điểm ảnh gốc, không lấy khoảng cách phần trăm trên ảnh chữ nhật làm khoảng cách thật.
-- Nếu số đo đối chiếu lệch quá **3%**, chặn áp dụng và yêu cầu kiểm tra số đo, biên mái hoặc phối cảnh. Không tự kéo riêng trục ngang và dọc để khớp số đo.
+- Biên được đo theo cạnh của chính mái: nếu mái nghiêng trong ảnh, bản vẽ được xoay thẳng theo hướng tường chủ đạo (tính theo độ dài cạnh, nên mái chữ L giữ nguyên trục) và hướng Bắc xoay cùng góc. Cạnh dài đã nhập được ghép với cạnh dài trên ảnh, không phụ thuộc người dùng gọi cạnh nào là chiều rộng.
+- Biên GrabCut được tinh chỉnh lại trên một dải sát mép theo cụm màu bên trong và vòng nền ngay bên ngoài, vì khoanh hộp đơn thuần thường làm biên phình 2–4% ở mép mờ hoặc ảnh nén.
+- Số đo đối chiếu lệch tới **3%** là đạt; **3–8%** (thường do mép mái, máng xối) vẫn áp dụng được kèm cảnh báo và ghi vào hồ sơ hiệu chuẩn; trên **8%** thì chặn và yêu cầu kiểm tra số đo, biên mái hoặc phối cảnh. Không tự kéo riêng trục ngang và dọc để khớp số đo.
 - Có thêm **Đo kiểm tra**: dùng một đoạn khác với đoạn hiệu chuẩn, nhập chiều dài thật để so sánh. Nếu đã khai báo đoạn kiểm tra hợp lệ mà sai lệch trên 3%, cũng chặn áp dụng.
 - Thay số đo ở bước Dữ liệu sau khi đã trích ảnh cũng được kiểm tra tỷ lệ trước khi quy đổi lại bản vẽ.
 - Nguồn kích thước suy từ đoạn tham chiếu được lưu đúng là `reference`; không bị đổi thành `measured` khi chuyển bước.
 
-Ngưỡng 3% là kiểm tra tính nhất quán nội bộ, **không phải cam kết sai số đo đạc**. Các đoạn phải thuộc cùng mặt phẳng phù hợp sau hiệu chỉnh. Ảnh nghiêng, nhiều độ cao hoặc thiếu số đo không thể được khôi phục chính xác chỉ nhờ một đoạn tham chiếu.
+Các ngưỡng 3% và 8% là kiểm tra tính nhất quán nội bộ, **không phải cam kết sai số đo đạc**. Các đoạn phải thuộc cùng mặt phẳng phù hợp sau hiệu chỉnh. Ảnh nghiêng, nhiều độ cao hoặc thiếu số đo không thể được khôi phục chính xác chỉ nhờ một đoạn tham chiếu.
 
 ### Chỉnh bản vẽ và kết quả phụ thuộc
 

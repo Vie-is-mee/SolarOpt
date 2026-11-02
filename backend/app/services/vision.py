@@ -148,7 +148,7 @@ Giới hạn tối đa 20 vật cản và 30 điểm biên. Mỗi quan sát/ghi 
             left=max(0,min(xs)-3);top=max(0,min(ys)-3)
             right=min(100,max(xs)+3);bottom=min(100,max(ys)+3)
             try:
-                traced=extract_roof(TraceRequest(image_data_url="data:image/jpeg;base64,"+base64.b64encode(images[0]).decode(),rect=[left,top,right-left,bottom-top],polygon=image_outline))
+                traced=extract_roof(TraceRequest(image_data_url="data:image/jpeg;base64,"+base64.b64encode(images[0]).decode(),rect=[left,top,right-left,bottom-top],polygon=image_outline,straighten=False))
                 bx,by,bw,bh=traced["roof_bbox_image_pct"]
                 raw["roof_polygon_pct"]=traced["roof_polygon_pct"]
                 raw["roof_polygon_image_pct"]=traced["polygon_image_pct"]

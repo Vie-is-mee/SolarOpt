@@ -90,6 +90,7 @@ input[type=checkbox]{width:17px;height:17px}
 .error-banner{background:var(--danger-soft);border-color:#efc4b8;color:#8c3a29}
 .toast{font-size:14px;border-radius:12px;background:#163d26}
 .tracer-error{font-size:13px;color:var(--danger)}
+.tracer-warn{color:#8a5a00;background:#fff6dd;border-left:3px solid #e0a526;padding:6px 10px;border-radius:6px}
 
 /* ---- Option cards and key numbers ----------------------------------------------------- */
 .option-card{padding:20px;transition:border-color .15s,box-shadow .15s,transform .15s}

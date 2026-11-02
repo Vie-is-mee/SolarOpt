@@ -331,7 +331,36 @@ def panel_shape(x,y,width,height,rotation_deg=0):
     shape=box(x,y,x+width,y+height)
     return rotate(shape,rotation_deg,origin=(x+width/2,y+height/2)) if rotation_deg else shape
 
+def panel_shapes(xs,ys,width,height,rotation_deg=0):
+    """Array form of panel_shape for a whole grid. Coordinates are bit-identical to panel_shape:
+    the same box corners and the same arithmetic as shapely.affinity.rotate about each centre."""
+    import numpy as np
+    import shapely
+    xs,ys=np.asarray(xs,dtype=float),np.asarray(ys,dtype=float)
+    minx,miny,maxx,maxy=xs,ys,xs+width,ys+height
+    if not rotation_deg:return shapely.box(minx,miny,maxx,maxy)
+    angle=rotation_deg*math.pi/180.0;cosp,sinp=math.cos(angle),math.sin(angle)
+    if abs(cosp)<2.5e-16:cosp=0.0
+    if abs(sinp)<2.5e-16:sinp=0.0
+    x0,y0=xs+width/2,ys+height/2
+    xoff,yoff=x0-x0*cosp+y0*sinp,y0-x0*sinp-y0*cosp
+    cx=np.stack([maxx,maxx,minx,minx,maxx],1);cy=np.stack([miny,maxy,maxy,miny,miny],1)
+    xp=cosp*cx+-sinp*cy+xoff[:,None];yp=sinp*cx+cosp*cy+yoff[:,None]
+    return shapely.polygons(np.stack([xp,yp],2))
+
+
 def overlap_ratio(shape,other):
     if other is None or other.is_empty or shape.area<=0:return 0.0
     if not other.intersects(shape):return 0
     return max(0,min(1,shape.intersection(other).area/shape.area))
+
+
+def overlap_ratios(shapes,other):
+    """overlap_ratio for an array of shapes against one (prepared) geometry, same results."""
+    import numpy as np
+    import shapely
+    out=np.zeros(len(shapes))
+    if other is None or other.is_empty or not len(shapes):return out
+    area=shapely.area(shapes);hit=(area>0)&shapely.intersects(other,shapes)
+    if hit.any():out[hit]=np.clip(shapely.area(shapely.intersection(shapes[hit],other))/area[hit],0,1)
+    return out

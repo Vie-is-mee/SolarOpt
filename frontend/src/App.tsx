@@ -142,11 +142,13 @@ export default function App(){
    const points=v.result.roof_polygon_pct.map(p=>({x:p.x/100*v.width+1,y:p.y/100*v.height+1}));await addPolygon(points);setNotice('Đã thêm chi tiết từ ảnh; cần đặt vị trí và nhập chiều cao.');setStepUnsafe(1);return
   }
   const map=(p:Point)=>({x:p.x/100*v.width,y:p.y/100*v.height})
-  const next:Config={...config,roof_width_m:v.width,roof_height_m:v.height,dimensions_source:v.calibrated?'reference':'measured',dimensions_verified:false,calibration_reference_m:v.referenceLength??null,measurement_image_width_px:v.result.roof_width_px,measurement_image_height_px:v.result.roof_height_px,roof_polygon:v.result.roof_polygon_pct.map(map),roof_faces:[],roof_openings:(v.result.roof_openings_pct||[]).map(h=>h.map(map)),geometry_confirmed:false}
+  // A straightened trace turned the drawing; north turns with it so the sun stays where it was.
+  const turn=v.result.straighten_deg||0,north=Math.round(((config.north_rotation_deg+turn)%360+360)%360*10)/10%360
+  const next:Config={...config,north_rotation_deg:north,roof_width_m:v.width,roof_height_m:v.height,dimensions_source:v.calibrated?'reference':'measured',dimensions_verified:false,calibration_reference_m:v.referenceLength??null,measurement_image_width_px:v.result.roof_width_px,measurement_image_height_px:v.result.roof_height_px,roof_polygon:v.result.roof_polygon_pct.map(map),roof_faces:[],roof_openings:(v.result.roof_openings_pct||[]).map(h=>h.map(map)),geometry_confirmed:false}
   const nextObstacles=obstacles.map(o=>({...o,confirmed:false}))
   try{await api.validateProject(next,panel,nextObstacles)}catch(e){setError(e instanceof Error?e.message:'Biên chưa hợp lệ; chưa thay bản vẽ.');return}
   if(requestKey!==liveInput.current||sequence!==inputSequence.current){setNotice('Đầu vào đã thay đổi trong lúc kiểm tra biên; hãy áp dụng lại.');return}
-  remember();setConfig(next);setActualWidth(String(v.width));setActualLength(String(v.height));setObstacles(nextObstacles);setReferenceImage(v.result.roof_crop_data_url);setImage(v.sourceImage);setCalibrationRecord(v.calibrationRecord);setSample(false);setError('');setNotice('Đã áp dụng biên và khoảng trống, giữ nguyên tỷ lệ ảnh. Kiểm tra vật cản và xác nhận lại trước khi tính.');setStepUnsafe(1)
+  remember();setConfig(next);setActualWidth(String(v.width));setActualLength(String(v.height));setObstacles(nextObstacles);setReferenceImage(v.result.roof_crop_data_url);setImage(v.sourceImage);setCalibrationRecord(v.calibrationRecord);setSample(false);setError('');setNotice(`Đã áp dụng biên và khoảng trống, giữ nguyên tỷ lệ ảnh.${turn?` Bản vẽ được xoay thẳng ${number(Math.abs(turn))}° theo cạnh mái; hướng trục trên bản vẽ đổi thành ${number(north)}°, hãy kiểm tra lại hướng Bắc.`:''} Kiểm tra vật cản và xác nhận lại trước khi tính.`);setStepUnsafe(1)
   log('Trích biên theo điểm ảnh',`${v.result.algorithm} · ${v.result.roof_polygon_pct.length} đỉnh · ${next.roof_openings?.length||0} khoảng trống · ${number(v.width)} × ${number(v.height)} m · ${v.calibrated?'theo đoạn tham chiếu':'theo chiều rộng, đã đối chiếu chiều dài'}.`,'warn')
  }
 
