@@ -19,8 +19,8 @@
         "analytical_sun": {"altitude_deg": 45,"azimuth_deg": 90,"zenith_deg": 45},
         "regions": [{"boundary": [{"x": 3,"y": 4},{"x": 6,"y": 4},{"x": 6,"y": 5},{"x": 3,"y": 5}]}]
       }],
-      "panels": [{"id": "unit-check", "x": 1,"y": 1,"width_m": 1.134,"height_m": 2.278,"annual_energy_kwh": 0,"shading_loss_pct": 0}],
-      "energy_reference": {"annual_energy_kwh": 751.9236,"source": "Kiểm tra công thức sơ bộ, không phải điện thực: 0,58 × 1581 × 0,82 = 751,9236 kWh/năm; tấm không bị bóng tại 9 mốc đại diện.","same_layout_confirmed": true,"same_weather_inputs_confirmed": true},
+      "panels": [{"id": "unit-check", "x": 5,"y": 0.4,"width_m": 1.134,"height_m": 2.278,"annual_energy_kwh": 0,"shading_loss_pct": 0}],
+      "energy_reference": {"annual_energy_kwh": 751.9236,"source": "Kiểm tra công thức sơ bộ, không phải điện thực: 0,58 × 1581 × 0,82 = 751,9236 kWh/năm; tấm đặt ngay phía Nam khối, không bị bóng ở mọi giờ có nắng của 12 ngày đại diện.","same_layout_confirmed": true,"same_weather_inputs_confirmed": true},
       "tolerances": {"roof_iou_min": 0.99999,"boundary_error_m_max": 0.001,"shadow_iou_min": 0.99999,"energy_error_pct_max": 0.001}
     },
     {

@@ -200,7 +200,7 @@ SolarOpt là công cụ **hỗ trợ đánh giá sơ bộ**. Khi sử dụng k�
 - Chưa tự tái dựng chính xác mô hình ba chiều của mái và công trình xung quanh từ ảnh; kích thước và cao độ cần được đo, nhập hoặc xác nhận.
 - Chưa hợp nhất tọa độ từ nhiều ảnh chụp thành một mô hình hình học hoàn chỉnh.
 - Bức xạ tại thời điểm dựa trên mô hình trời quang, không phải dữ liệu đo hiện trường hoặc dự báo mây.
-- Điện năng năm được quy đổi theo hướng/độ dốc riêng từng mặt mái từ 12 ngày trời quang đại diện; bóng dùng chín thời điểm. Chưa mô phỏng thời tiết từng giờ cả năm hoặc đối chuẩn với hệ thống thực. Mặt tham chiếu dữ liệu nắng phải được khai báo đúng.
+- Điện năng năm được quy đổi theo hướng/độ dốc riêng từng mặt mái từ 12 ngày trời quang đại diện; bóng tính cho mọi giờ có nắng của 12 ngày đó, theo 3 chuỗi cell có diode bypass của mỗi tấm (xem `backend/app/services/energy.py`). Chưa mô phỏng thời tiết từng giờ cả năm hoặc đối chuẩn với hệ thống thực. Mặt tham chiếu dữ liệu nắng phải được khai báo đúng.
 - Bố trí được tối ưu trong phạm vi lưới vị trí ứng viên và hướng đặt tấm đang hỗ trợ; chưa khảo sát mọi cấu hình khả thi.
 - Giá trong các phương án hiện chỉ tính phần tấm pin, chưa phản ánh đầy đủ chi phí đầu tư và thi công.
 - Các kiểm tra trong ứng dụng không thay thế đánh giá kết cấu mái, an toàn điện, thiết kế chuỗi điện và yêu cầu phòng cháy chữa cháy.
