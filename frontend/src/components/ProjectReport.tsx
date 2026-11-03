@@ -7,11 +7,12 @@ import {faceSummary,lossBreakdown,lossColor,niceStep,shadingHistogram} from '../
 import {vnd} from '../format'
 import {OBJECTIVES} from './DesignOptions'
 import {InstallationGuide,type Datum} from './InstallationGuide'
+import type {Electrical} from '../electricalTypes'
 import '../report.css'
 
 export type ReportProps={config:Config;panel:Panel;obstacles:Obstacle[];design:Design|null;options:Partial<Record<Objective,Design>>;objective:Objective;
  verification:Verification|null;stress:Stress|null;economics:Economics;datum:Datum;scene:Scene|null;approved:number|null;sample:boolean;stale:boolean;confirmed:boolean;
- irradianceSource:string;aiNote:string;calibration:CalibrationRecord|null}
+ irradianceSource:string;aiNote:string;calibration:CalibrationRecord|null;electrical?:Electrical|null}
 
 const num=(n:number,d=0)=>n.toLocaleString('vi-VN',{minimumFractionDigits:d,maximumFractionDigits:d})
 const kwhText=(n:number)=>n>=10000?`${num(n/1000,1)} MWh`:`${num(n)} kWh`
@@ -238,7 +239,18 @@ export function ProjectReport(p:ReportProps){
     </>:<div className="rp-empty"><h3>Chưa đủ số liệu để tính hiệu quả kinh tế</h3><p>Nhập ở bước Phương án các mục còn thiếu: {econ?.missing.join(', ')}. Báo cáo không tự giả định giá thiết bị hay giá điện.</p></div>}
    </Sheet>
 
-   <Sheet title="Kiểm tra và độ tin cậy" eyebrow="05 · Kiểm chứng" project={project}>
+   {p.electrical&&<Sheet title="Thiết kế điện sơ bộ" eyebrow="05 · Điện" project={project}>
+    <div className="rp-kpis"><Kpi label="Inverter" value={`${p.electrical.inverter_count} × ${num(p.electrical.inverter.ac_rated_w/1000,1)}`} unit="kW" note={`${p.electrical.inverter.manufacturer} ${p.electrical.inverter.model}`}/><Kpi label="DC/AC" value={num(p.electrical.dc_ac_ratio,2)} note={`${num(p.electrical.dc_kwp,2)} kWp`}/><Kpi label="Số chuỗi" value={num(p.electrical.strings.length)} note={`${p.electrical.string_min}–${p.electrical.string_max} tấm/chuỗi`}/></div>
+    <table className="rp-table rp-data"><caption>Chuỗi pin</caption><thead><tr><th>Chuỗi</th><th>Inverter / MPPT</th><th className="num">Tấm</th><th className="num">Voc lạnh</th><th className="num">Vmp nóng</th><th>Tấm trong chuỗi</th></tr></thead>
+     <tbody>{p.electrical.strings.map(s=><tr key={s.id}><td>{s.id}</td><td>INV{s.inverter+1} · MPPT{s.mppt+1}</td><td className="num">{s.length}</td><td className="num">{num(s.voc_cold_v)} V</td><td className="num">{num(s.vmp_hot_v)} V</td><td>{s.panel_ids.map(id=>panelLabel(design.panels.findIndex(x=>x.id===id))).join(' → ')}</td></tr>)}</tbody></table>
+    <table className="rp-table rp-data"><caption>Kiểm tra giới hạn điện</caption><thead><tr><th>Điều kiện</th><th>Kết quả</th><th>Chi tiết</th></tr></thead>
+     <tbody>{p.electrical.checks.map(c=><tr key={c.id}><td>{c.label}</td><td><Chip status={c.status}/></td><td>{c.detail}</td></tr>)}</tbody></table>
+    <table className="rp-table rp-data"><caption>Vật tư điện và khung (đơn giá tham khảo)</caption><thead><tr><th>Hạng mục</th><th>Quy cách</th><th className="num">SL</th><th className="num">Thành tiền (triệu đ)</th></tr></thead>
+     <tbody>{p.electrical.bom.filter(b=>b.group!=='panel').map(b=><tr key={b.group+b.name}><td>{b.name}</td><td>{b.spec}</td><td className="num">{num(b.quantity,1)} {b.unit}</td><td className="num">{num(b.amount_vnd/1e6,2)}</td></tr>)}</tbody></table>
+    <ul className="rp-list">{p.electrical.assumptions.map((a,i)=><li key={i}>{a}</li>)}</ul>
+   </Sheet>}
+
+   <Sheet title="Kiểm tra và độ tin cậy" eyebrow={p.electrical?'06 · Kiểm chứng':'05 · Kiểm chứng'} project={project}>
     {checks.length?<table className="rp-table rp-data"><caption>Điều kiện kiểm tra tự động ({passed}/{checks.length} đạt)</caption>
      <thead><tr><th>Điều kiện</th><th>Kết quả</th><th>Chi tiết</th></tr></thead>
      <tbody>{checks.map(c=><tr key={c.id}><td>{c.label}</td><td><Chip status={c.status}/></td><td>{c.detail}</td></tr>)}</tbody></table>:<p className="rp-note">Chưa chạy kiểm tra tự động cho phương án này.</p>}
@@ -249,12 +261,12 @@ export function ProjectReport(p:ReportProps){
    </Sheet>
   </>}
 
-  <Sheet title="Giả định, giới hạn và xác nhận" eyebrow="06 · Phạm vi" project={project}>
+  <Sheet title="Giả định, giới hạn và xác nhận" eyebrow={p.electrical&&design?'07 · Phạm vi':'06 · Phạm vi'} project={project}>
    <ul className="rp-list">
     <li>Bức xạ năm quy đổi riêng cho từng mặt mái bằng pvlib với 12 ngày trời quang đại diện; bóng che tính cho mọi giờ có nắng của 12 ngày đó (khoảng 140 thời điểm), trên lưới khoảng 10 cm. Mỗi tấm được xét theo 3 chuỗi cell có diode bypass: chuỗi bị che 1/3 diện tích thì mất toàn bộ phần trực xạ; tổn thất được tính theo trực xạ từng giờ, ánh sáng tán xạ coi như không bị che. Chưa phải mô phỏng 8.760 giờ với thời tiết thực.</li>
     <li>Tổn thất ngoài bóng che (nhiệt độ, dây dẫn, bộ biến đổi điện, bụi) gộp trong hệ số hiệu năng PR {num(config.performance_ratio*100)}%.</li>
     <li>Vật cản là khối đứng theo mặt bằng; chưa xét cây có tán, kính phản xạ, địa hình.</li>
-    <li>Chưa thiết kế đấu chuỗi, chọn bộ biến đổi điện, kiểm tra tải trọng mái, tải gió và phòng cháy.</li>
+    <li>{p.electrical?'Thiết kế điện là sơ bộ (chia chuỗi, chọn inverter, giới hạn điện áp và dòng); chưa tính sụt áp chi tiết, phối hợp bảo vệ và thủ tục đấu nối.':'Chưa thiết kế đấu chuỗi và chọn bộ biến đổi điện.'} Chưa kiểm tra tải trọng mái, tải gió và phòng cháy.</li>
     <li>Chi phí và giá điện do người dùng nhập{economics.source?` (${economics.source})`:''}; SolarOpt không tự giả định.</li>
     <li>{p.aiNote}</li>
    </ul>
