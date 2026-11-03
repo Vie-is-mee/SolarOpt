@@ -1,10 +1,11 @@
 import type {Config,Panel,Obstacle,Design,Verification,Scene,Health,Vision,Stress,Repair,Version,Objective,Sun,ProjectEvidence} from '../studioTypes'
 import {accountIdentity} from '../draftOwner'
 const base = import.meta.env.VITE_API_BASE || ''
-async function request<T>(path:string,body?:unknown,signal?:AbortSignal):Promise<T> {
+// Model calls may fall back to slower models, so AI routes get a longer wait than the 2-minute default.
+async function request<T>(path:string,body?:unknown,signal?:AbortSignal,waitMs=120_000):Promise<T> {
   const identity=accountIdentity()
   const headers={'X-SolarOpt-Request':'1','X-SolarOpt-User':identity}
-  const timeout = AbortSignal.timeout(120_000)
+  const timeout = AbortSignal.timeout(waitMs)
   let response:Response
   try {response = await fetch(base+path,{credentials:'include',headers,method:body===undefined?'GET':'POST',...(body===undefined?{}:body instanceof FormData?{body}:{headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify(body)}),signal:signal ? AbortSignal.any([signal, timeout]) : timeout})}
   catch(error){
@@ -25,7 +26,7 @@ export const studioApi={
   health:()=>request<Health>('/api/health'),
   scene:(config:Config,obstacles:Obstacle[],date:string,hour_local:number,signal?:AbortSignal)=>request<Scene>('/api/solar/scene',{config,obstacles,date,hour_local},signal),
   analyze:(file:File,context:File[],kind:string,config:Config)=>{const data=new FormData();data.append('file',file);context.forEach(f=>data.append('context_files',f));data.append('input_kind',kind);// Unknown sizes are omitted, e.g. when the drawing itself is read for its dimensions.
-  if(config.roof_width_m>0)data.append('roof_width_m',String(config.roof_width_m));if(config.roof_height_m>0)data.append('roof_height_m',String(config.roof_height_m));return request<Vision>('/api/vision/analyze',data)},
+  if(config.roof_width_m>0)data.append('roof_width_m',String(config.roof_width_m));if(config.roof_height_m>0)data.append('roof_height_m',String(config.roof_height_m));return request<Vision>('/api/vision/analyze',data,undefined,240_000)},
   mountingCompare:(config:Config,panel:Panel,obstacles:Obstacle[])=>request<{options:{label:string;settings:Partial<Config>&{mounting:'flush'|'tilted_rack'|'tracker'};panels:number;kwp:number;annual_kwh:number;kwh_per_panel:number;vs_flush_pct:number|null}[];best:string|null;notes:string[]}>('/api/design/mounting-compare',{config,panel,obstacles,objective:'max_energy'}),
   design:(config:Config,panel:Panel,obstacles:Obstacle[],objective:Objective,evidence?:ProjectEvidence|null)=>request<Design>('/api/design/generate',{config,panel,obstacles,objective,evidence}),
   verify:(config:Config,panel:Panel,obstacles:Obstacle[],design:Design,sun:Sun|null)=>request<Verification>('/api/design/verify',{config,panel,obstacles,design,sun}),
@@ -33,7 +34,7 @@ export const studioApi={
   stressPreview:(config:Config,panel:Panel,obstacles:Obstacle[],design:Design,scenario_id:string,date:string,hour_local:number,signal?:AbortSignal)=>request<import('../studioTypes').StressPreviewData>('/api/design/stress-preview',{config,panel,obstacles,design,scenario_id,date,hour_local},signal),
   repair:(config:Config,panel:Panel,before:Obstacle[],after:Obstacle[],previous_design:Design,objective:Objective,previous_config:Config,previous_panel:Panel,evidence?:ProjectEvidence|null)=>request<Repair>('/api/design/repair',{config,panel,previous_config,previous_panel,evidence,obstacles_before:before,obstacles_after:after,previous_design,objective,minimal_repair_weight:250}),
   advisorStatus:()=>request<{llm:boolean;model:string;provider:string}>('/api/advisor/status'),
-  propose:(body:{config:Config;panel:Panel;obstacles:Obstacle[];need:import('../advisorTypes').Need;customer:import('../advisorTypes').Customer;feedback:string[];previous:import('../advisorTypes').Proposal|null})=>request<import('../advisorTypes').Proposal>('/api/advisor/propose',body),
+  propose:(body:{config:Config;panel:Panel;obstacles:Obstacle[];need:import('../advisorTypes').Need;customer:import('../advisorTypes').Customer;feedback:string[];previous:import('../advisorTypes').Proposal|null})=>request<import('../advisorTypes').Proposal>('/api/advisor/propose',body,undefined,150_000),
   history:()=>request<Version[]>('/api/history'),
   versions:(name:string)=>request<Version[]>(`/api/projects/${encodeURIComponent(name)}/versions`),
   version:(name:string,id:number)=>request<Version>(`/api/projects/${encodeURIComponent(name)}/versions/${id}`),
