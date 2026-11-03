@@ -13,7 +13,7 @@ async function request<T>(path:string,body?:unknown,signal?:AbortSignal):Promise
   }
   if(response.status===401&&typeof window!=='undefined')window.dispatchEvent(new CustomEvent('solaropt-auth-required',{detail:identity}))
   // Quota: 402 opens the plan dialog; billable calls refresh the usage meter.
-  if(typeof window!=='undefined'){if(response.status===402)window.dispatchEvent(new Event('solaropt-quota'));else if(response.ok&&/^\/api\/(design\/(generate|repair)|vision\/analyze)/.test(path))window.dispatchEvent(new Event('solaropt-usage'))}
+  if(typeof window!=='undefined'){if(response.status===402)window.dispatchEvent(new Event('solaropt-quota'));else if(response.ok&&/^\/api\/(design\/(generate|repair)|vision\/analyze|advisor\/propose)/.test(path))window.dispatchEvent(new Event('solaropt-usage'))}
   if(!response.ok){let detail='';try{const data=await response.json();detail=typeof data.detail==='string'?data.detail:JSON.stringify(data.detail)}catch{}throw new Error(detail||`Yêu cầu chưa thành công (${response.status}).`)}
   return response.json()
 }
@@ -32,6 +32,8 @@ export const studioApi={
   stress:(config:Config,panel:Panel,obstacles:Obstacle[],design:Design,sun:Sun|null)=>request<Stress>('/api/design/stress-test',{config,panel,obstacles,design,sun}),
   stressPreview:(config:Config,panel:Panel,obstacles:Obstacle[],design:Design,scenario_id:string,date:string,hour_local:number,signal?:AbortSignal)=>request<import('../studioTypes').StressPreviewData>('/api/design/stress-preview',{config,panel,obstacles,design,scenario_id,date,hour_local},signal),
   repair:(config:Config,panel:Panel,before:Obstacle[],after:Obstacle[],previous_design:Design,objective:Objective,previous_config:Config,previous_panel:Panel,evidence?:ProjectEvidence|null)=>request<Repair>('/api/design/repair',{config,panel,previous_config,previous_panel,evidence,obstacles_before:before,obstacles_after:after,previous_design,objective,minimal_repair_weight:250}),
+  advisorStatus:()=>request<{llm:boolean;model:string;provider:string}>('/api/advisor/status'),
+  propose:(body:{config:Config;panel:Panel;obstacles:Obstacle[];need:import('../advisorTypes').Need;customer:import('../advisorTypes').Customer;feedback:string[];previous:import('../advisorTypes').Proposal|null})=>request<import('../advisorTypes').Proposal>('/api/advisor/propose',body),
   history:()=>request<Version[]>('/api/history'),
   versions:(name:string)=>request<Version[]>(`/api/projects/${encodeURIComponent(name)}/versions`),
   version:(name:string,id:number)=>request<Version>(`/api/projects/${encodeURIComponent(name)}/versions/${id}`),
