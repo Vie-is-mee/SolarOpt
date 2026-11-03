@@ -1,6 +1,6 @@
 # Kịch bản demo SolarOpt (pitching 22/11)
 
-Mục tiêu: trình bày trọn luồng **ảnh mái → AI đọc ảnh → mô phỏng bóng → trợ lý đề xuất theo nhu cầu khách → xếp pin → thiết kế điện → báo cáo** trong khoảng 3 phút, không phụ thuộc vào việc mô hình AI miễn phí có đang nghẽn hay không.
+Mục tiêu: trình bày trọn luồng **ảnh mái → AI đọc ảnh → mô phỏng bóng → trợ lý đề xuất theo nhu cầu khách → xếp pin → thiết kế điện → báo cáo** trong khoảng 3–4 phút, không phụ thuộc vào việc mô hình AI miễn phí có đang nghẽn hay không.
 
 ## Chế độ demo hoạt động thế nào
 
@@ -32,6 +32,7 @@ Mục tiêu: trình bày trọn luồng **ảnh mái → AI đọc ảnh → mô
 | 6 | Bấm gợi ý **"Khách sắp mua xe điện…"** → **Soạn lại đề xuất** | "Kỹ sư góp ý có lý do; trợ lý soạn lại bản v2 và giữ v1 để so sánh." |
 | 7 | **Áp dụng S… và tính phương án** | "Một bấm: ngân sách, sản lượng mục tiêu và khoảng lùi mép được áp dụng, bộ tối ưu xếp pin lên mái." |
 | 8 | **Đến bàn giao** → khung Thiết kế điện → **Đưa vật tư vào dự toán** → mở báo cáo | "Chia chuỗi, chọn inverter, kiểm tra điện áp lúc trời lạnh, bảng vật tư đưa thẳng vào dự toán và báo cáo PDF cho khách." |
+| 9 | Bấm nút **Trợ lý** (góc phải dưới) → lần lượt bấm 3 câu gợi ý: “Vì sao mái này chỉ lắp được bấy nhiêu tấm?”, “Nếu bỏ bồn nước thì lắp thêm được mấy tấm?”, “Dời dàn nóng sang phải 1 m” → bấm nút đề xuất để áp dụng | "Kỹ sư hỏi bằng lời thường; trợ lý trả lời từ số liệu SolarOpt đã tính (các ô số liệu bên dưới), tự chạy thử phương án giả định, và chỉ *đề xuất* thao tác — không có gì thay đổi khi kỹ sư chưa bấm." Hỏi đúng thứ tự để phát lại bản ghi; câu khác vẫn gọi AI thật (tối đa khoảng 25 giây) hoặc bộ quy tắc. |
 
 ## Khi có sự cố
 

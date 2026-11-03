@@ -31,6 +31,7 @@ class OpenAICompatible:
 
     def __init__(self, base: str, key: str, models: list[str], name: str = ""):
         self.url, self.key, self.models, self.name = base.rstrip("/") + "/chat/completions", key, models, name or base
+        self.read_timeout = 120.0   # a chat caller lowers it to what is left of its own time budget
 
     @property
     def model(self) -> str:
@@ -56,7 +57,7 @@ class OpenAICompatible:
             body["response_format"] = {"type": "json_object"}
         headers = {"Authorization": "Bearer " + self.key} if self.key else {}
         try:
-            response = requests.post(self.url, json=body, headers=headers, timeout=(10, 120))
+            response = requests.post(self.url, json=body, headers=headers, timeout=(10, self.read_timeout))
         except requests.RequestException as exc:
             raise LLMError(f"không kết nối được ({exc.__class__.__name__})") from exc
         if response.status_code == 429:
@@ -76,13 +77,13 @@ def _models(value: str) -> list[str]:
     return [m.strip() for m in value.split(",") if m.strip()]
 
 
-def default_client() -> ChatClient | None:
+def default_client(model_env: str = "ADVISOR_MODEL") -> ChatClient | None:
     """The configured client, or None when nothing usable is set (the advisor then runs its rule-based planner).
 
     ADVISOR_BASE_URL / ADVISOR_API_KEY send the advisor to its own gateway; otherwise it follows AI_PROVIDER.
     ADVISOR_MODEL may list fallbacks separated by commas, best first."""
     provider, vision_model, key = provider_settings()
-    models = _models(os.getenv("ADVISOR_MODEL", ""))
+    models = _models(os.getenv(model_env, "")) or _models(os.getenv("ADVISOR_MODEL", ""))
     if base := os.getenv("ADVISOR_BASE_URL", "").strip():
         key = os.getenv("ADVISOR_API_KEY", "").strip() or key
         return OpenAICompatible(base, key, models, "advisor") if models and key else None

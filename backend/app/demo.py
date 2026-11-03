@@ -62,6 +62,22 @@ def advisor_inputs(req) -> dict:
             "previous": req.previous.summary if req.previous else None}
 
 
+def assistant_key(req) -> str:
+    return _hash(assistant_inputs(req))
+
+
+def assistant_inputs(req) -> dict:
+    """The chat replays only for the same conversation on the same roof and layout."""
+    config = req.config.model_dump()
+    obstacles = [{k: o[k] for k in ("x", "y", "width_m", "depth_m", "height_m", "scope", "shape", "rotation_deg", "points")}
+                 for o in (ob.model_dump() for ob in req.obstacles)]
+    design = req.design.metrics if req.design else None
+    return {"kind": "assistant", "messages": [[t.role, t.content] for t in req.messages],
+            "config": {k: config.get(k) for k in ADVISOR_CONFIG_FIELDS + ("budget_vnd", "layout_edge_reserve_m")}, "obstacles": obstacles,
+            "panel": req.panel.model_dump(), "design": [design.panel_count, round(design.annual_energy_kwh, -1)] if design else None,
+            "economics": req.economics}
+
+
 def load(kind: str, key: str) -> dict | None:
     path = ROOT / f"{kind}-{key}.json"
     if not path.is_file():

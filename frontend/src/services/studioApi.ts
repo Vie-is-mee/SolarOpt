@@ -38,6 +38,7 @@ export const studioApi={
   electrical:(config:Config,panel:Panel,design:Design,settings:import('../electricalTypes').ElectricalSettings)=>request<import('../electricalTypes').Electrical>('/api/design/electrical',{config,panel,design,...settings}),
   advisorStatus:()=>request<{llm:boolean;model:string;provider:string}>('/api/advisor/status'),
   propose:(body:{config:Config;panel:Panel;obstacles:Obstacle[];need:import('../advisorTypes').Need;customer:import('../advisorTypes').Customer;feedback:string[];previous:import('../advisorTypes').Proposal|null;demo?:boolean})=>request<import('../advisorTypes').Proposal>('/api/advisor/propose',body,undefined,150_000),
+  chat:(body:{messages:{role:'user'|'assistant';content:string}[];config:Config;panel:Panel;obstacles:Obstacle[];design:Design|null;economics:Record<string,number|string|null>;step:number;demo:boolean})=>request<import('../assistantTypes').AssistantReply>('/api/assistant/chat',body,undefined,120_000),
   history:()=>request<Version[]>('/api/history'),
   versions:(name:string)=>request<Version[]>(`/api/projects/${encodeURIComponent(name)}/versions`),
   version:(name:string,id:number)=>request<Version>(`/api/projects/${encodeURIComponent(name)}/versions/${id}`),
