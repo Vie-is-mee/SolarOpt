@@ -25,6 +25,7 @@ from app.schemas import (
     UncertaintyRequest, UncertaintyResult, SceneRequest, ProjectConfig,
 )
 from app.services.advisor.agent import propose
+from app.services.assistant import AssistantReply, AssistantRequest, answer as assistant_answer
 from app.services.advisor.llm import default_client
 from app.services.advisor.models import AdvisorRequest, Proposal
 from app import demo
@@ -60,7 +61,7 @@ async def private_responses(request, call_next):
 
 
 compute_slots = BoundedSemaphore(max(1, int(os.getenv("SOLAROPT_MAX_COMPUTE", "1"))))
-heavy_paths = {"/api/advisor/propose", "/api/design/mounting-compare", "/api/design/stress-preview", "/api/design/generate", "/api/design/repair", "/api/design/stress-test", "/api/uncertainty/evaluate", "/api/roof/trace", "/api/vision/analyze"}
+heavy_paths = {"/api/advisor/propose", "/api/assistant/chat", "/api/design/mounting-compare", "/api/design/stress-preview", "/api/design/generate", "/api/design/repair", "/api/design/stress-test", "/api/uncertainty/evaluate", "/api/roof/trace", "/api/vision/analyze"}
 
 
 @app.middleware("http")
@@ -163,6 +164,20 @@ def advisor_propose(req: AdvisorRequest, request: Request, user=Depends(optional
         quota.record()
     if demo.recording_enabled() and result.mode == "llm":
         demo.save("advisor", key, result.model_dump(), result.model, result.elapsed_ms, demo.advisor_inputs(req))
+    return result
+
+
+@app.post("/api/assistant/chat", response_model=AssistantReply)
+def assistant_chat(req: AssistantRequest):
+    # Answers read facts and may run one what-if layout; edits come back as proposals the engineer confirms.
+    key = demo.assistant_key(req)
+    if req.demo and (record := demo.load("assistant", key)):
+        result = AssistantReply.model_validate(record["result"])
+        result.replay, result.elapsed_ms = demo.label(record), 0
+        return result
+    result = assistant_answer(req.model_copy(update={"demo": False}) if demo.recording_enabled() else req)
+    if demo.recording_enabled() and result.mode == "llm":
+        demo.save("assistant", key, result.model_dump(), result.model, result.elapsed_ms, demo.assistant_inputs(req))
     return result
 
 

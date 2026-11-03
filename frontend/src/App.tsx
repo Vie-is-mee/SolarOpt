@@ -1,6 +1,8 @@
 import {accountIdentity,draftKey} from './draftOwner'
 import {useEffect,useRef,useState} from 'react'
-import {defaultEconomics,type Economics} from './economics'
+import {calculateEconomics,defaultEconomics,type Economics} from './economics'
+import {AssistantDrawer} from './components/AssistantDrawer'
+import type {AssistantAction,ChatMessage} from './assistantTypes'
 import {EconomicsPanel} from './components/EconomicsPanel'
 import {InstallationGuide,type Datum} from './components/InstallationGuide'
 import {ProjectReport} from './components/ProjectReport'
@@ -102,6 +104,7 @@ export default function App(){
  // Stage mode for pitches: replays recorded AI answers when the inputs match and shows the presenter's checklist.
  const [demo,setDemo]=useState(()=>{try{return localStorage.getItem('solaropt-demo')==='1'}catch{return false}})
  useEffect(()=>{try{localStorage.setItem('solaropt-demo',demo?'1':'0')}catch{}},[demo])
+ const [chat,setChat]=useState<ChatMessage[]>([])
  const inputKey=JSON.stringify({config,obstacles,panel}),liveInput=useRef(inputKey);liveInput.current=inputKey
  const evidence:ProjectEvidence={economic_assumptions:economics,layout_datum:datum,source_name:sourceName,input_kind:kind,source_image:image?.startsWith('data:')?image:null,reference_image:referenceImage,calibration:calibrationRecord}
  function applyEvidence(value?:ProjectEvidence|null){setEconomics(value?.economic_assumptions||defaultEconomics());setDatum(value?.layout_datum||{vertex_index:0,description:''});setSourceName(value?.source_name||'');setKind(value?.input_kind==='plan'?'plan':'drone');setImage(value?.source_image||null);setReferenceImage(value?.reference_image||null);setCalibrationRecord(value?.calibration||null)}
@@ -253,7 +256,27 @@ export default function App(){
   {id:'feedback',title:'Góp ý, trợ lý soạn lại',hint:`Bấm gợi ý “${DEMO_NOTE}”, rồi Soạn lại đề xuất.`,done:advisor.rounds.length>1},
   {id:'apply',title:'Áp dụng và xếp pin lên mái',hint:'Áp dụng kịch bản khuyến nghị; bộ tối ưu xếp tấm và tính sản lượng.',done:!!design&&!stale},
   {id:'electrical',title:'Thiết kế điện, dự toán và báo cáo',hint:'Chuỗi, inverter, bảng vật tư; đưa vào dự toán rồi mở báo cáo.',done:!!electrical,action:{label:'Đến bàn giao',run:()=>void goToStep(4),disabled:!design}},
+  {id:'assistant',title:'Hỏi trợ lý về phương án',hint:'Bấm nút Trợ lý ở góc phải, chọn câu gợi ý “Vì sao…”, “Nếu bỏ bồn nước…”, rồi “Dời dàn nóng…”; bấm nút áp dụng ở cuối vì dời vật cản sẽ cần xác nhận và tính lại.',done:chat.some(m=>m.role==='assistant')},
  ]
+ // The assistant reads what the engineer sees: the current layout and the estimate as the app computes it.
+ function assistantContext(){
+  const live=design&&!stale?design:null
+  let economicsSummary:Record<string,number|string|null>={}
+  if(live){const e=calculateEconomics(economics,live.metrics.estimated_cost_vnd,live.metrics.annual_energy_kwh,live.metrics.peak_power_kwp);economicsSummary=e.missing.length?{missing:e.missing.slice(0,6).join(', ')}:{total_vnd:Math.round(e.total),payback_years:e.payback===null?null:Math.round(e.payback*10)/10,npv_vnd:Math.round(e.npv)}}
+  return {config,panel,obstacles,design:live,economics:economicsSummary,step}
+ }
+ function runAssistantAction(a:AssistantAction){
+  const v=Number(a.params.value)
+  if(a.kind==='go_to_step'){void goToStep(Number(a.params.step));return}
+  if(a.kind==='run_electrical'){void goToStep(4);return}
+  if(a.kind==='run_design'){void generate();return}
+  if(a.kind==='set_target_energy')updateConfig('target_energy_kwh_year',v)
+  if(a.kind==='set_budget')updateConfig('budget_vnd',v)
+  if(a.kind==='set_edge_reserve')updateConfig('layout_edge_reserve_m',v)
+  if(a.kind==='set_obstacle'){const {id,...patch}=a.params;updateObs(String(id),patch as Partial<Obstacle>);setSelected(String(id))}
+  setNotice(a.kind==='set_obstacle'?`Đã áp dụng: ${a.label}. Kiểm tra vị trí, xác nhận lại vật cản rồi tính lại phương án.`:`Đã áp dụng: ${a.label}. Tính lại phương án để thấy kết quả mới.`)
+ }
+ const assistantSuggestions=demo&&design?['Vì sao mái này chỉ lắp được bấy nhiêu tấm?','Nếu bỏ bồn nước thì lắp thêm được mấy tấm?','Dời dàn nóng sang phải 1 m']:!design?['Mái này có những vật cản nào?','Tôi cần làm gì để có phương án?']:step===4?['Inverter nào được chọn, có lưu ý gì?','Hoàn vốn bao lâu?','Bóng che ảnh hưởng thế nào?']:['Vì sao chỉ có bấy nhiêu tấm?','Bóng che ảnh hưởng thế nào?','Nếu lùi mép 30 cm thì sao?']
  const reportView=<ProjectReport electrical={electrical} config={config} panel={panel} obstacles={obstacles} design={stale?null:design} options={stale?{}:options} objective={objective} verification={stale?null:verification} stress={stale?null:stress} economics={economics} datum={datum} scene={scene} approved={approved} sample={sample} stale={stale} confirmed={confirmed} irradianceSource={irradianceSource} calibration={calibrationRecord}
   aiNote={health?.ai.configured?`AI ${health.ai.model} hỗ trợ đọc ảnh mái; hình học, bố trí và sản lượng do bộ tính toán thực hiện, không do AI tạo ra.`:'Chưa cấu hình AI; dữ liệu do kỹ sư nhập hoặc dữ liệu mẫu.'}/>
  const inspector=<GeometryInspector config={config} obstacles={obstacles} selected={selected} onSelect={setSelected} onPatch={updateObs} onConfig={updateConfig} onGeometry={patchGeometry} onUndo={()=>undo()} onRedo={()=>undo(true)} onDuplicate={duplicateObstacle} onDelete={deleteObstacle}/>
@@ -310,6 +333,7 @@ export default function App(){
     <footer className="app-footer"><span><Icon name="sun" size={14}/>SolarOpt Studio · Axiom</span><span>Thiết kế có dữ liệu. Quyết định có kỹ sư.</span></footer>
    </main>
   </div>
+  <AssistantDrawer messages={chat} onMessages={setChat} context={assistantContext} demo={demo} suggestions={assistantSuggestions} onAction={runAssistantAction} disabled={!!busy}/>
   {notice&&<div className="toast" role="status"><Icon name="info" size={17}/>{notice}<button onClick={()=>setNotice('')} aria-label="Đóng"><Icon name="close" size={15}/></button></div>}
   {busy&&<div className="busy-indicator" role="status"><span className="spinner"/>{busy}</div>}
   {showHistory&&<div className="modal-backdrop" onClick={()=>setShowHistory(false)}><section className="history-modal" role="dialog" aria-modal="true" aria-label="Lịch sử phiên bản" onClick={e=>e.stopPropagation()}><div className="card-heading"><h2>Lịch sử phiên bản</h2><button className="icon-button" onClick={()=>setShowHistory(false)} aria-label="Đóng lịch sử"><Icon name="close"/></button></div><p className="muted-note">50 phiên bản gần nhất của tài khoản · dữ liệu lưu trên máy chủ. Khôi phục đầu vào sẽ yêu cầu xác nhận và tính lại.</p>{versions.length?versions.map(v=><div className="version-row" key={v.id}><span className="version-number">#{v.id}</span><div><strong>{v.version_label==='approved'?'Kỹ sư đã duyệt':v.version_label==='repair'?'Cập nhật phương án':'Tạo phương án'}</strong><small>{v.payload.config.project_name} · {v.created_at} UTC · {v.reason}</small></div><button className="text-button" disabled={!!busy} onClick={()=>restore(v)}>Khôi phục</button></div>):<p className="empty-note">Chưa có phiên bản. Đăng nhập rồi tạo phương án để lưu lịch sử riêng.</p>}</section></div>}

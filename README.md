@@ -154,6 +154,10 @@ Trợ lý nhận nhu cầu khách (sản lượng cao nhất, đáp ứng nhu c�
 - Dùng chung `AI_PROVIDER` và khóa ở trên; `ADVISOR_MODEL` chọn mô hình văn bản có gọi công cụ (mặc định Groq `openai/gpt-oss-120b`, Gemini `gemini-2.5-flash`, Ollama `qwen3:4b`). Ghi nhiều mô hình cách nhau bằng dấu phẩy để tự chuyển sang mô hình sau khi mô hình trước lỗi hoặc hết lượt.
 - `AI_PROVIDER=openai` dùng mọi cổng tương thích OpenAI (OpenRouter, NVIDIA…): đặt `AI_BASE_URL` (kết thúc bằng `/v1`), `AI_API_KEY`, `AI_MODEL` là mô hình đọc được ảnh (dùng cho bước đọc ảnh mái), còn `ADVISOR_MODEL` cho trợ lý. Mỗi lần đề xuất tốn khoảng 3–6 lượt gọi.
 
+### Trợ lý chat (`POST /api/assistant/chat`)
+
+Nút **Trợ lý** ở góc phải mở khung chat về dự án đang mở. Mô hình nhận sẵn dữ kiện SolarOpt đã tính (mái, vật cản, phương án, bóng che, dự toán, thiết kế điện), có thể chạy phương án giả định trên bản sao (`what_if`) và đề xuất thao tác (dời vật cản, đặt chiều cao, ngân sách, điện năng mục tiêu, lùi mép, tính lại); thao tác chỉ hiện thành nút để kỹ sư bấm duyệt. Số trong câu trả lời không khớp dữ kiện được đánh dấu. `ASSISTANT_MODEL` chọn mô hình riêng cho chat (mặc định dùng `ADVISOR_MODEL`); không có mô hình hoặc quá 45 giây thì bộ quy tắc trả lời từ cùng số liệu. Mã nguồn ở `backend/app/services/assistant.py`.
+
 ### Thiết kế điện (`POST /api/design/electrical`)
 
 Nhận bố trí đã tính, tấm pin và các giả định nhiệt độ; trả về số tấm mỗi chuỗi cho phép, các chuỗi theo thứ tự đấu, gán inverter/MPPT, kết quả kiểm tra giới hạn, bảng vật tư và so sánh các inverter đã thử. `GET /api/electrical/inverters` trả danh mục inverter tham khảo. Không gọi AI và không tính vào hạn mức.
