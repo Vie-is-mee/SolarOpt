@@ -6,7 +6,7 @@ export type ProjectEvidence={economic_assumptions?:Economics|null;layout_datum?:
 export type RoofFace = {id:string;label:string;polygon:Point[];elevation_m:number;tilt_deg:number;azimuth_deg:number;installable:boolean;group?:string|null}
 export type Obstacle = {
   id:string; label:string; x:number; y:number; width_m:number; depth_m:number; height_m:number;
-  scope:'roof'|'neighbor'; source:'manual'|'groq'|'ollama'|'gemini'|'demo'; confidence:number;
+  scope:'roof'|'neighbor'; source:'manual'|'groq'|'ollama'|'gemini'|'openai'|'demo'; confidence:number;
   confirmed:boolean; floors?:number|null;
   shape?:'rect'|'ellipse'|'polygon';rotation_deg?:number;points?:Point[];base_elevation_m?:number|null;top_installable?:boolean;kind?:string|null;
 }
@@ -41,7 +41,7 @@ export type Verification = {valid:boolean;checks:{id:string;label:string;status:
 export type Stress = {passed:number;warned?:number;failed?:number;total:number;scenarios:{id:string;name:string;status:'PASS'|'WARN'|'FAIL';panel_count:number;annual_energy_kwh:number;detail:string;failed_checks?:{id:string;label:string;detail:string}[];warning_checks?:{id:string;label:string;detail:string}[];recommendations?:string[];affected_panel_ids?:string[]}[]}
 export type Repair = {impact:{changed_input:string;affected_nodes:string[];reused_nodes:string[];recomputation_ratio_pct:number};design:Design;verification:Verification}
 export type Vision = {
-  mode:'groq'|'ollama'|'gemini'|'manual';model:string;roof_width_m:number|null;roof_height_m:number|null;roof_confidence:number;
+  mode:'groq'|'ollama'|'gemini'|'openai'|'manual';model:string;roof_width_m:number|null;roof_height_m:number|null;roof_confidence:number;
   obstacles:{id:string;label:string;x_pct:number;y_pct:number;width_pct:number;depth_pct:number;height_m:number|null;confidence:number;observation:string;requires_placement:boolean}[];
   roof_polygon_pct:Point[];extracted_text:string[];notes:string[];events:{stage:string;status:string;detail:string}[];cached:boolean;elapsed_ms:number;preview_data_url:string|null;
   roof_polygon_image_pct?:Point[];roof_aspect_ratio?:number|null;roof_crop_data_url?:string|null;coordinate_version?:number;relevant?:boolean;image_type?:string;reject_reason?:string;dimensions?:DimensionCheck|null;roof_shape?:string;ridge_axis?:'horizontal'|'vertical'|'unknown';rise_m?:number|null;

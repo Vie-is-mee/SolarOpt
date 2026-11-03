@@ -24,15 +24,24 @@ class VisionError(Exception):
 def provider_settings():
     provider = os.getenv("AI_PROVIDER", "groq").strip().lower()
     defaults = {"groq":"qwen/qwen3.8-27b", "ollama":"qwen3-vl:4b", "gemini":"gemini-2.5-flash-lite"}
-    key_name = {"groq":"GROQ_API_KEY", "gemini":"GEMINI_API_KEY"}.get(provider)
+    # "openai": any OpenAI-compatible endpoint (OpenRouter, NVIDIA, ...) at AI_BASE_URL; AI_MODEL must name an image-capable model.
+    key_name = {"groq":"GROQ_API_KEY", "gemini":"GEMINI_API_KEY", "openai":"AI_API_KEY"}.get(provider)
     key = os.getenv(key_name, "").strip() if key_name else ""
     model = os.getenv("AI_MODEL", "").strip() or (os.getenv("GEMINI_MODEL", "") if provider == "gemini" else "") or defaults.get(provider, "")
     return provider, model, key
 
 
+def chat_url(provider: str) -> str:
+    """Chat-completions URL for the OpenAI-compatible providers."""
+    if provider == "openai":
+        return os.getenv("AI_BASE_URL", "").strip().rstrip("/") + "/chat/completions"
+    return "https://api.groq.com/openai/v1/chat/completions"
+
+
 def provider_status():
     provider, model, key = provider_settings()
-    return {"provider":provider,"model":model,"configured":bool(key) if provider != "ollama" else True,"requires_key":provider != "ollama","local":provider == "ollama","status_detail":"Ollama cần được chạy và tải mô hình trên máy." if provider == "ollama" else "Khóa API chỉ được đọc từ máy chủ; chưa có khóa thì nhập mái thủ công."}
+    ready = bool(key) and (provider != "openai" or bool(model and os.getenv("AI_BASE_URL", "").strip()))
+    return {"provider":provider,"model":model,"configured":ready if provider != "ollama" else True,"requires_key":provider != "ollama","local":provider == "ollama","status_detail":"Ollama cần được chạy và tải mô hình trên máy." if provider == "ollama" else "Khóa API chỉ được đọc từ máy chủ; chưa có khóa thì nhập mái thủ công."}
 
 
 def _image(data: bytes, mime: str) -> bytes:
@@ -59,9 +68,9 @@ def _image(data: bytes, mime: str) -> bytes:
 def analyze_images(files: list[tuple[bytes,str]], input_kind: str, width: float | None, height: float | None) -> VisionResult:
     start = perf_counter()
     provider, model, key = provider_settings()
-    if provider not in {"groq","ollama","gemini"}:
-        raise VisionError("AI_PROVIDER chưa được hỗ trợ. Chọn groq, ollama hoặc gemini.", 503)
-    if provider != "ollama" and not key:
+    if provider not in {"groq","ollama","gemini","openai"}:
+        raise VisionError("AI_PROVIDER chưa được hỗ trợ. Chọn groq, ollama, gemini hoặc openai (API tương thích OpenAI).", 503)
+    if provider != "ollama" and (not key or (provider == "openai" and not (model and os.getenv("AI_BASE_URL", "").strip()))):
         return VisionResult(mode="manual",model=model,obstacles=[],input_kind=input_kind,notes=["Chưa có khóa AI. Không tự tạo vật cản từ ảnh; hãy vẽ và xác nhận thủ công hoặc dùng dự án mẫu được gắn nhãn."],events=[{"stage":"provider","status":"needs_configuration","detail":"Chưa cấu hình nhà cung cấp AI"}],elapsed_ms=round((perf_counter()-start)*1000,1))
     digest = hashlib.sha256(("v5-roof-shape"+provider+model+input_kind+str(width)+str(height)+hashlib.sha256(key.encode()).hexdigest()).encode())
     for data,mime in files:
@@ -112,7 +121,7 @@ Giới hạn tối đa 20 vật cản và 30 điểm biên. Mỗi quan sát/ghi 
             raw_text = response.json()["message"]["content"]
         else:
             content = [{"type":"text","text":prompt}]+[{"type":"image_url","image_url":{"url":"data:image/jpeg;base64,"+base64.b64encode(d).decode()}} for d in images]
-            response = requests.post("https://api.groq.com/openai/v1/chat/completions",headers={"Authorization":"Bearer "+key},json={"model":model,"messages":[{"role":"user","content":content}],"response_format":{"type":"json_object"},"temperature":0.1,"max_completion_tokens":2000},timeout=(10,90))
+            response = requests.post(chat_url(provider),headers={"Authorization":"Bearer "+key},json={"model":model,"messages":[{"role":"user","content":content}],"response_format":{"type":"json_object"},"temperature":0.1,"max_tokens":2000},timeout=(10,90))
             response.raise_for_status()
             raw_text = response.json()["choices"][0]["message"]["content"]
         raw = json.loads(raw_text)
