@@ -117,18 +117,29 @@ class ScenarioBook:
     def investment(self, kwp: float) -> float:
         return self.capex * 1e6 * kwp + (0 if self.req.customer.capex_million_per_kwp else REFERENCE_FIXED * (kwp > 0))
 
+    def demand(self, extra_daytime: float) -> Consumption:
+        """Consumption with extra daytime load (e.g. an EV charged at home); it shifts the bill into higher tiers too."""
+        if not extra_daytime:
+            return self.cons
+        base = self.cons
+        annual = (base.annual_kwh or 0) + extra_daytime
+        daytime = (base.daytime_kwh_year or 0) + extra_daytime
+        return Consumption(annual_kwh=round(annual), monthly_kwh=round(annual / 12, 1), daytime_share_pct=round(daytime / annual * 100, 1),
+                           daytime_kwh_year=round(daytime), source=base.source + f" Cộng {vn(extra_daytime, 0)} kWh/năm dùng ban ngày theo góp ý.")
+
     def run(self, params: ScenarioParams, label: str, intent: str = "") -> Scenario:
         if len(self.items) >= self.MAX:
             raise ValueError(f"Đã thử tối đa {self.MAX} kịch bản cho một lần đề xuất.")
         req, panel = self.req, self.req.panel
         cap = params.max_investment_vnd or req.customer.budget_vnd
+        cons = self.demand(params.extra_daytime_kwh_year)
         panel_kwp = panel.power_w / 1000
         # The optimizer caps panels by panel price; translate an all-in cap into that panel count.
         fixed = 0 if req.customer.capex_million_per_kwp else REFERENCE_FIXED
         max_panels = math.floor(max(0.0, cap - fixed) / (self.capex * 1e6 * panel_kwp) + 1e-9) if cap else self.area_bound
         target = params.target_energy_kwh_year if params.objective == "min_cost" else None
         if params.objective == "min_cost" and target is None:
-            target = self.cons.annual_kwh or None
+            target = cons.annual_kwh or None
             if target is None:
                 raise ValueError("Phương án giảm chi phí cần điện năng mục tiêu; chưa có hóa đơn hay số kWh.")
         config = req.config.model_copy(update={
@@ -141,12 +152,12 @@ class ScenarioBook:
         m = result.metrics
         kwp, energy = m.peak_power_kwp, m.annual_energy_kwh
         investment = self.investment(kwp) if m.panel_count else 0.0
-        saving, self_use, payback, npv = cash_flow(req, self.cons, kwp, energy, investment)
+        saving, self_use, payback, npv = cash_flow(req, cons, kwp, energy, investment)
         notes = [w for w in result.warnings if w.startswith(("Chưa đáp ứng", "Dự phòng", "Đã đạt giới hạn")) or "trên nóc vật cản" in w]
         item = Scenario(
             id=f"S{len(self.items) + 1}", label=label[:80] or params.objective, intent=intent[:400], params=params,
             panel_count=m.panel_count, peak_power_kwp=round(kwp, 2), annual_energy_kwh=round(energy),
-            coverage_pct=round(energy / self.cons.annual_kwh * 100, 1) if self.cons.annual_kwh else None,
+            coverage_pct=round(energy / cons.annual_kwh * 100, 1) if cons.annual_kwh else None,
             self_use_pct=round(self_use, 1), average_shading_loss_pct=round(m.average_shading_loss_pct, 2),
             investment_vnd=round(investment, -3), annual_saving_vnd=round(saving, -3),
             payback_years=round(payback, 1) if payback is not None else None, npv_vnd=round(npv, -3),

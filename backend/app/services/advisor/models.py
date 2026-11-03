@@ -65,6 +65,7 @@ class ScenarioParams(BaseModel):
     target_energy_kwh_year: float | None = Field(default=None, gt=0, le=10_000_000)
     max_investment_vnd: float | None = Field(default=None, gt=0, le=1e12)
     edge_reserve_m: float = Field(default=0, ge=0, le=1)
+    extra_daytime_kwh_year: float = Field(default=0, ge=0, le=1_000_000, description="Daytime demand added by the engineer's notes (EV charging, heat pump...)")
 
 
 class Scenario(BaseModel):
