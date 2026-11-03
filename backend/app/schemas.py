@@ -373,6 +373,7 @@ class VisionResult(StrictModel):
     roof_polygon_pct: list[NormalizedPoint] = Field(default_factory=list, max_length=50)
     events: list[dict] = []
     cached: bool = False
+    replay: str = Field(default="", description="Set when a demo recording was replayed instead of calling the model")
     elapsed_ms: float = 0
     input_kind: str = "drone"
     preview_data_url: str | None = None

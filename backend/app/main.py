@@ -27,6 +27,7 @@ from app.schemas import (
 from app.services.advisor.agent import propose
 from app.services.advisor.llm import default_client
 from app.services.advisor.models import AdvisorRequest, Proposal
+from app import demo
 from app.services.dependency import trace_impact
 from app.services.electrical import CATALOG, ElectricalRequest, ElectricalResult, design_electrical
 from app.services.vision import analyze_images, provider_status, VisionError
@@ -99,7 +100,7 @@ def health():
 
 
 @app.post("/api/vision/analyze", response_model=VisionResult)
-async def vision_analyze(file: UploadFile = File(...), context_files: list[UploadFile] = File(default=[]), input_kind: str = Form("drone"), roof_width_m: float | None = Form(None), roof_height_m: float | None = Form(None), user=Depends(require_user)):
+async def vision_analyze(file: UploadFile = File(...), context_files: list[UploadFile] = File(default=[]), input_kind: str = Form("drone"), roof_width_m: float | None = Form(None), roof_height_m: float | None = Form(None), demo_mode: bool = Form(False), user=Depends(optional_user)):
     if input_kind not in {"drone", "plan", "partial"}:
         raise HTTPException(422, "Loại đầu vào không hợp lệ.")
     if len(context_files)>2:
@@ -112,11 +113,22 @@ async def vision_analyze(file: UploadFile = File(...), context_files: list[Uploa
         if upload.content_type not in {"image/jpeg","image/png","image/webp","application/pdf"}:
             raise HTTPException(415, "Chỉ hỗ trợ JPG/PNG/WEBP/PDF.")
         files.append((data,upload.content_type))
+    key = demo.vision_key(files, input_kind, roof_width_m, roof_height_m)
+    # A replay calls no model and costs nothing, so it needs neither an account nor quota.
+    if demo_mode and (record := demo.load("vision", key)):
+        result = VisionResult.model_validate(record["result"])
+        result.replay, result.elapsed_ms = demo.label(record), 0
+        result.events = [{"stage": "demo", "status": "complete", "detail": result.replay}]
+        return result
+    if user is None:
+        raise HTTPException(401, "Vui lòng đăng nhập.")
     check_ai(user)
     try:
         result = await run_in_threadpool(analyze_images,files,input_kind,roof_width_m,roof_height_m)
     except VisionError as exc:
         raise HTTPException(exc.status,str(exc)) from exc
+    if demo.recording_enabled() and result.mode != "manual" and not result.cached:
+        demo.save("vision", key, result.model_dump(), result.model, result.elapsed_ms)
     # Cached and "AI not configured" answers cost nothing, so they do not use the quota.
     if result.mode != "manual" and not result.cached:
         record_ai(user)
@@ -132,13 +144,24 @@ def advisor_status():
 @app.post("/api/advisor/propose", response_model=Proposal)
 def advisor_propose(req: AdvisorRequest, request: Request, user=Depends(optional_user)):
     # Each proposal runs up to four layouts; it counts against the project quota like a design run.
-    quota = ProjectQuota(request, user, req.config.project_name)
-    quota.check()
+    key = demo.advisor_key(req)
+    if req.demo and (record := demo.load("advisor", key)):
+        result = Proposal.model_validate(record["result"])
+        result.replay, result.elapsed_ms = demo.label(record), 0
+        return result
+    # Recording runs only on a developer machine (env flag), so it is not held to the guest quota.
+    quota = None if demo.recording_enabled() else ProjectQuota(request, user, req.config.project_name)
+    if quota:
+        quota.check()
     try:
-        result = propose(req)
+        # A recording should hold the model's full reasoning, so it gets the normal time budget, not the stage one.
+        result = propose(req.model_copy(update={"demo": False}) if demo.recording_enabled() else req)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
-    quota.record()
+    if quota:
+        quota.record()
+    if demo.recording_enabled() and result.mode == "llm":
+        demo.save("advisor", key, result.model_dump(), result.model, result.elapsed_ms, demo.advisor_inputs(req))
     return result
 
 

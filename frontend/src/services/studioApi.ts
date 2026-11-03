@@ -25,7 +25,8 @@ export const studioApi={
   validateProject:(config:Config,panel:Panel,obstacles:Obstacle[],evidence?:ProjectEvidence|null)=>request<{valid:boolean}>('/api/projects/validate',{config,panel,obstacles,evidence}),
   health:()=>request<Health>('/api/health'),
   scene:(config:Config,obstacles:Obstacle[],date:string,hour_local:number,signal?:AbortSignal)=>request<Scene>('/api/solar/scene',{config,obstacles,date,hour_local},signal),
-  analyze:(file:File,context:File[],kind:string,config:Config)=>{const data=new FormData();data.append('file',file);context.forEach(f=>data.append('context_files',f));data.append('input_kind',kind);// Unknown sizes are omitted, e.g. when the drawing itself is read for its dimensions.
+  // demo: replay a matching recording of a real AI answer (labelled as such) instead of calling the model.
+  analyze:(file:File,context:File[],kind:string,config:Config,demo=false)=>{const data=new FormData();data.append('file',file);context.forEach(f=>data.append('context_files',f));data.append('input_kind',kind);if(demo)data.append('demo_mode','true');// Unknown sizes are omitted, e.g. when the drawing itself is read for its dimensions.
   if(config.roof_width_m>0)data.append('roof_width_m',String(config.roof_width_m));if(config.roof_height_m>0)data.append('roof_height_m',String(config.roof_height_m));return request<Vision>('/api/vision/analyze',data,undefined,240_000)},
   mountingCompare:(config:Config,panel:Panel,obstacles:Obstacle[])=>request<{options:{label:string;settings:Partial<Config>&{mounting:'flush'|'tilted_rack'|'tracker'};panels:number;kwp:number;annual_kwh:number;kwh_per_panel:number;vs_flush_pct:number|null}[];best:string|null;notes:string[]}>('/api/design/mounting-compare',{config,panel,obstacles,objective:'max_energy'}),
   design:(config:Config,panel:Panel,obstacles:Obstacle[],objective:Objective,evidence?:ProjectEvidence|null)=>request<Design>('/api/design/generate',{config,panel,obstacles,objective,evidence}),
@@ -36,7 +37,7 @@ export const studioApi={
   inverters:()=>request<import('../electricalTypes').Inverter[]>('/api/electrical/inverters'),
   electrical:(config:Config,panel:Panel,design:Design,settings:import('../electricalTypes').ElectricalSettings)=>request<import('../electricalTypes').Electrical>('/api/design/electrical',{config,panel,design,...settings}),
   advisorStatus:()=>request<{llm:boolean;model:string;provider:string}>('/api/advisor/status'),
-  propose:(body:{config:Config;panel:Panel;obstacles:Obstacle[];need:import('../advisorTypes').Need;customer:import('../advisorTypes').Customer;feedback:string[];previous:import('../advisorTypes').Proposal|null})=>request<import('../advisorTypes').Proposal>('/api/advisor/propose',body,undefined,150_000),
+  propose:(body:{config:Config;panel:Panel;obstacles:Obstacle[];need:import('../advisorTypes').Need;customer:import('../advisorTypes').Customer;feedback:string[];previous:import('../advisorTypes').Proposal|null;demo?:boolean})=>request<import('../advisorTypes').Proposal>('/api/advisor/propose',body,undefined,150_000),
   history:()=>request<Version[]>('/api/history'),
   versions:(name:string)=>request<Version[]>(`/api/projects/${encodeURIComponent(name)}/versions`),
   version:(name:string,id:number)=>request<Version>(`/api/projects/${encodeURIComponent(name)}/versions/${id}`),
