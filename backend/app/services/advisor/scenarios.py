@@ -156,6 +156,15 @@ class ScenarioBook:
         self.applied[item.id] = ApplyPlan(objective=params.objective, budget_vnd=config.budget_vnd, target_energy_kwh_year=target, layout_edge_reserve_m=config.layout_edge_reserve_m)
         return item
 
+    def drop_if_duplicate(self) -> bool:
+        """Forget the last scenario when it landed on the same layout as an earlier one (e.g. two plans capped by one budget)."""
+        last = self.items[-1]
+        if any(s.panel_count == last.panel_count and abs(s.annual_energy_kwh - last.annual_energy_kwh) <= .005 * max(1.0, s.annual_energy_kwh) for s in self.items[:-1]):
+            self.items.pop()
+            self.applied.pop(last.id, None)
+            return True
+        return False
+
     def get(self, sid: str) -> Scenario | None:
         return next((s for s in self.items if s.id == sid), None)
 

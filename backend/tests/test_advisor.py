@@ -95,3 +95,14 @@ def test_without_a_bill_the_advisor_asks_instead_of_guessing_demand():
     assert proposal.consumption.annual_kwh is None
     assert any('Tiền điện' in q for q in proposal.questions)
     assert all(s.params.objective == 'max_energy' for s in proposal.scenarios)
+
+
+def test_a_revision_explains_what_changed_and_drops_duplicate_layouts():
+    first = propose(request(), client=None)
+    req = request()
+    req.feedback, req.previous = ['Ngân sách tối đa 40 triệu'], first
+    revised = propose(req, client=None)
+    assert revised.reasons[0].text.startswith('Theo góp ý (trần vốn 40 triệu đ)')
+    assert revised.facts['previous.panel_count'] == next(s for s in first.scenarios if s.id == first.recommended_id).panel_count
+    assert len({s.panel_count for s in revised.scenarios}) == len(revised.scenarios)   # same-size layouts are one option
+    assert set(revised.plans) == {s.id for s in revised.scenarios}

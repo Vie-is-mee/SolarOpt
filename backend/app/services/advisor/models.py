@@ -116,6 +116,7 @@ class Proposal(BaseModel):
     assumptions: list[str] = Field(default_factory=list)
     facts: dict[str, float | str | None] = Field(default_factory=dict)
     apply: ApplyPlan
+    plans: dict[str, ApplyPlan] = Field(default_factory=dict, description="Settings that reproduce each scenario, so any one can be applied")
     trace: list[dict] = Field(default_factory=list)
     notice: str = ""
     elapsed_ms: float = 0

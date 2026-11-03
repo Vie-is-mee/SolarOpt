@@ -39,7 +39,7 @@ Quy tắc bắt buộc:
 - Điện dư không được trả tiền (trừ khi giá bán > 0), nên quy mô vượt xa điện ban ngày thường làm hoàn vốn chậm.
 Khi đã đủ kịch bản, trả lời DUY NHẤT một đối tượng JSON:
 {"recommended_id":"S2","summary":"2–3 câu","reasons":[{"text":"lý do","refs":["S2.payback_years","consumption.daytime_kwh_year"]}],"risks":["..."],"questions":["câu hỏi cần hỏi khách"]}
-refs phải là khóa dữ kiện có thật (dạng S1.npv_vnd, S2.coverage_pct, site.max_kwp_by_area, consumption.annual_kwh...). Viết tiếng Việt, ngắn gọn, cho kỹ sư đọc."""
+refs phải là khóa dữ kiện có thật (dạng S1.npv_vnd, S2.coverage_pct, site.max_kwp_by_area, consumption.annual_kwh, previous.panel_count khi có đề xuất trước...). Viết tiếng Việt, ngắn gọn, cho kỹ sư đọc."""
 
 
 def _parse_json(text: str | None) -> dict | None:
@@ -162,6 +162,11 @@ def _rules_scenarios(req: AdvisorRequest, book: ScenarioBook) -> None:
             book.run(params, label, intent)
         except ValueError:
             continue
+        book.drop_if_duplicate()
+
+
+def _previous_choice(req: AdvisorRequest) -> Scenario | None:
+    return next((s for s in req.previous.scenarios if s.id == req.previous.recommended_id), None) if req.previous else None
 
 
 def _rules_pick(req: AdvisorRequest, book: ScenarioBook) -> Scenario:
@@ -186,6 +191,12 @@ def _rules_text(req: AdvisorRequest, book: ScenarioBook, pick: Scenario) -> dict
     if others:
         o = max(others, key=lambda s: s.panel_count)
         reasons.append({"text": f"So với “{o.label}” ({o.panel_count} tấm, {_money(o.investment_vnd)}): {'hoàn vốn ' + _num(o.payback_years) + ' năm' if o.payback_years else 'chưa hoàn vốn trong kỳ phân tích'}, NPV {_money(o.npv_vnd)}.", "refs": [f"{o.id}.panel_count", f"{o.id}.investment_vnd", f"{o.id}.npv_vnd"]})
+    previous = _previous_choice(req)
+    if previous:
+        cap, reserve = _feedback_params(req)
+        changes = ([f"trần vốn {_money(cap)}"] if cap else []) + ([f"lùi mép thêm {_num(reserve * 100, 0)} cm"] if reserve else [])
+        reasons.insert(0, {"text": f"Theo góp ý{' (' + ', '.join(changes) + ')' if changes else ''}: từ {previous.panel_count} tấm, {_money(previous.investment_vnd)} ở bản trước thành {pick.panel_count} tấm, {_money(pick.investment_vnd)}.",
+                           "refs": ["previous.panel_count", f"{sid}.panel_count", "previous.investment_vnd", f"{sid}.investment_vnd"]})
     questions = []
     if book.cons.annual_kwh is None:
         questions.append("Tiền điện hoặc số kWh mỗi tháng của khách là bao nhiêu?")
@@ -233,6 +244,8 @@ def propose(req: AdvisorRequest, client: ChatClient | None = None) -> Proposal:
     if not book.items:
         raise ValueError("Không chạy được kịch bản nào; kiểm tra mái, vật cản và thông số tấm pin.")
     facts = {**site, **book.facts()}
+    if (previous := _previous_choice(req)):
+        facts.update({"previous.panel_count": previous.panel_count, "previous.investment_vnd": previous.investment_vnd, "previous.annual_energy_kwh": previous.annual_energy_kwh})
     pick = book.get(str((answer or {}).get("recommended_id", ""))) or _rules_pick(req, book)
     rules = _rules_text(req, book, pick)
     reasons = _clean_reasons((answer or {}).get("reasons"), facts) if mode == "llm" else []
@@ -255,6 +268,6 @@ def propose(req: AdvisorRequest, client: ChatClient | None = None) -> Proposal:
         summary=str(text.get("summary") or rules["summary"])[:600], reasons=reasons,
         risks=list(dict.fromkeys(computed_risks(book, pick) + [str(r)[:300] for r in (text.get("risks") or [])]))[:8], questions=[str(q)[:300] for q in (text.get("questions") or rules["questions"])][:6],
         assumptions=assumptions, facts=facts,
-        apply=book.applied[pick.id],   # reproduces the chosen scenario exactly when the engineer presses "Áp dụng"
+        apply=book.applied[pick.id], plans=book.applied,   # reproduce a scenario exactly when the engineer presses "Áp dụng"
         trace=trace, notice=notice, elapsed_ms=round((perf_counter() - started) * 1000),
     )
