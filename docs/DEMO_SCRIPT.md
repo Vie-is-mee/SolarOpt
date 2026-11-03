@@ -14,7 +14,7 @@ Mục tiêu: trình bày trọn luồng **ảnh mái → AI đọc ảnh → mô
 ## Chuẩn bị (tối hôm trước và 30 phút trước giờ thi)
 
 1. Chạy máy chủ và giao diện như thường lệ (`run_backend.bat`, `run_frontend.bat`), mở `http://localhost:5174`.
-2. **Đăng nhập tài khoản.** Chế độ khách chỉ tính được 2 dự án mỗi ngày; nếu chưa đăng nhập, bước xếp pin có thể bị chặn ngay trên sân khấu (thanh demo sẽ nhắc).
+2. **Đăng nhập tài khoản.** Chế độ khách chỉ tính được 6 dự án mỗi ngày; nếu chưa đăng nhập, bước xếp pin có thể bị chặn ngay trên sân khấu (thanh demo sẽ nhắc).
 3. Bấm **Làm lại từ đầu** để xóa bản nháp cũ, rồi bấm **Demo**.
 4. Chạy thử toàn bộ một lần theo các bước dưới; kiểm tra nhãn "Phát lại" xuất hiện ở bước đọc ảnh và trợ lý.
 5. Bấm **Làm lại từ đầu** lần nữa trước khi lên sân khấu (chế độ Demo vẫn giữ nguyên).

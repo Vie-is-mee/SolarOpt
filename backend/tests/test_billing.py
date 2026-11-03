@@ -38,15 +38,16 @@ def design(client, name):
     return client.post('/api/design/generate', json=body)
 
 
-def test_guest_gets_two_projects_per_day_and_reruns_are_free(api):
+def test_guest_gets_six_projects_per_day_and_reruns_are_free(api):
     assert design(api, 'Nhà A').status_code == 200
     assert design(api, 'nhà  a ').status_code == 200          # same project, normalised name
-    assert design(api, 'Nhà B').status_code == 200
-    blocked = design(api, 'Nhà C')
+    for name in 'BCDEF':
+        assert design(api, f'Nhà {name}').status_code == 200
+    blocked = design(api, 'Nhà G')
     assert blocked.status_code == 402 and 'Đăng ký' in blocked.json()['detail']
     assert design(api, 'Nhà A').status_code == 200
     usage = api.get('/api/account/usage').json()
-    assert usage['plan'] == 'guest' and usage['used']['projects'] == 2
+    assert usage['plan'] == 'guest' and usage['used']['projects'] == 6
 
 
 def test_free_account_has_five_projects_then_must_upgrade(api):

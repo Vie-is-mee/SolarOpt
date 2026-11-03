@@ -15,7 +15,7 @@ from starlette.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.auth import COOKIE, router as auth_router, optional_user, require_user
+from app.auth import COOKIE, ensure_env_admin, router as auth_router, optional_user, require_user
 from app.billing import router as billing_router, ProjectQuota, check_ai, record_ai, team_member_ids
 from fastapi import Request
 from app.database import init_db, list_versions, save_version, get_version
@@ -41,6 +41,7 @@ from app.services.roof_extract import TraceRequest, extract_roof, prepare_image
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 init_db()
+ensure_env_admin()
 
 app = FastAPI(title="SolarOpt API", version="2.0.0", description="Bộ tính toán và trích xuất ảnh cho SolarOpt Studio")
 
