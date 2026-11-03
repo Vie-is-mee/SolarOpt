@@ -43,7 +43,7 @@ export type Repair = {impact:{changed_input:string;affected_nodes:string[];reuse
 export type Vision = {
   mode:'groq'|'ollama'|'gemini'|'openai'|'manual';model:string;roof_width_m:number|null;roof_height_m:number|null;roof_confidence:number;
   obstacles:{id:string;label:string;x_pct:number;y_pct:number;width_pct:number;depth_pct:number;height_m:number|null;confidence:number;observation:string;requires_placement:boolean}[];
-  roof_polygon_pct:Point[];extracted_text:string[];notes:string[];events:{stage:string;status:string;detail:string}[];cached:boolean;elapsed_ms:number;preview_data_url:string|null;
+  roof_polygon_pct:Point[];extracted_text:string[];notes:string[];events:{stage:string;status:string;detail:string}[];cached:boolean;elapsed_ms:number;preview_data_url:string|null;replay?:string;
   roof_polygon_image_pct?:Point[];roof_aspect_ratio?:number|null;roof_crop_data_url?:string|null;coordinate_version?:number;relevant?:boolean;image_type?:string;reject_reason?:string;dimensions?:DimensionCheck|null;roof_shape?:string;ridge_axis?:'horizontal'|'vertical'|'unknown';rise_m?:number|null;
 }
 export type DimensionCheck={labels:{text:string;value_m:number|null;interpretation:string;axis:'horizontal'|'vertical'|'other';length_px:number|null;m_per_px:number|null;outlier:boolean}[];scale_m_per_px:number|null;scale_spread_pct:number|null;consistent:boolean|null;suggested_width_m:number|null;suggested_height_m:number|null;width_basis:string;height_basis:string;notes:string[]}

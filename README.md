@@ -48,6 +48,8 @@ Bố trí điện mặt trời áp mái đòi hỏi xem xét đồng thời di�
 
 Quy trình nhập tay và dự án mẫu vẫn sử dụng được khi chưa cấu hình dịch vụ AI.
 
+**Chế độ demo** (nút *Demo* ở tiêu đề dự án) hiện kịch bản trình bày từng bước và phát lại kết quả AI thật đã ghi cho ảnh drone mẫu và khách mẫu, có nhãn ghi rõ ngày, mô hình và thời gian của lần gọi thật; đầu vào khác vẫn gọi AI trực tiếp. Xem [kịch bản demo](docs/DEMO_SCRIPT.md).
+
 ## Kiến trúc hệ thống
 
 SolarOpt sử dụng giao diện web kết nối đến máy chủ Python. Việc xử lý hình học, mô phỏng, tối ưu và kiểm tra phương án được thực hiện ở máy chủ, thay vì sử dụng những kết quả cố định trên giao diện.

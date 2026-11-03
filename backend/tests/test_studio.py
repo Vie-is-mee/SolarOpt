@@ -170,6 +170,35 @@ def test_vision_rejects_invalid_coordinates(authenticated_client,monkeypatch):
     result=client.post('/api/vision/analyze',files={'file':('roof.png',image_bytes(),'image/png')})
     assert result.status_code==502
 
+def test_vision_trims_a_box_slightly_past_the_edge_and_asks_for_placement(authenticated_client,monkeypatch):
+    client=authenticated_client
+    monkeypatch.setenv('AI_PROVIDER','groq');monkeypatch.setenv('GROQ_API_KEY','test-edge');vision._cache.clear()
+    boxes=[{'id':'edge','label':'Dàn nóng','x_pct':92,'y_pct':40,'width_pct':12,'depth_pct':8,'confidence':.6},{'id':'tank','label':'Bồn','x_pct':10,'y_pct':20,'width_pct':10,'depth_pct':10,'confidence':.6}]
+    class Response:
+        def raise_for_status(self):pass
+        def json(self):return {'choices':[{'message':{'content':json.dumps({'roof_confidence':.5,'obstacles':boxes})}}]}
+    monkeypatch.setattr(vision.requests,'post',lambda *a,**kw:Response())
+    result=client.post('/api/vision/analyze',files={'file':('roof.png',image_bytes(),'image/png')})
+    assert result.status_code==200,result.text
+    edge=next(o for o in result.json()['obstacles'] if o['id']=='edge')
+    assert edge['x_pct']+edge['width_pct']<=100.01 and edge['requires_placement']
+    assert any('vượt mép ảnh' in e['detail'] for e in result.json()['events'])
+
+def test_vision_rescales_answers_on_a_thousand_grid(authenticated_client,monkeypatch):
+    client=authenticated_client
+    monkeypatch.setenv('AI_PROVIDER','groq');monkeypatch.setenv('GROQ_API_KEY','test-grid');vision._cache.clear()
+    answer={'roof_confidence':.9,'obstacles':[{'id':'tank','label':'Bồn','x_pct':570,'y_pct':260,'width_pct':100,'depth_pct':100,'confidence':.9}],
+            'dimension_labels':[{'text':'5.40 m','value':5.4,'unit':'m','start':{'x':265,'y':70},'end':{'x':435,'y':70}}]}
+    class Response:
+        def raise_for_status(self):pass
+        def json(self):return {'choices':[{'message':{'content':json.dumps(answer)}}]}
+    monkeypatch.setattr(vision.requests,'post',lambda *a,**kw:Response())
+    result=client.post('/api/vision/analyze',files={'file':('roof.png',image_bytes(),'image/png')})
+    assert result.status_code==200,result.text
+    tank=result.json()['obstacles'][0]
+    assert (tank['x_pct'],tank['y_pct'],tank['width_pct'])==(57,26,10)
+    assert any('0–1000' in e['detail'] for e in result.json()['events'])
+
 
 def test_vision_rejects_unrelated_image_without_geometry(authenticated_client,monkeypatch):
     client=authenticated_client

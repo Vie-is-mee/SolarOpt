@@ -49,6 +49,7 @@ class AdvisorRequest(BaseModel):
     feedback: list[str] = Field(default_factory=list, max_length=12, description="Engineer's change requests, oldest first")
     previous: "Proposal | None" = None
     use_llm: bool = True
+    demo: bool = Field(default=False, description="Stage mode: replay a recording when one matches, otherwise a shorter model budget")
 
 
 class Consumption(BaseModel):
@@ -121,6 +122,7 @@ class Proposal(BaseModel):
     trace: list[dict] = Field(default_factory=list)
     notice: str = ""
     elapsed_ms: float = 0
+    replay: str = Field(default="", description="Set when a demo recording was replayed instead of calling the model")
 
 
 AdvisorRequest.model_rebuild()

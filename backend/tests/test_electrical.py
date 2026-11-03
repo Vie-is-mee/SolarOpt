@@ -114,3 +114,12 @@ def test_api_lists_catalogue_and_designs():
     assert res.json()["strings"]
     empty = client.post("/api/design/electrical", json={**body, "design": design([]).model_dump()})
     assert empty.status_code == 422 and "Chưa có tấm pin" in empty.text
+
+
+def test_a_small_hip_roof_wires_all_faces_together_with_a_warning():
+    faces = [RoofFace(id=f, polygon=[{"x": 0, "y": 3 * i}, {"x": 10, "y": 3 * i}, {"x": 10, "y": 3 * i + 3}, {"x": 0, "y": 3 * i + 3}], tilt_deg=24, azimuth_deg=az)
+             for i, (f, az) in enumerate((("s", 180), ("n", 0), ("e", 90), ("w", 270)))]
+    panels = layout(1, 2, "s") + layout(1, 2, "n", y0=3) + layout(1, 1, "e", y0=6) + layout(1, 1, "w", y0=9)
+    r = run(panels, ProjectConfig(roof_width_m=10, roof_height_m=12, roof_faces=faces), inverter_id="huawei-3ktl-l1")
+    assert not r.unassigned_panel_ids and len(r.strings) == 1 and r.strings[0].length == 6
+    assert next(c for c in r.checks if c.id == "orientation").status == "WARN"

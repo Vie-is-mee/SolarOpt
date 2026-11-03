@@ -141,6 +141,8 @@ Giới hạn tối đa 20 vật cản và 30 điểm biên. Mỗi quan sát/ghi 
                     continue
                 model = name
                 break
+            if not raw_text:
+                raise VisionError("Các mô hình AI đang bận hoặc không trả nội dung. Thử lại sau ít phút hoặc tiếp tục chỉnh thủ công.", 503)
         raw = json.loads(raw_text)
         if not isinstance(raw,dict):
             raise ValueError("Expected JSON object")
@@ -160,9 +162,35 @@ Giới hạn tối đa 20 vật cản và 30 điểm biên. Mỗi quan sát/ghi 
         if input_kind == "partial":
             raw["roof_polygon_pct"] = []; raw["roof_polygon_image_pct"] = []
             for item in raw.get("obstacles",[]): item["requires_placement"] = True
+        # Some models answer on a 0-1000 grid instead of percent; a block whose values all fit 0-1000 and pass 100 is rescaled.
+        def rescale(points,keys):
+            values=[p[k] for p in points for k in keys if isinstance(p,dict) and isinstance(p.get(k),(int,float))]
+            if values and max(values)>100 and max(values)<=1000 and min(values)>=0:
+                for p in points:
+                    for k in keys:
+                        if isinstance(p,dict) and isinstance(p.get(k),(int,float)):p[k]=p[k]/10
+                return True
+            return False
+        outline=[p for p in raw.get("roof_polygon_image_pct") or []]
+        scaled=rescale(raw.get("obstacles",[])+outline,("x_pct","y_pct","width_pct","depth_pct","x","y"))
+        if isinstance(dimension_labels,list):
+            ends=[d.get(k) for d in dimension_labels if isinstance(d,dict) for k in ("start","end")]
+            scaled=rescale([e for e in ends if isinstance(e,dict)],("x","y")) or scaled
+        if scaled:
+            events.append({"stage":"validation","status":"complete","detail":"Mô hình trả tọa độ theo thang 0–1000; đã quy đổi về phần trăm ảnh."})
+        clipped=[]
         for item in raw.get("obstacles",[]):
-            if item["x_pct"]+item["width_pct"] > 100.01 or item["y_pct"]+item["depth_pct"] > 100.01:
+            over=max(item["x_pct"]+item["width_pct"],item["y_pct"]+item["depth_pct"])-100
+            if over > 15:
                 raise ValueError("Obstacle box outside normalized roof")
+            # A box drawn a little past the image edge is trimmed and sent back for placement, not fatal for the rest.
+            if over > 0.01:
+                item["width_pct"]=max(0.5,min(item["width_pct"],100-item["x_pct"]))
+                item["depth_pct"]=max(0.5,min(item["depth_pct"],100-item["y_pct"]))
+                item["requires_placement"]=True
+                clipped.append(str(item.get("label","vật cản")))
+        if clipped:
+            events.append({"stage":"validation","status":"needs_review","detail":f"Khung của {', '.join(clipped)} vượt mép ảnh; đã cắt theo mép và cần kỹ sư đặt lại vị trí."})
         if len(raw.get("obstacles",[])) > 20 or len(raw.get("roof_polygon_pct",[])) > 30:
             raise ValueError("Extraction exceeds bounds")
         image_outline=raw.get("roof_polygon_image_pct",[])
@@ -219,6 +247,8 @@ Giới hạn tối đa 20 vật cản và 30 điểm biên. Mỗi quan sát/ghi 
         status = exc.response.status_code
         message = "AI đã chạm hạn mức. Chờ rồi thử lại hoặc tiếp tục chỉnh thủ công." if status == 429 else "Nhà cung cấp AI từ chối yêu cầu. Kiểm tra khóa, tên mô hình và quyền truy cập trên máy chủ."
         raise VisionError(message,429 if status == 429 else 502) from exc
+    except VisionError:
+        raise
     except requests.RequestException as exc:
         raise VisionError("Không kết nối được AI hoặc đã hết thời gian chờ. Dữ liệu hiện tại được giữ; có thể tiếp tục thủ công.") from exc
     except Exception as exc:

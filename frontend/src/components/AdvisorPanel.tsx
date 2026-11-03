@@ -15,7 +15,7 @@ const NOTE_IDEAS=['Khách chốt ngân sách tối đa 80 triệu','Chừa lối
 
 /** Customer need in, reasoned proposal out: scenarios computed by SolarOpt, reasons that cite those numbers,
  * a feedback box that re-plans with the engineer's notes, and "Áp dụng" that runs the chosen scenario. */
-export function AdvisorPanel({value,onChange,config,panel,obstacles,confirmed,disabled,onApply}:{value:AdvisorState;onChange:(v:AdvisorState)=>void;config:Config;panel:Panel;obstacles:Obstacle[];confirmed:boolean;disabled:boolean;onApply:(plan:ApplyPlan,scenario:Scenario,proposal:Proposal)=>void}){
+export function AdvisorPanel({value,onChange,config,panel,obstacles,confirmed,disabled,onApply,demo=false,demoNote}:{value:AdvisorState;onChange:(v:AdvisorState)=>void;config:Config;panel:Panel;obstacles:Obstacle[];confirmed:boolean;disabled:boolean;demo?:boolean;demoNote?:string;onApply:(plan:ApplyPlan,scenario:Scenario,proposal:Proposal)=>void}){
  const [status,setStatus]=useState<{llm:boolean;model:string}|null>(null)
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[note,setNote]=useState('')
  const [viewing,setViewing]=useState(value.rounds.length-1),[picked,setPicked]=useState<string|null>(null)
@@ -30,7 +30,7 @@ export function AdvisorPanel({value,onChange,config,panel,obstacles,confirmed,di
   setBusy(true);setError('')
   try{
    const notes=[...value.rounds.map(r=>r.feedback).filter((f):f is string=>!!f),...(feedback?[feedback]:[])]
-   const proposal=await api.propose({config,panel,obstacles,need:value.need,customer:c,feedback:notes,previous:feedback?p??null:null})
+   const proposal=await api.propose({config,panel,obstacles,need:value.need,customer:c,feedback:notes,previous:feedback?p??null:null,demo})
    onChange({...value,rounds:feedback?[...value.rounds,{proposal,feedback}]:[{proposal,feedback:null}]});setNote('')
   }catch(e){setError(e instanceof Error?e.message:'Chưa lập được đề xuất.')}
   finally{setBusy(false)}
@@ -58,6 +58,7 @@ export function AdvisorPanel({value,onChange,config,panel,obstacles,confirmed,di
   {busy&&<p className="advisor-progress" role="status"><i/>Trợ lý đang thử các kịch bản trên mái thật; mỗi kịch bản chạy bộ tối ưu vài giây…</p>}
   {p&&<div className="advisor-result">
    {value.rounds.length>1&&<div className="advisor-rounds" role="tablist" aria-label="Các phiên bản đề xuất">{value.rounds.map((r,i)=><button key={i} type="button" role="tab" aria-selected={i===viewing} className={i===viewing?'on':''} onClick={()=>{setViewing(i);setPicked(null)}} title={r.feedback||'Đề xuất đầu tiên'}>v{i+1}{r.feedback?' · sau góp ý':''}</button>)}</div>}
+   {p.replay&&<p className="replay-note"><Icon name="history" size={14}/>{p.replay}</p>}
    {p.notice&&<p className="advisor-notice"><Icon name="info" size={14}/>{p.notice}</p>}
    {round.feedback&&<p className="advisor-feedback-echo"><Icon name="history" size={14}/>Soạn lại theo góp ý: “{round.feedback}”</p>}
    <p className="advisor-summary">{p.summary}</p>
@@ -82,7 +83,7 @@ export function AdvisorPanel({value,onChange,config,panel,obstacles,confirmed,di
    <details className="advisor-more"><summary>Giả định, nguồn số liệu và các bước suy luận</summary><ul>{p.assumptions.map((a,i)=><li key={i}>{a}</li>)}</ul><ol>{p.trace.map((t,i)=><li key={i}><b>{t.step}</b> {t.detail}</li>)}</ol><p>{p.mode==='llm'?`Mô hình ${p.model}`:'Bộ quy tắc SolarOpt'} · {n(p.elapsed_ms/1000)} giây</p></details>
    <div className="advisor-feedback">
     <label className="field"><span>Góp ý để trợ lý soạn lại (kèm lý do)</span><textarea aria-label="Góp ý cho trợ lý" value={note} placeholder="Ví dụ: Khách chốt ngân sách tối đa 90 triệu vì vay ngân hàng; chừa lối đi phía Bắc để phơi đồ." onChange={e=>setNote(e.target.value)}/></label>
-    <div className="advisor-ideas">{NOTE_IDEAS.map(t=><button key={t} type="button" onClick={()=>setNote(v=>v?v+'; '+t.toLowerCase():t)}>{t}</button>)}</div>
+    <div className="advisor-ideas">{(demoNote?[demoNote,...NOTE_IDEAS]:NOTE_IDEAS).map(t=><button key={t} type="button" onClick={()=>setNote(v=>v?v+'; '+t.toLowerCase():t)}>{t}</button>)}</div>
     <div className="advisor-actions">
      <button type="button" className="button secondary" disabled={busy||disabled||!note.trim()} onClick={()=>ask(note.trim())}><Icon name="history" size={16}/>Soạn lại đề xuất</button>
      {chosen&&<button type="button" className="button primary" disabled={busy||disabled||!chosen.panel_count} onClick={()=>onApply(p.plans[chosen.id]??p.apply,chosen,p)}><Icon name="check" size={16}/>Áp dụng {chosen.id} và tính phương án</button>}

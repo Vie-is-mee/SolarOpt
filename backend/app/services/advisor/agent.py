@@ -20,6 +20,7 @@ from app.services.advisor.scenarios import ScenarioBook, site_facts, vn as _num
 
 MAX_TURNS = 8
 TIME_BUDGET_S = 85   # no new model call after this, so a proposal answers before the browser gives up (120 s)
+DEMO_BUDGET_S = 30   # on stage, an answer from the scenarios tried so far beats a long wait
 TOOL = {"type": "function", "function": {
     "name": "evaluate_scenario",
     "description": "Chạy bộ tối ưu bố trí của SolarOpt trên mái thật với một kịch bản, trả về số tấm, kWp, sản lượng, tổn thất bóng, vốn đầu tư, tiết kiệm năm đầu, hoàn vốn, NPV. Mỗi lần gọi tốn vài giây; tối đa 4 kịch bản.",
@@ -98,9 +99,10 @@ def _shown(item: Scenario) -> dict:
 
 def _llm_plan(req: AdvisorRequest, book: ScenarioBook, site: dict, client: ChatClient, trace: list, started: float) -> dict | None:
     messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": _context(req, book, site)}]
+    budget = DEMO_BUDGET_S if req.demo else TIME_BUDGET_S
     for _ in range(MAX_TURNS):
-        if book.items and perf_counter() - started > TIME_BUDGET_S:
-            trace.append({"step": "llm", "detail": f"Quá {TIME_BUDGET_S} giây; dùng các kịch bản mô hình đã thử và lý do của bộ quy tắc."})
+        if book.items and perf_counter() - started > budget:
+            trace.append({"step": "llm", "detail": f"Quá {budget} giây; dùng các kịch bản mô hình đã thử và lý do của bộ quy tắc."})
             return {}
         message = client.chat(messages, tools=[TOOL] if len(book.items) < book.MAX else None)
         calls = message.get("tool_calls") or []

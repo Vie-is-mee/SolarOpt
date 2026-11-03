@@ -233,6 +233,12 @@ def _wire(req: ElectricalRequest, inv: InverterSpec, count: int, groups, lo: int
     plan = _Plan()
     # Groups too small for a string of their own join the largest group (a mismatch loss, flagged).
     big = [g for g in groups if len(g[2]) >= lo]
+    # No face holds a string on its own (a small hip roof): wire every face together and flag the mismatch.
+    if not big and lo <= hi and sum(len(g[2]) for g in groups) >= lo:
+        first = groups[0]
+        merged = (first[0], "nhiều hướng mái", [p for g in groups for p in g[2]])
+        plan.mixed += [g[1] for g in groups]
+        groups, big = [merged], [merged]
     for key, label, members in groups:
         if len(members) < lo:
             if big and lo <= hi:
