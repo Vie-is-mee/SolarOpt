@@ -213,3 +213,22 @@ def test_ai_polygon_requires_valid_normalized_geometry(points):
     from app.schemas import VisionResult
     with pytest.raises(ValidationError):
         VisionResult(mode='groq',obstacles=[],roof_polygon_pct=points)
+
+
+def test_vision_falls_back_to_the_next_listed_model(authenticated_client,monkeypatch):
+    client=authenticated_client
+    monkeypatch.setenv('AI_PROVIDER','openai');monkeypatch.setenv('AI_BASE_URL','https://gateway.example/v1');monkeypatch.setenv('AI_API_KEY','test-fallback')
+    monkeypatch.setenv('AI_MODEL','busy-free-model, thinking-model, good-model');vision._cache.clear()
+    asked=[]
+    class Response:
+        def __init__(self,status,content):self.status_code,self.content=status,content
+        def raise_for_status(self):pass
+        def json(self):return {'choices':[{'message':{'content':self.content}}]}
+    def post(url,json=None,**kw):
+        asked.append(json['model']);assert url=='https://gateway.example/v1/chat/completions' and json['max_tokens']>=8000
+        return {'busy-free-model':Response(429,None),'thinking-model':Response(200,None)}.get(json['model'],Response(200,'{"roof_confidence":0.6,"obstacles":[]}'))
+    monkeypatch.setattr(vision.requests,'post',post)
+    result=client.post('/api/vision/analyze',files={'file':('roof.png',image_bytes(),'image/png')})
+    assert result.status_code==200 and result.json()['model']=='good-model'
+    assert asked==['busy-free-model','thinking-model','good-model']
+    assert [e['status'] for e in result.json()['events']].count('retry')==2

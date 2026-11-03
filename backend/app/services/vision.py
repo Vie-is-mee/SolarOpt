@@ -121,9 +121,26 @@ Giới hạn tối đa 20 vật cản và 30 điểm biên. Mỗi quan sát/ghi 
             raw_text = response.json()["message"]["content"]
         else:
             content = [{"type":"text","text":prompt}]+[{"type":"image_url","image_url":{"url":"data:image/jpeg;base64,"+base64.b64encode(d).decode()}} for d in images]
-            response = requests.post(chat_url(provider),headers={"Authorization":"Bearer "+key},json={"model":model,"messages":[{"role":"user","content":content}],"response_format":{"type":"json_object"},"temperature":0.1,"max_tokens":2000},timeout=(10,90))
-            response.raise_for_status()
-            raw_text = response.json()["choices"][0]["message"]["content"]
+            # AI_MODEL may list fallbacks: free shared models get rate-limited upstream (429) or overloaded (5xx).
+            candidates = [m.strip() for m in model.split(",") if m.strip()]
+            body = {"messages":[{"role":"user","content":content}],"response_format":{"type":"json_object"},"temperature":0.1,"max_tokens":2000}
+            if provider == "openai":
+                # Gateway models may reason before answering; keep thinking short and leave room for the JSON.
+                body.update(max_tokens=8000, reasoning={"effort":"low"})
+            raw_text = None
+            for index, name in enumerate(candidates):
+                response = requests.post(chat_url(provider),headers={"Authorization":"Bearer "+key},json={**body,"model":name},timeout=(10,120))
+                last, status = index == len(candidates) - 1, getattr(response, "status_code", 200)
+                if (status == 429 or status >= 500) and not last:
+                    events.append({"stage":"provider","status":"retry","detail":f"{name} đang bận ({status}); chuyển sang {candidates[index+1]}."})
+                    continue
+                response.raise_for_status()
+                raw_text = response.json()["choices"][0]["message"].get("content")
+                if not raw_text and not last:
+                    events.append({"stage":"provider","status":"retry","detail":f"{name} không trả nội dung; chuyển sang {candidates[index+1]}."})
+                    continue
+                model = name
+                break
         raw = json.loads(raw_text)
         if not isinstance(raw,dict):
             raise ValueError("Expected JSON object")
