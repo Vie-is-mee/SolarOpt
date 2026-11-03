@@ -61,6 +61,9 @@ class OpenAICompatible:
             raise LLMError(f"không kết nối được ({exc.__class__.__name__})") from exc
         if response.status_code == 429:
             raise LLMError("đang giới hạn số lượt gọi (429)")
+        if response.status_code == 400 and json_mode:
+            # Some models (e.g. Nemotron on OpenRouter) reject response_format; ask again without it.
+            return self._call(model, messages, tools, False)
         if not response.ok:
             raise LLMError(f"lỗi {response.status_code}: {response.text[:160]}")
         try:

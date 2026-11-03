@@ -353,3 +353,4 @@ kbd{display:inline-block;padding:1px 6px;border:1px solid #cfdcc9;border-bottom-
 .advisor-ideas button{font:inherit;font-size:11.5px;border:1px dashed var(--brand-line);background:var(--surface);color:var(--ink-2);border-radius:999px;padding:3px 10px;cursor:pointer}.advisor-ideas button:hover{border-color:var(--brand);color:var(--brand)}
 .advisor-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
 .advisor-feedback .field,.advisor-inputs>.field{display:grid;width:100%}.advisor-feedback textarea,.advisor-inputs textarea{width:100%;min-height:64px;box-sizing:border-box}
+.advisor-tags{display:flex!important;flex-wrap:wrap;gap:4px;margin-top:3px}.advisor-tags span{font-size:10.5px;color:#5b3d0c;background:#fff6e2;border:1px solid #f0d49a;border-radius:999px;padding:0 7px}

@@ -19,6 +19,7 @@ from app.services.advisor.models import NEED_LABEL, AdvisorRequest, Proposal, Re
 from app.services.advisor.scenarios import ScenarioBook, site_facts, vn as _num
 
 MAX_TURNS = 8
+TIME_BUDGET_S = 85   # no new model call after this, so a proposal answers before the browser gives up (120 s)
 TOOL = {"type": "function", "function": {
     "name": "evaluate_scenario",
     "description": "Chạy bộ tối ưu bố trí của SolarOpt trên mái thật với một kịch bản, trả về số tấm, kWp, sản lượng, tổn thất bóng, vốn đầu tư, tiết kiệm năm đầu, hoàn vốn, NPV. Mỗi lần gọi tốn vài giây; tối đa 4 kịch bản.",
@@ -28,18 +29,20 @@ TOOL = {"type": "function", "function": {
         "objective": {"type": "string", "enum": ["max_energy", "min_cost", "robust"], "description": "max_energy: nhiều điện nhất trong ngân sách; min_cost: ít tấm nhất đạt điện năng mục tiêu; robust: chừa dự phòng sai số"},
         "target_energy_kwh_year": {"type": "number", "description": "Chỉ cho min_cost: điện năng cần đạt mỗi năm"},
         "max_investment_vnd": {"type": "number", "description": "Trần tổng vốn đầu tư trọn gói (đồng); bỏ trống = ngân sách khách"},
-        "edge_reserve_m": {"type": "number", "description": "Lùi thêm mép mái 0–1 m để chừa lối đi hoặc sai số đo"}},
+        "edge_reserve_m": {"type": "number", "description": "Lùi thêm đều mọi mép mái 0–1 m (chưa chọn riêng từng phía) để chừa lối đi hoặc sai số đo"},
+        "extra_daytime_kwh_year": {"type": "number", "description": "Nhu cầu dùng ban ngày tăng thêm mỗi năm theo góp ý (sạc xe điện, bơm nhiệt...); dòng tiền và mức tự dùng tính theo nhu cầu mới"}},
         "required": ["label", "objective"]}}}
 
 SYSTEM = """Bạn là kỹ sư tư vấn điện mặt trời áp mái của SolarOpt. Nhiệm vụ: đề xuất phương án lắp đặt phù hợp nhất với nhu cầu khách, mái nhà và tấm pin đang chọn.
 Quy tắc bắt buộc:
-- Không tự tính hay bịa số. Mọi con số về sản lượng, số tấm, vốn, hoàn vốn chỉ lấy từ kết quả công cụ evaluate_scenario và dữ kiện được cung cấp.
+- Không tự tính hay bịa số. Mọi con số về sản lượng, số tấm, vốn, hoàn vốn chỉ lấy từ kết quả công cụ evaluate_scenario và dữ kiện được cung cấp. Khi viết số, chép nguyên chuỗi trong trường "hien_thi" của kết quả công cụ (đã đúng đơn vị), không tự đổi đơn vị.
 - Suy luận trước khi gọi công cụ: nhu cầu khách là gì, mái chứa tối đa bao nhiêu, ngân sách và điện dùng ban ngày giới hạn quy mô thế nào. Thử 2–4 kịch bản khác nhau có chủ đích (ví dụ: vừa đủ điện ban ngày, phủ toàn bộ nhu cầu, tối đa mái trong ngân sách, chừa lối đi/dự phòng).
 - Nếu kỹ sư có góp ý, kịch bản mới phải phản ánh góp ý đó và lý do phải nói rõ đã thay đổi gì so với đề xuất trước.
+- Góp ý làm thay đổi nhu cầu (xe điện, thêm máy lạnh, bơm nhiệt...) phải đưa vào extra_daytime_kwh_year để dòng tiền tính đúng; lùi mép áp dụng đều mọi cạnh, đừng nói là riêng một phía.
 - Điện dư không được trả tiền (trừ khi giá bán > 0), nên quy mô vượt xa điện ban ngày thường làm hoàn vốn chậm.
 Khi đã đủ kịch bản, trả lời DUY NHẤT một đối tượng JSON:
 {"recommended_id":"S2","summary":"2–3 câu","reasons":[{"text":"lý do","refs":["S2.payback_years","consumption.daytime_kwh_year"]}],"risks":["..."],"questions":["câu hỏi cần hỏi khách"]}
-refs phải là khóa dữ kiện có thật (dạng S1.npv_vnd, S2.coverage_pct, site.max_kwp_by_area, consumption.annual_kwh, previous.panel_count khi có đề xuất trước...). Viết tiếng Việt, ngắn gọn, cho kỹ sư đọc."""
+refs phải là khóa dữ kiện có thật (dạng S1.npv_vnd, S2.coverage_pct, site.max_kwp_by_area, consumption.annual_kwh, previous.panel_count khi có đề xuất trước...). Không viết tên khóa hay tên trường JSON trong câu; khóa chỉ nằm trong refs. Viết tiếng Việt, ngắn gọn, cho kỹ sư đọc."""
 
 
 def _parse_json(text: str | None) -> dict | None:
@@ -84,9 +87,21 @@ def _context(req: AdvisorRequest, book: ScenarioBook, site: dict) -> str:
     }, ensure_ascii=False, default=float)
 
 
-def _llm_plan(req: AdvisorRequest, book: ScenarioBook, site: dict, client: ChatClient, trace: list) -> dict | None:
+def _shown(item: Scenario) -> dict:
+    """Figures already written the way a Vietnamese engineer reads them, for the model to copy verbatim."""
+    return {"quy_mo": f"{item.panel_count} tấm, {_num(item.peak_power_kwp, 2)} kWp", "san_luong": f"{_num(item.annual_energy_kwh, 0)} kWh/năm",
+            "dap_ung": f"{_num(item.coverage_pct)}% nhu cầu cả năm" if item.coverage_pct is not None else "chưa biết nhu cầu",
+            "tu_dung": f"{_num(item.self_use_pct)}% sản lượng", "von": _money(item.investment_vnd), "tiet_kiem_nam_dau": _money(item.annual_saving_vnd),
+            "hoan_von": f"{_num(item.payback_years)} năm" if item.payback_years is not None else "chưa hoàn vốn trong kỳ phân tích",
+            "npv": _money(item.npv_vnd), "ton_that_bong": f"{_num(item.average_shading_loss_pct, 2)}%"}
+
+
+def _llm_plan(req: AdvisorRequest, book: ScenarioBook, site: dict, client: ChatClient, trace: list, started: float) -> dict | None:
     messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": _context(req, book, site)}]
     for _ in range(MAX_TURNS):
+        if book.items and perf_counter() - started > TIME_BUDGET_S:
+            trace.append({"step": "llm", "detail": f"Quá {TIME_BUDGET_S} giây; dùng các kịch bản mô hình đã thử và lý do của bộ quy tắc."})
+            return {}
         message = client.chat(messages, tools=[TOOL] if len(book.items) < book.MAX else None)
         calls = message.get("tool_calls") or []
         if not calls:
@@ -105,10 +120,10 @@ def _llm_plan(req: AdvisorRequest, book: ScenarioBook, site: dict, client: ChatC
                 args = json.loads(call.get("function", {}).get("arguments") or "{}")
                 if name != "evaluate_scenario":
                     raise ValueError(f"Không có công cụ {name}.")
-                params = ScenarioParams(**{k: args[k] for k in ("objective", "target_energy_kwh_year", "max_investment_vnd", "edge_reserve_m") if args.get(k) is not None})
+                params = ScenarioParams(**{k: args[k] for k in ("objective", "target_energy_kwh_year", "max_investment_vnd", "edge_reserve_m", "extra_daytime_kwh_year") if args.get(k) is not None})
                 item = book.run(params, str(args.get("label", "")), str(args.get("intent", "")))
                 trace.append({"step": "tool", "detail": f"{item.id} · {item.label}: {item.panel_count} tấm, {item.investment_vnd / 1e6:.0f} triệu đ"})
-                content = json.dumps({**item.model_dump(exclude={"params"}), "fact_keys": f"{item.id}.<truong>"}, ensure_ascii=False)
+                content = json.dumps({**item.model_dump(exclude={"params"}), "hien_thi": _shown(item), "fact_keys": f"{item.id}.<truong>"}, ensure_ascii=False)
             except (ValueError, ValidationError, json.JSONDecodeError) as exc:
                 content = json.dumps({"error": str(exc)[:300]}, ensure_ascii=False)
                 trace.append({"step": "tool", "detail": f"Kịch bản không chạy được: {str(exc)[:120]}"})
@@ -118,6 +133,15 @@ def _llm_plan(req: AdvisorRequest, book: ScenarioBook, site: dict, client: ChatC
 
 
 # ---- rule-based planner (no model, or model failure) -------------------------------------------------
+
+def _feedback_extra_demand(req: AdvisorRequest) -> float:
+    """Extra daytime kWh/year from notes such as 'thêm 250 kWh/tháng' (EV, heat pump)."""
+    total = 0.0
+    for note in req.feedback:
+        for value, unit in re.findall(r"thêm\D{0,20}?(\d+(?:[.,]\d+)?)\s*kwh\s*/\s*(tháng|thang|năm|nam)", note.lower()):
+            total += float(value.replace(",", ".")) * (12 if unit in ("tháng", "thang") else 1)
+    return total
+
 
 def _feedback_params(req: AdvisorRequest) -> tuple[float | None, float]:
     """Budget cap and edge reserve read from the engineer's notes ('ngân sách 120 triệu', 'chừa lối đi')."""
@@ -135,23 +159,26 @@ def _feedback_params(req: AdvisorRequest) -> tuple[float | None, float]:
 
 def _rules_scenarios(req: AdvisorRequest, book: ScenarioBook) -> None:
     cap, reserve = _feedback_params(req)
-    daytime, annual = book.cons.daytime_kwh_year, book.cons.annual_kwh
+    extra = _feedback_extra_demand(req)
+    demand = book.demand(extra)
+    daytime, annual = demand.daytime_kwh_year, demand.annual_kwh
+    common = {"max_investment_vnd": cap, "edge_reserve_m": reserve, "extra_daytime_kwh_year": extra}
     plans: list[tuple[ScenarioParams, str, str]] = []
     if req.need == "max_energy":
-        plans.append((ScenarioParams(objective="max_energy", max_investment_vnd=cap, edge_reserve_m=reserve), "Tối đa mái trong ngân sách", "Khách ưu tiên sản lượng: lấp mái nhiều nhất có thể."))
+        plans.append((ScenarioParams(objective="max_energy", **common), "Tối đa mái trong ngân sách", "Khách ưu tiên sản lượng: lấp mái nhiều nhất có thể."))
         if annual:
-            plans.append((ScenarioParams(objective="min_cost", target_energy_kwh_year=annual, max_investment_vnd=cap, edge_reserve_m=reserve), "Vừa đủ nhu cầu cả năm", "So sánh: dừng ở mức điện cả năm thì vốn giảm bao nhiêu."))
+            plans.append((ScenarioParams(objective="min_cost", target_energy_kwh_year=annual, **common), "Vừa đủ nhu cầu cả năm", "So sánh: dừng ở mức điện cả năm thì vốn giảm bao nhiêu."))
     elif req.need == "min_cost":
         if daytime:
-            plans.append((ScenarioParams(objective="min_cost", target_energy_kwh_year=daytime, max_investment_vnd=cap, edge_reserve_m=reserve), "Vừa đủ điện ban ngày", "Điện dư không được trả tiền: quy mô theo điện dùng ban ngày cho hoàn vốn nhanh nhất."))
+            plans.append((ScenarioParams(objective="min_cost", target_energy_kwh_year=daytime, **common), "Vừa đủ điện ban ngày", "Điện dư không được trả tiền: quy mô theo điện dùng ban ngày cho hoàn vốn nhanh nhất."))
         if annual:
-            plans.append((ScenarioParams(objective="min_cost", target_energy_kwh_year=annual, max_investment_vnd=cap, edge_reserve_m=reserve), "Phủ toàn bộ nhu cầu", "Nếu khách muốn hóa đơn gần bằng 0 thì cần thêm bao nhiêu vốn."))
+            plans.append((ScenarioParams(objective="min_cost", target_energy_kwh_year=annual, **common), "Phủ toàn bộ nhu cầu", "Nếu khách muốn hóa đơn gần bằng 0 thì cần thêm bao nhiêu vốn."))
         if not plans:
-            plans.append((ScenarioParams(objective="max_energy", max_investment_vnd=cap, edge_reserve_m=reserve), "Tối đa mái trong ngân sách", "Chưa biết nhu cầu: tham chiếu theo sức chứa của mái."))
+            plans.append((ScenarioParams(objective="max_energy", **common), "Tối đa mái trong ngân sách", "Chưa biết nhu cầu: tham chiếu theo sức chứa của mái."))
     else:
-        plans.append((ScenarioParams(objective="robust", max_investment_vnd=cap, edge_reserve_m=reserve), "Dự phòng sai số", "Chừa biên cho sai số đo mái, kích thước tấm và ngân sách."))
-        plans.append((ScenarioParams(objective="robust", max_investment_vnd=cap, edge_reserve_m=max(reserve, 0.3)), "Dự phòng + lối đi bảo trì", "Thêm 30 cm quanh mép để đi lại vệ sinh, đổi lại ít tấm hơn."))
-    plans.append((ScenarioParams(objective="max_energy", max_investment_vnd=cap, edge_reserve_m=reserve), "Tham chiếu: tối đa trong ngân sách", "Mốc so sánh quy mô lớn nhất khách có thể đầu tư."))
+        plans.append((ScenarioParams(objective="robust", **common), "Dự phòng sai số", "Chừa biên cho sai số đo mái, kích thước tấm và ngân sách."))
+        plans.append((ScenarioParams(objective="robust", **{**common, "edge_reserve_m": max(reserve, 0.3)}), "Dự phòng + lối đi bảo trì", "Thêm 30 cm quanh mép để đi lại vệ sinh, đổi lại ít tấm hơn."))
+    plans.append((ScenarioParams(objective="max_energy", **common), "Tham chiếu: tối đa trong ngân sách", "Mốc so sánh quy mô lớn nhất khách có thể đầu tư."))
     seen = set()
     for params, label, intent in plans:
         key = params.model_dump_json()
@@ -232,7 +259,7 @@ def propose(req: AdvisorRequest, client: ChatClient | None = None) -> Proposal:
     answer, mode, notice = None, "rules", ""
     if client is not None:
         try:
-            answer = _llm_plan(req, book, site, client, trace)
+            answer = _llm_plan(req, book, site, client, trace, started)
             mode = "llm" if answer is not None else "rules"
         except LLMError as exc:
             notice = f"Trợ lý AI tạm không dùng được ({exc}); đề xuất dưới đây do bộ quy tắc của SolarOpt lập."

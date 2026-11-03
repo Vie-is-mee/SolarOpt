@@ -10,6 +10,13 @@ from app.services.advisor.tariff import monthly_saving, residential_bill, reside
 from app.services.optimizer import generate_design
 
 
+@pytest.fixture(autouse=True)
+def no_real_model(monkeypatch):
+    """backend/.env may hold a real key (loaded when app.main is imported): tests never call a live model."""
+    monkeypatch.setenv('AI_PROVIDER', 'none')
+    monkeypatch.delenv('ADVISOR_BASE_URL', raising=False)
+
+
 def request(need='min_cost', **customer):
     cfg = ProjectConfig(roof_width_m=12, roof_height_m=9, geometry_confirmed=True)
     obstacles = [RectObstacle(id='tank', label='Bồn nước', x=7, y=5.6, width_m=1.6, depth_m=1.4, height_m=1.2),
@@ -132,3 +139,13 @@ def test_openai_gateway_config_and_model_fallback(monkeypatch):
     assert tried == ['big-model', 'fast-model', 'fast-model'] and client.model == 'fast-model'
     monkeypatch.setenv('AI_BASE_URL', '')
     assert llm.default_client() is None   # incomplete gateway settings: rule planner, never a broken call
+
+
+def test_extra_daytime_demand_from_a_note_changes_the_economics():
+    base = propose(request(), client=None)
+    req = request()
+    req.feedback = ['Khách sắp mua xe điện, sạc ban ngày, thêm khoảng 250 kWh/tháng']
+    ev = propose(req, client=None)
+    assert all(s.params.extra_daytime_kwh_year == 3000 for s in ev.scenarios)
+    pick = lambda p: next(s for s in p.scenarios if s.id == p.recommended_id)
+    assert pick(ev).panel_count > pick(base).panel_count   # sized for the new daytime load
