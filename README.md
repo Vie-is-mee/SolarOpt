@@ -148,7 +148,8 @@ Trợ lý nhận nhu cầu khách (sản lượng cao nhất, đáp ứng nhu c�
 - **Mô hình chỉ suy luận, không tính số.** Mô hình chọn kịch bản và gọi công cụ `evaluate_scenario`; công cụ này chạy bộ tối ưu bố trí và dòng tiền của SolarOpt. Mỗi lý do phải trích khóa dữ kiện có thật (ví dụ `S2.payback_years`); câu có con số mà không trích dẫn hợp lệ sẽ bị loại.
 - **Điện tiêu thụ** quy đổi từ tiền điện theo biểu giá bậc thang EVN (`tariff.py`); tiết kiệm tính bằng phần bậc giá cao nhất được cắt bỏ, điện dư mặc định không được trả tiền.
 - **Không có khóa AI hoặc mô hình lỗi** thì bộ quy tắc của SolarOpt lập đề xuất cùng định dạng, đọc được góp ý đơn giản như “ngân sách tối đa 120 triệu”, “chừa lối đi”.
-- Dùng chung `AI_PROVIDER` và khóa ở trên; `ADVISOR_MODEL` chọn mô hình văn bản có gọi công cụ (mặc định Groq `openai/gpt-oss-120b`, Gemini `gemini-2.5-flash`, Ollama `qwen3:4b`).
+- Dùng chung `AI_PROVIDER` và khóa ở trên; `ADVISOR_MODEL` chọn mô hình văn bản có gọi công cụ (mặc định Groq `openai/gpt-oss-120b`, Gemini `gemini-2.5-flash`, Ollama `qwen3:4b`). Ghi nhiều mô hình cách nhau bằng dấu phẩy để tự chuyển sang mô hình sau khi mô hình trước lỗi hoặc hết lượt.
+- `AI_PROVIDER=openai` dùng mọi cổng tương thích OpenAI (OpenRouter, NVIDIA…): đặt `AI_BASE_URL` (kết thúc bằng `/v1`), `AI_API_KEY`, `AI_MODEL` là mô hình đọc được ảnh (dùng cho bước đọc ảnh mái), còn `ADVISOR_MODEL` cho trợ lý. Mỗi lần đề xuất tốn khoảng 3–6 lượt gọi.
 
 ## Kiểm thử
 

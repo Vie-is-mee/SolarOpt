@@ -27,7 +27,7 @@ class RectObstacle(StrictModel):
     depth_m: float = Field(default=1.0, gt=0, le=200)
     height_m: float = Field(default=1.0, ge=0, le=500)
     confidence: float = Field(default=1.0, ge=0, le=1)
-    source: Literal["manual", "gemini", "groq", "ollama", "demo"] = "manual"
+    source: Literal["manual", "gemini", "groq", "ollama", "openai", "demo"] = "manual"
     scope: Literal["roof", "neighbor"] = "roof"
     confirmed: bool = True
     floors: int | None = Field(default=None, ge=1, le=100)
@@ -362,7 +362,7 @@ class DimensionCheck(StrictModel):
 
 
 class VisionResult(StrictModel):
-    mode: Literal["gemini", "groq", "ollama", "manual", "demo"]
+    mode: Literal["gemini", "groq", "ollama", "openai", "manual", "demo"]
     model: str = ""
     roof_width_m: float | None = Field(default=None, gt=0, le=100)
     roof_height_m: float | None = Field(default=None, gt=0, le=100)

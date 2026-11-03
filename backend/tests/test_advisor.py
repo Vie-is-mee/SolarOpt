@@ -106,3 +106,29 @@ def test_a_revision_explains_what_changed_and_drops_duplicate_layouts():
     assert revised.facts['previous.panel_count'] == next(s for s in first.scenarios if s.id == first.recommended_id).panel_count
     assert len({s.panel_count for s in revised.scenarios}) == len(revised.scenarios)   # same-size layouts are one option
     assert set(revised.plans) == {s.id for s in revised.scenarios}
+
+
+def test_openai_gateway_config_and_model_fallback(monkeypatch):
+    from app.services.advisor import llm
+    for name in ('ADVISOR_BASE_URL', 'ADVISOR_API_KEY'):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv('AI_PROVIDER', 'openai')
+    monkeypatch.setenv('AI_BASE_URL', 'https://gateway.example/v1/')
+    monkeypatch.setenv('AI_API_KEY', 'test-key')
+    monkeypatch.setenv('AI_MODEL', 'vision-model')
+    monkeypatch.setenv('ADVISOR_MODEL', 'big-model, fast-model')
+    client = llm.default_client()
+    assert client.url == 'https://gateway.example/v1/chat/completions' and client.models == ['big-model', 'fast-model']
+    tried = []
+
+    def fake(model, messages, tools, json_mode):
+        tried.append(model)
+        if model == 'big-model':
+            raise llm.LLMError('đang giới hạn số lượt gọi (429)')
+        return {'content': 'ok'}
+    monkeypatch.setattr(client, '_call', fake)
+    assert client.chat([{'role': 'user', 'content': 'x'}]) == {'content': 'ok'}
+    client.chat([{'role': 'user', 'content': 'y'}])
+    assert tried == ['big-model', 'fast-model', 'fast-model'] and client.model == 'fast-model'
+    monkeypatch.setenv('AI_BASE_URL', '')
+    assert llm.default_client() is None   # incomplete gateway settings: rule planner, never a broken call

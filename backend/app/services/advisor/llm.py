@@ -1,5 +1,5 @@
-"""Tool-calling chat client. Groq, Gemini and Ollama all expose an OpenAI-compatible chat endpoint with
-`tools`, so one client covers the three providers SolarOpt already supports (AI_PROVIDER)."""
+"""Tool-calling chat client. Groq, Gemini, Ollama and any OpenAI-compatible gateway (OpenRouter, NVIDIA, ...)
+expose the same chat endpoint with `tools`, so one client covers every provider SolarOpt supports."""
 from __future__ import annotations
 
 import os
@@ -26,36 +26,68 @@ class ChatClient(Protocol):
 
 
 class OpenAICompatible:
-    def __init__(self, provider: str, model: str, key: str):
-        self.provider, self.model, self.key = provider, model, key
-        base = BASES.get(provider) or os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434").rstrip("/") + "/v1"
-        self.url = base + "/chat/completions"
+    """Tries the models in order: a model that errors or runs out of quota hands over to the next one,
+    and stays skipped for the rest of the proposal."""
+
+    def __init__(self, base: str, key: str, models: list[str], name: str = ""):
+        self.url, self.key, self.models, self.name = base.rstrip("/") + "/chat/completions", key, models, name or base
+
+    @property
+    def model(self) -> str:
+        return self.models[0] if self.models else ""
 
     def chat(self, messages, tools=None, json_mode=False):
-        body: dict = {"model": self.model, "messages": messages, "temperature": 0.2}
+        errors = []
+        while self.models:
+            try:
+                return self._call(self.models[0], messages, tools, json_mode)
+            except LLMError as exc:
+                errors.append(f"{self.models[0]}: {exc}")
+                if len(self.models) == 1:
+                    break
+                self.models = self.models[1:]
+        raise LLMError("; ".join(errors) or "Chưa khai báo mô hình.")
+
+    def _call(self, model, messages, tools, json_mode):
+        body: dict = {"model": model, "messages": messages, "temperature": 0.2}
         if tools:
             body["tools"], body["tool_choice"] = tools, "auto"
         if json_mode:
             body["response_format"] = {"type": "json_object"}
         headers = {"Authorization": "Bearer " + self.key} if self.key else {}
         try:
-            response = requests.post(self.url, json=body, headers=headers, timeout=(10, 90))
+            response = requests.post(self.url, json=body, headers=headers, timeout=(10, 120))
         except requests.RequestException as exc:
-            raise LLMError(f"Không kết nối được {self.provider}: {exc.__class__.__name__}") from exc
+            raise LLMError(f"không kết nối được ({exc.__class__.__name__})") from exc
         if response.status_code == 429:
-            raise LLMError(f"{self.provider} đang giới hạn số lượt gọi (429).")
+            raise LLMError("đang giới hạn số lượt gọi (429)")
         if not response.ok:
-            raise LLMError(f"{self.provider} trả lỗi {response.status_code}: {response.text[:200]}")
+            raise LLMError(f"lỗi {response.status_code}: {response.text[:160]}")
         try:
             return response.json()["choices"][0]["message"]
         except (KeyError, IndexError, ValueError) as exc:
-            raise LLMError("Phản hồi của mô hình không đúng định dạng.") from exc
+            raise LLMError("phản hồi không đúng định dạng") from exc
+
+
+def _models(value: str) -> list[str]:
+    return [m.strip() for m in value.split(",") if m.strip()]
 
 
 def default_client() -> ChatClient | None:
-    """The configured client, or None when no key is set (the advisor then runs its rule-based planner)."""
-    provider, _, key = provider_settings()
+    """The configured client, or None when nothing usable is set (the advisor then runs its rule-based planner).
+
+    ADVISOR_BASE_URL / ADVISOR_API_KEY send the advisor to its own gateway; otherwise it follows AI_PROVIDER.
+    ADVISOR_MODEL may list fallbacks separated by commas, best first."""
+    provider, vision_model, key = provider_settings()
+    models = _models(os.getenv("ADVISOR_MODEL", ""))
+    if base := os.getenv("ADVISOR_BASE_URL", "").strip():
+        key = os.getenv("ADVISOR_API_KEY", "").strip() or key
+        return OpenAICompatible(base, key, models, "advisor") if models and key else None
+    if provider == "openai":
+        base = os.getenv("AI_BASE_URL", "").strip()
+        models = models or _models(vision_model)
+        return OpenAICompatible(base, key, models, "openai") if base and key and models else None
     if provider not in DEFAULT_MODELS or (provider != "ollama" and not key):
         return None
-    model = os.getenv("ADVISOR_MODEL", "").strip() or DEFAULT_MODELS[provider]
-    return OpenAICompatible(provider, model, key)
+    base = BASES.get(provider) or os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434").rstrip("/") + "/v1"
+    return OpenAICompatible(base, key, models or [DEFAULT_MODELS[provider]], provider)
