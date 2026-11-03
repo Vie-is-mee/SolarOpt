@@ -12,7 +12,7 @@ export function DemoGuide({steps,guest,onClose}:{steps:DemoStep[];guest:boolean;
  const next=steps.findIndex(s=>!s.done)
  return <section className="demo-guide" aria-label="Kịch bản demo">
   <header><span className="demo-pill"><Icon name="sparkles" size={13}/>Chế độ demo</span><p>Kết quả AI có bản ghi sẽ được phát lại ngay và ghi rõ là bản ghi; dữ liệu khác vẫn gọi AI thật (tối đa 30 giây cho trợ lý).</p><button type="button" className="text-button" onClick={onClose}>Tắt chế độ demo</button></header>
-  {guest&&<p className="demo-warning" role="status"><Icon name="alert" size={14}/>Đang ở chế độ khách: mỗi ngày chỉ tính được 2 dự án. Đăng nhập tài khoản trước khi trình bày để bước xếp pin không bị chặn.</p>}
+  {guest&&<p className="demo-warning" role="status"><Icon name="alert" size={14}/>Đang ở chế độ khách: mỗi ngày chỉ tính được 6 dự án. Đăng nhập tài khoản trước khi trình bày để bước xếp pin không bị chặn.</p>}
   <ol>{steps.map((s,i)=><li key={s.id} className={s.done?'done':i===next?'next':''}>
    <span className="demo-index">{s.done?<Icon name="check" size={12}/>:i+1}</span>
    <div><strong>{s.title}</strong><small>{s.hint}</small></div>

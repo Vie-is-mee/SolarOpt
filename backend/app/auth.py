@@ -60,6 +60,27 @@ def verify_password(password: str, stored: str) -> bool:
 DUMMY_HASH = password_hash("dummy-account-password")
 
 
+def ensure_env_admin() -> str | None:
+    """Create or update the admin named by SOLAROPT_ADMIN_EMAIL / SOLAROPT_ADMIN_PASSWORD at startup.
+
+    Each server keeps its own database, so an admin made on one machine does not exist on another; setting the
+    same two variables locally and on the host gives one login that works everywhere. The password comes from
+    the operator's environment, so nobody can claim the address by registering it first.
+    """
+    try:
+        creds = Credentials(email=os.getenv("SOLAROPT_ADMIN_EMAIL", ""), password=os.getenv("SOLAROPT_ADMIN_PASSWORD", ""))
+    except ValueError:
+        return None
+    with connect() as conn:
+        row = conn.execute("SELECT id,password_hash FROM users WHERE email=?", (creds.email,)).fetchone()
+        if row is None:
+            conn.execute("INSERT INTO users(email,password_hash,role) VALUES(?,?,'admin')", (creds.email, password_hash(creds.password)))
+        else:
+            stored = row[1] if verify_password(creds.password, row[1]) else password_hash(creds.password)
+            conn.execute("UPDATE users SET password_hash=?, role='admin' WHERE id=?", (stored, row[0]))
+    return creds.email
+
+
 def optional_user(request: Request) -> dict | None:
     token = request.cookies.get(COOKIE)
     row = None

@@ -35,7 +35,7 @@ Mã: `backend/app/billing.py`, giao diện `frontend/src/components/PlanCenter.t
 
 | Gói | Giá dự kiến | Dự án tính phương án | AI đọc ảnh |
 |---|---|---|---|
-| Khách (chưa đăng nhập) | 0 đ | 2 dự án mỗi ngày theo IP (`SOLAROPT_GUEST_DAILY_PROJECTS`) | Không (cần đăng nhập) |
+| Khách (chưa đăng nhập) | 0 đ | 6 dự án mỗi ngày theo IP (`SOLAROPT_GUEST_DAILY_PROJECTS`) | Không (cần đăng nhập) |
 | Miễn phí | 0 đ | 5 dự án tổng cộng | 10 lượt / 30 ngày |
 | Cá nhân Pro | 399.000 đ/tháng | 30 dự án / 30 ngày | 100 lượt / 30 ngày |
 | Doanh nghiệp | 2.500.000 đ/tháng | 300 dự án / 30 ngày | 1.000 lượt / 30 ngày |
@@ -46,6 +46,7 @@ Mã: `backend/app/billing.py`, giao diện `frontend/src/components/PlanCenter.t
 - **Nâng cấp:** chưa tích hợp thanh toán. Người dùng bấm “Gửi yêu cầu nâng cấp”; quản trị viên mở trang Quản trị, xem mức dùng và yêu cầu, rồi đặt gói 1–12 tháng. Hết hạn tự quay về gói Miễn phí.
 - **Quản trị viên không bị giới hạn.** Quyền lưu trong cột `users.role` và **chỉ cấp trên máy chủ**:
   `python scripts/manage_admin.py grant email@cua-ban.com` (chạy trong thư mục `backend`, cùng `SOLAROPT_DB_PATH` với máy chủ; tài khoản phải đăng ký trên web trước). `revoke` để thu hồi, `list` để xem. Không cấp qua API hay theo danh sách email, vì chưa có xác minh email nên ai đăng ký trước bằng email đó sẽ chiếm quyền.
+- **Admin dùng chung cho máy local và web:** mỗi máy chủ có cơ sở dữ liệu riêng, nên admin tạo ở máy này không tồn tại ở máy kia. Đặt `SOLAROPT_ADMIN_EMAIL` và `SOLAROPT_ADMIN_PASSWORD` (≥ 10 ký tự) giống nhau trong `backend/.env` và trong biến môi trường của dịch vụ backend trên host; khi khởi động, máy chủ tự tạo tài khoản đó (hoặc đặt lại mật khẩu theo biến) và cấp quyền admin. Mật khẩu do bạn đặt trong môi trường nên không ai chiếm được email bằng cách đăng ký trước.
 - **Nhóm doanh nghiệp:** người dùng tạo nhóm và là chủ nhóm; gói Doanh nghiệp gắn với nhóm (chủ nhóm gửi yêu cầu, quản trị viên kích hoạt), mở 5 chỗ. Chủ nhóm thêm kỹ sư bằng email đã đăng ký, xóa thành viên, hoặc giải tán nhóm khi chỉ còn mình. Khi nhóm có gói trả phí còn hạn: mọi thành viên dùng chung hạn mức (đếm theo nhóm) và xem chung lịch sử dự án của nhóm. Mỗi người thuộc tối đa một nhóm; rời nhóm thì quay về gói cá nhân.
 - Giá là giả thuyết cần kiểm chứng với khách hàng; sửa ở một chỗ trong `PLANS`.
 

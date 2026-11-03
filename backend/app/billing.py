@@ -33,7 +33,7 @@ router = APIRouter(tags=["billing"])
 
 
 def guest_daily_projects() -> int:
-    return max(0, int(os.getenv("SOLAROPT_GUEST_DAILY_PROJECTS", "2")))
+    return max(0, int(os.getenv("SOLAROPT_GUEST_DAILY_PROJECTS", "6")))
 
 
 def project_key(name: str) -> str:

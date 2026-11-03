@@ -130,3 +130,27 @@ def test_deployed_backend_reads_client_ip_from_caddy():
     # Trusting forwarded headers is only safe while the backend publishes no port of its own.
     backend=compose.split('\n  web:')[0]
     assert 'ports:' not in backend
+
+
+def test_env_admin_is_created_then_kept_in_sync(tmp_path, monkeypatch):
+    from app import database
+    from app.auth import ensure_env_admin
+    from app.billing import is_admin
+    from fastapi.testclient import TestClient
+    from app.main import app
+    monkeypatch.setenv('SOLAROPT_DB_PATH', str(tmp_path / 'admin.db'))
+    database.init_db()
+    monkeypatch.setenv('SOLAROPT_ADMIN_EMAIL', ' Boss@Example.com ')
+    monkeypatch.setenv('SOLAROPT_ADMIN_PASSWORD', 'first-password-1')
+    assert ensure_env_admin() == 'boss@example.com'
+    client = TestClient(app, headers={'X-SolarOpt-Request': '1'})
+    login = client.post('/api/auth/login', json={'email': 'boss@example.com', 'password': 'first-password-1'})
+    assert login.status_code == 200 and is_admin(login.json())
+    # Changing the variable on the host resets the password on the next start; the old one stops working.
+    monkeypatch.setenv('SOLAROPT_ADMIN_PASSWORD', 'second-password-2')
+    ensure_env_admin()
+    assert client.post('/api/auth/login', json={'email': 'boss@example.com', 'password': 'first-password-1'}).status_code == 401
+    assert client.post('/api/auth/login', json={'email': 'boss@example.com', 'password': 'second-password-2'}).status_code == 200
+    # Missing or too-short settings create nothing.
+    monkeypatch.setenv('SOLAROPT_ADMIN_PASSWORD', 'short')
+    assert ensure_env_admin() is None
