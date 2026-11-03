@@ -1,0 +1,175 @@
+"""Deterministic tools the advisor calls: consumption, site facts, and scenario evaluation.
+
+A scenario runs SolarOpt's own optimizer on a copy of the project with a given objective, energy target,
+investment cap and edge reserve, then prices it with an all-in cost per kWp and a cash flow that
+values self-used energy at the customer's own tariff.
+"""
+from __future__ import annotations
+
+import math
+
+from app.schemas import DesignRequest
+from app.services.advisor.models import AdvisorRequest, ApplyPlan, Consumption, Scenario, ScenarioParams
+from app.services.advisor.tariff import TARIFF_SOURCE, marginal_price, monthly_saving, residential_kwh
+from app.services.geometry import build_context
+from app.services.optimizer import area_upper_bound, generate_design
+
+# SolarOpt planning reference (same unit prices as the sizing advisor's reference costs): inverter 1.8,
+# racking 1.0, wiring/protection 0.7, labour 1.0 million VND per kWp, plus 4 million fixed per project.
+# Not a market quote; the proposal labels it and the engineer replaces it with the installer's price.
+REFERENCE_BOS_PER_KWP = 4_500_000
+REFERENCE_FIXED = 4_000_000
+DEFAULT_DAYTIME = {"residential": 35.0, "business": 60.0}
+
+
+def vn(v: float, digits: int = 1) -> str:
+    """Vietnamese number: 15.502 / 2,32 (dot thousands, comma decimals, no trailing zeros)."""
+    text = f"{v:,.{digits}f}".translate(str.maketrans({",": ".", ".": ","}))
+    return text.rstrip("0").rstrip(",") if "," in text else text
+
+
+def consumption(req: AdvisorRequest) -> Consumption:
+    c = req.customer
+    share = c.daytime_share_pct if c.daytime_share_pct is not None else DEFAULT_DAYTIME[c.tariff]
+    monthly, source = None, "Chưa có hóa đơn hay số kWh: chưa biết nhu cầu, phương án chỉ dựa vào mái và ngân sách."
+    if c.monthly_kwh:
+        monthly, source = c.monthly_kwh, "Số kWh mỗi tháng do kỹ sư nhập từ hóa đơn."
+    elif c.monthly_bill_vnd and c.tariff == "residential":
+        monthly = residential_kwh(c.monthly_bill_vnd, c.vat_pct)
+        source = f"Quy đổi từ tiền điện {vn(c.monthly_bill_vnd, 0)} đ/tháng theo {TARIFF_SOURCE}; cộng VAT {vn(c.vat_pct)}%."
+    elif c.monthly_bill_vnd and c.business_price_vnd_kwh:
+        monthly = c.monthly_bill_vnd / (c.business_price_vnd_kwh * (1 + c.vat_pct / 100))
+        source = f"Quy đổi từ tiền điện {vn(c.monthly_bill_vnd, 0)} đ/tháng với giá kinh doanh bình quân {vn(c.business_price_vnd_kwh, 0)} đ/kWh, VAT {vn(c.vat_pct)}%."
+    monthly = round(monthly, 1) if monthly else None
+    annual = round(monthly * 12) if monthly else None
+    return Consumption(annual_kwh=annual, monthly_kwh=monthly, daytime_share_pct=share, daytime_kwh_year=annual * share / 100 if annual else None, source=source)
+
+
+def capex(req: AdvisorRequest) -> tuple[float, str]:
+    """All-in investment in million VND per kWp, and where it came from."""
+    if req.customer.capex_million_per_kwp:
+        return req.customer.capex_million_per_kwp, "Suất đầu tư trọn gói do kỹ sư nhập theo báo giá."
+    kwp = req.panel.power_w / 1000
+    per_kwp = (req.panel.price_vnd / kwp + REFERENCE_BOS_PER_KWP) / 1e6
+    return round(per_kwp, 2), (f"Đơn giá tham khảo SolarOpt: tấm pin {vn(req.panel.price_vnd / kwp / 1e6, 2)} tr/kWp + inverter, khung, dây, nhân công 4,5 tr/kWp + 4 tr cố định; "
+                               "giả định lập kế hoạch, chưa gồm thuế và lãi nhà thầu. Thay bằng báo giá thật trước khi chốt.")
+
+
+def site_facts(req: AdvisorRequest) -> dict[str, float | str | None]:
+    ctx = build_context(req.config, req.obstacles, None)
+    usable, bound = area_upper_bound(req.config, req.panel, ctx)
+    roof_obstacles = [o for o in req.obstacles if o.scope == "roof"]
+    return {
+        "site.roof_area_m2": round(ctx.roof.area, 1),
+        "site.usable_area_m2": usable,
+        "site.max_panels_by_area": bound,
+        "site.max_kwp_by_area": round(bound * req.panel.power_w / 1000, 2),
+        "site.obstacles": len(roof_obstacles),
+        "site.neighbour_structures": len(req.obstacles) - len(roof_obstacles),
+        "site.tallest_obstacle_m": max((o.height_m for o in req.obstacles), default=0),
+        "site.latitude": req.config.latitude,
+        "panel.power_w": req.panel.power_w,
+        "panel.price_vnd": req.panel.price_vnd,
+        "panel.model": f"{req.panel.manufacturer} {req.panel.model}",
+    }
+
+
+def cash_flow(req: AdvisorRequest, cons: Consumption, kwp: float, energy: float, investment: float):
+    """Self-used energy saves the customer's own top tariff tiers; surplus earns sell_price (0 by default).
+    Self use is capped by daytime demand; without a known demand all output counts as self-used."""
+    f, c = req.finance, req.customer
+    monthly = cons.monthly_kwh
+    cumulative, npv, payback = -investment, -investment, None
+    first_saving, self_use_pct = 0.0, 100.0
+    for year in range(1, f.years + 1):
+        e = energy * (1 - f.degradation_pct / 100) ** (year - 1)
+        self_used = min(e, cons.daytime_kwh_year) if cons.daytime_kwh_year is not None else e
+        growth = (1 + f.price_growth_pct / 100) ** (year - 1)
+        if monthly:
+            saving = 12 * monthly_saving(monthly, self_used / 12, c.tariff, c.business_price_vnd_kwh, c.vat_pct) * growth
+        else:   # No bill: value self use at the 4th residential tier, a conservative middle price.
+            saving = self_used * marginal_price(250) * (1 + c.vat_pct / 100) * growth
+        export = (e - self_used) * f.sell_price_vnd_kwh * growth
+        net = saving + export - f.maintenance_vnd_per_kwp_year * kwp
+        if year == 1:
+            first_saving, self_use_pct = saving + export, (self_used / e * 100 if e else 0)
+        previous = cumulative
+        cumulative += net
+        if payback is None and cumulative >= 0 and net > 0:
+            payback = year - 1 + max(0.0, -previous) / net
+        npv += net / (1 + f.discount_pct / 100) ** year
+    return first_saving, self_use_pct, payback, npv
+
+
+class ScenarioBook:
+    """Runs and remembers scenarios for one advisor request; ids are S1, S2, ..."""
+    MAX = 4
+
+    def __init__(self, req: AdvisorRequest):
+        self.req = req
+        self.cons = consumption(req)
+        self.capex, self.capex_source = capex(req)
+        self.items: list[Scenario] = []
+        self.applied: dict[str, ApplyPlan] = {}   # project settings that reproduce each scenario
+        # Without an investment cap the roof is the limit; this bound can never bind the optimizer.
+        self.area_bound = max(1, area_upper_bound(req.config, req.panel, build_context(req.config, req.obstacles, None))[1])
+
+    def investment(self, kwp: float) -> float:
+        return self.capex * 1e6 * kwp + (0 if self.req.customer.capex_million_per_kwp else REFERENCE_FIXED * (kwp > 0))
+
+    def run(self, params: ScenarioParams, label: str, intent: str = "") -> Scenario:
+        if len(self.items) >= self.MAX:
+            raise ValueError(f"Đã thử tối đa {self.MAX} kịch bản cho một lần đề xuất.")
+        req, panel = self.req, self.req.panel
+        cap = params.max_investment_vnd or req.customer.budget_vnd
+        panel_kwp = panel.power_w / 1000
+        # The optimizer caps panels by panel price; translate an all-in cap into that panel count.
+        fixed = 0 if req.customer.capex_million_per_kwp else REFERENCE_FIXED
+        max_panels = math.floor(max(0.0, cap - fixed) / (self.capex * 1e6 * panel_kwp) + 1e-9) if cap else self.area_bound
+        target = params.target_energy_kwh_year if params.objective == "min_cost" else None
+        if params.objective == "min_cost" and target is None:
+            target = self.cons.annual_kwh or None
+            if target is None:
+                raise ValueError("Phương án giảm chi phí cần điện năng mục tiêu; chưa có hóa đơn hay số kWh.")
+        config = req.config.model_copy(update={
+            "budget_vnd": max(1, max_panels) * panel.price_vnd if max_panels else 0,
+            "target_energy_kwh_year": target,
+            "layout_edge_reserve_m": max(req.config.layout_edge_reserve_m, params.edge_reserve_m),
+            "geometry_confirmed": True,
+        })
+        result = generate_design(DesignRequest(config=config, panel=panel, obstacles=req.obstacles, objective=params.objective))
+        m = result.metrics
+        kwp, energy = m.peak_power_kwp, m.annual_energy_kwh
+        investment = self.investment(kwp) if m.panel_count else 0.0
+        saving, self_use, payback, npv = cash_flow(req, self.cons, kwp, energy, investment)
+        notes = [w for w in result.warnings if w.startswith(("Chưa đáp ứng", "Dự phòng", "Đã đạt giới hạn")) or "trên nóc vật cản" in w]
+        item = Scenario(
+            id=f"S{len(self.items) + 1}", label=label[:80] or params.objective, intent=intent[:400], params=params,
+            panel_count=m.panel_count, peak_power_kwp=round(kwp, 2), annual_energy_kwh=round(energy),
+            coverage_pct=round(energy / self.cons.annual_kwh * 100, 1) if self.cons.annual_kwh else None,
+            self_use_pct=round(self_use, 1), average_shading_loss_pct=round(m.average_shading_loss_pct, 2),
+            investment_vnd=round(investment, -3), annual_saving_vnd=round(saving, -3),
+            payback_years=round(payback, 1) if payback is not None else None, npv_vnd=round(npv, -3),
+            target_met=result.target_met, warnings=notes[:4],
+        )
+        self.items.append(item)
+        self.applied[item.id] = ApplyPlan(objective=params.objective, budget_vnd=config.budget_vnd, target_energy_kwh_year=target, layout_edge_reserve_m=config.layout_edge_reserve_m)
+        return item
+
+    def get(self, sid: str) -> Scenario | None:
+        return next((s for s in self.items if s.id == sid), None)
+
+    def facts(self) -> dict[str, float | str | None]:
+        out: dict[str, float | str | None] = {
+            "consumption.annual_kwh": round(self.cons.annual_kwh) if self.cons.annual_kwh else None,
+            "consumption.monthly_kwh": round(self.cons.monthly_kwh) if self.cons.monthly_kwh else None,
+            "consumption.daytime_share_pct": self.cons.daytime_share_pct,
+            "consumption.daytime_kwh_year": round(self.cons.daytime_kwh_year) if self.cons.daytime_kwh_year else None,
+            "customer.budget_vnd": self.req.customer.budget_vnd,
+            "capex.million_per_kwp": self.capex,
+        }
+        for s in self.items:
+            for key in ("panel_count", "peak_power_kwp", "annual_energy_kwh", "coverage_pct", "self_use_pct", "average_shading_loss_pct",
+                        "investment_vnd", "annual_saving_vnd", "payback_years", "npv_vnd"):
+                out[f"{s.id}.{key}"] = getattr(s, key)
+        return out

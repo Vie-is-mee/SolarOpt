@@ -24,6 +24,9 @@ from app.schemas import (
     SunPosition, SunRequest, VerifyRequest, VerifyResult, VisionResult, IrradianceResult,
     UncertaintyRequest, UncertaintyResult, SceneRequest, ProjectConfig,
 )
+from app.services.advisor.agent import propose
+from app.services.advisor.llm import default_client
+from app.services.advisor.models import AdvisorRequest, Proposal
 from app.services.dependency import trace_impact
 from app.services.vision import analyze_images, provider_status, VisionError
 from app.services.scene import simulate_scene
@@ -54,7 +57,7 @@ async def private_responses(request, call_next):
 
 
 compute_slots = BoundedSemaphore(max(1, int(os.getenv("SOLAROPT_MAX_COMPUTE", "1"))))
-heavy_paths = {"/api/design/mounting-compare", "/api/design/stress-preview", "/api/design/generate", "/api/design/repair", "/api/design/stress-test", "/api/uncertainty/evaluate", "/api/roof/trace", "/api/vision/analyze"}
+heavy_paths = {"/api/advisor/propose", "/api/design/mounting-compare", "/api/design/stress-preview", "/api/design/generate", "/api/design/repair", "/api/design/stress-test", "/api/uncertainty/evaluate", "/api/roof/trace", "/api/vision/analyze"}
 
 
 @app.middleware("http")
@@ -116,6 +119,25 @@ async def vision_analyze(file: UploadFile = File(...), context_files: list[Uploa
     # Cached and "AI not configured" answers cost nothing, so they do not use the quota.
     if result.mode != "manual" and not result.cached:
         record_ai(user)
+    return result
+
+
+@app.get("/api/advisor/status")
+def advisor_status():
+    client = default_client()
+    return {"llm": client is not None, "model": getattr(client, "model", ""), "provider": provider_status()["provider"]}
+
+
+@app.post("/api/advisor/propose", response_model=Proposal)
+def advisor_propose(req: AdvisorRequest, request: Request, user=Depends(optional_user)):
+    # Each proposal runs up to four layouts; it counts against the project quota like a design run.
+    quota = ProjectQuota(request, user, req.config.project_name)
+    quota.check()
+    try:
+        result = propose(req)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    quota.record()
     return result
 
 
