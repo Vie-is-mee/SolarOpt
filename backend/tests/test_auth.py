@@ -154,3 +154,13 @@ def test_env_admin_is_created_then_kept_in_sync(tmp_path, monkeypatch):
     # Missing or too-short settings create nothing.
     monkeypatch.setenv('SOLAROPT_ADMIN_PASSWORD', 'short')
     assert ensure_env_admin() is None
+
+
+def test_visitor_address_comes_from_the_proxy_header_only_when_trusted(monkeypatch):
+    from starlette.requests import Request
+    from app.auth import client_ip
+    req = Request({'type': 'http', 'headers': [(b'x-forwarded-for', b'203.0.113.7, 10.0.0.2')], 'client': ('10.0.0.9', 1)})
+    monkeypatch.delenv('SOLAROPT_TRUST_PROXY', raising=False)
+    assert client_ip(req) == '10.0.0.9'
+    monkeypatch.setenv('SOLAROPT_TRUST_PROXY', '1')
+    assert client_ip(req) == '203.0.113.7'

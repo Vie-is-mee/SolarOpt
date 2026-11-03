@@ -13,7 +13,7 @@ import time
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
-from app.auth import optional_user, require_user, same_origin
+from app.auth import client_ip as _client_ip, optional_user, require_user, same_origin
 from app.database import connect
 
 DAY = 24 * 60 * 60
@@ -41,7 +41,7 @@ def project_key(name: str) -> str:
 
 
 def client_ip(request: Request) -> str:
-    return request.client.host if request.client else "unknown"
+    return _client_ip(request)
 
 
 def _active(plan, until) -> str:
