@@ -34,6 +34,7 @@ Bố trí điện mặt trời áp mái đòi hỏi xem xét đồng thời di�
 | Phân tích ảnh có hỗ trợ AI | Tích hợp tùy chọn dịch vụ nhận diện ảnh để gợi ý biên mái và vật cản; người dùng xác nhận trước khi sử dụng. |
 | Mô phỏng nắng và bóng che | Tính vị trí mặt trời theo địa điểm và thời gian; thể hiện bóng che và bức xạ theo mô hình trời quang. |
 | Đề xuất bố trí tấm pin | Tạo ba phương án với mức ưu tiên khác nhau, có xét hình học, bóng che, khoảng cách an toàn và ngân sách. |
+| Thiết kế điện sơ bộ | Chia chuỗi theo từng hướng mái, chọn inverter từ danh mục (hoặc nhập theo datasheet), kiểm tra Voc lúc lạnh, Vmp lúc nóng, dòng MPPT, tỷ lệ DC/AC; vẽ sơ đồ chuỗi và lập bảng vật tư đưa thẳng vào dự toán. |
 | Kiểm tra phương án | Kiểm tra các điều kiện hình học, thông số, ngân sách và thử tám tình huống sai số trên phương án hiện tại. |
 | Quản lý kết quả | Lưu lịch sử phiên bản, cập nhật thiết kế sau thay đổi và xuất dữ liệu JSON, bản vẽ SVG hoặc báo cáo PDF. |
 
@@ -43,7 +44,7 @@ Bố trí điện mặt trời áp mái đòi hỏi xem xét đồng thời di�
 2. **Xác nhận hình học:** Chỉnh đường biên, vật cản, cao độ và hướng của bản vẽ.
 3. **Mô phỏng điều kiện chiếu sáng:** Xem vị trí mặt trời, bóng che và phân bố bức xạ theo thời gian.
 4. **Tính toán phương án:** Tạo và so sánh các cách bố trí tấm pin dựa trên dữ liệu đã xác nhận.
-5. **Kiểm tra và bàn giao:** Đánh giá ràng buộc, thử tình huống sai số, lưu bản duyệt sơ bộ và xuất kết quả.
+5. **Kiểm tra và bàn giao:** Thiết kế điện (chuỗi, inverter, vật tư), đánh giá ràng buộc, thử tình huống sai số, lưu bản duyệt sơ bộ và xuất kết quả.
 
 Quy trình nhập tay và dự án mẫu vẫn sử dụng được khi chưa cấu hình dịch vụ AI.
 
@@ -151,6 +152,10 @@ Trợ lý nhận nhu cầu khách (sản lượng cao nhất, đáp ứng nhu c�
 - Dùng chung `AI_PROVIDER` và khóa ở trên; `ADVISOR_MODEL` chọn mô hình văn bản có gọi công cụ (mặc định Groq `openai/gpt-oss-120b`, Gemini `gemini-2.5-flash`, Ollama `qwen3:4b`). Ghi nhiều mô hình cách nhau bằng dấu phẩy để tự chuyển sang mô hình sau khi mô hình trước lỗi hoặc hết lượt.
 - `AI_PROVIDER=openai` dùng mọi cổng tương thích OpenAI (OpenRouter, NVIDIA…): đặt `AI_BASE_URL` (kết thúc bằng `/v1`), `AI_API_KEY`, `AI_MODEL` là mô hình đọc được ảnh (dùng cho bước đọc ảnh mái), còn `ADVISOR_MODEL` cho trợ lý. Mỗi lần đề xuất tốn khoảng 3–6 lượt gọi.
 
+### Thiết kế điện (`POST /api/design/electrical`)
+
+Nhận bố trí đã tính, tấm pin và các giả định nhiệt độ; trả về số tấm mỗi chuỗi cho phép, các chuỗi theo thứ tự đấu, gán inverter/MPPT, kết quả kiểm tra giới hạn, bảng vật tư và so sánh các inverter đã thử. `GET /api/electrical/inverters` trả danh mục inverter tham khảo. Không gọi AI và không tính vào hạn mức.
+
 ## Kiểm thử
 
 Trong thư mục `backend`, sau khi cài thư viện:
@@ -213,7 +218,8 @@ SolarOpt là công cụ **hỗ trợ đánh giá sơ bộ**. Khi sử dụng k�
 - Điện năng năm được quy đổi theo hướng/độ dốc riêng từng mặt mái từ 12 ngày trời quang đại diện; bóng tính cho mọi giờ có nắng của 12 ngày đó, theo 3 chuỗi cell có diode bypass của mỗi tấm (xem `backend/app/services/energy.py`). Chưa mô phỏng thời tiết từng giờ cả năm hoặc đối chuẩn với hệ thống thực. Mặt tham chiếu dữ liệu nắng phải được khai báo đúng.
 - Bố trí được tối ưu trong phạm vi lưới vị trí ứng viên và hướng đặt tấm đang hỗ trợ; chưa khảo sát mọi cấu hình khả thi.
 - Giá trong các phương án hiện chỉ tính phần tấm pin, chưa phản ánh đầy đủ chi phí đầu tư và thi công.
-- Các kiểm tra trong ứng dụng không thay thế đánh giá kết cấu mái, an toàn điện, thiết kế chuỗi điện và yêu cầu phòng cháy chữa cháy.
+- Thiết kế điện là sơ bộ: thông số inverter trong danh mục lấy từ datasheet hãng để tham khảo, giá là giả định lập kế hoạch; chưa tính sụt áp chi tiết, phối hợp bảo vệ và thủ tục đấu nối (xem `backend/app/services/electrical.py`).
+- Các kiểm tra trong ứng dụng không thay thế đánh giá kết cấu mái, an toàn điện chi tiết và yêu cầu phòng cháy chữa cháy.
 - Tài khoản email/mật khẩu và lịch sử riêng được lưu bằng SQLite; xem [hướng dẫn tài khoản](docs/ACCOUNTS.md).
 
 ## Tài liệu liên quan
