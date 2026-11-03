@@ -112,9 +112,19 @@ def same_origin(request: Request) -> None:
         raise HTTPException(403, "Thiếu xác nhận yêu cầu.")
 
 
+def client_ip(request: Request) -> str:
+    """Visitor address. Behind a hosting proxy (SOLAROPT_TRUST_PROXY=1) every request comes from the proxy, so the
+    first X-Forwarded-For entry is the visitor; otherwise all guests would share one quota."""
+    if os.getenv("SOLAROPT_TRUST_PROXY", "").strip() == "1":
+        forwarded = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+        if forwarded:
+            return forwarded[:64]
+    return request.client.host if request.client else "unknown"
+
+
 def throttle(request: Request) -> None:
     now = int(time.time())
-    client = request.client.host if request.client else "unknown"
+    client = client_ip(request)
     with connect() as conn:
         conn.execute("DELETE FROM auth_attempts WHERE window_start<=?", (now - 900,))
         conn.execute("INSERT INTO auth_attempts VALUES(?,?,1) ON CONFLICT(client) DO UPDATE SET attempts=attempts+1", (client, now))
