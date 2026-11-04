@@ -3,11 +3,12 @@ import {accountIdentity} from '../draftOwner'
 import {Icon} from './Icon'
 import {vnd} from '../format'
 
-type Limits={projects:number|null;project_window:number|null;ai_reads:number|null}
-type Plan={name:string;price_vnd_month:number;projects:number;ai_reads:number;features:string[];project_window_days:number|null;seats:number}
+type Limits={projects:number|null;project_window:number|null;ai_reads:number|null;chat?:number|null}
+type Plan={name:string;price_vnd_month:number;projects:number;ai_reads:number;chat?:number;features:string[];project_window_days:number|null;seats:number}
+const TEAM_PLANS=['team','business']
 type Member={id:number;email:string;role:'owner'|'member'}
 type Team={id:number;name:string;role:'owner'|'member';plan:string;plan_name:string;plan_until:number|null;seats:number;members:Member[]}
-type Usage={plan:string;plan_name:string;plan_until:number|null;limits:Limits;used:{projects:number;ai_reads:number};plans:Record<string,Plan>;is_admin:boolean;pending_request?:string|null;team:Team|null}
+type Usage={plan:string;plan_name:string;plan_until:number|null;limits:Limits;used:{projects:number;ai_reads:number;chat?:number};plans:Record<string,Plan>;is_admin:boolean;pending_request?:string|null;team:Team|null}
 type AdminUser={id:number;email:string;role:string;plan:string;plan_name:string;plan_until:number|null;used:{projects:number;ai_reads:number};limits:Limits;pending_request:{plan:string;note:string}|null;team:{name:string;role:string}|null}
 type AdminTeam={id:number;name:string;plan:string;plan_until:number|null;owner:string;members:number;seats:number;used:{projects:number;ai_reads:number};limits:Limits;pending_request:{plan:string;note:string}|null}
 const base=import.meta.env.VITE_API_BASE||''
@@ -39,7 +40,7 @@ function PlanArt(){
   <path d="M380 168.5H1000" className="pa-ground"/>
  </svg>
 }
-const PLAN_ICON:Record<string,string>={free:'sun',pro:'bolt',business:'building'}
+const PLAN_ICON:Record<string,string>={free:'sun',pro:'bolt',team:'layers',business:'building'}
 function Modal({title,onClose,children,wide=false,art=false}:{title:string;onClose:()=>void;children:ReactNode;wide?:boolean;art?:boolean}){
  const ref=useRef<HTMLDialogElement>(null)
  useEffect(()=>{const d=ref.current!;d.showModal();return()=>d.close()},[])
@@ -76,7 +77,7 @@ export function PlanCenter({signedIn,onLogin}:{signedIn:boolean;onLogin:()=>void
  const pick=(key:string,fallback:string)=>choice[key]||{plan:fallback,months:1}
  return <>
   <span className={`plan-meter${left===0?' empty':''}`} title={usage.plan==='guest'?'Khách: tính thử theo ngày':'Mỗi dự án chỉ tính một lần; tính lại cùng dự án không trừ lượt'}>
-   <strong>{usage.plan_name}</strong> · {unlimited?'không giới hạn':<>{usage.used.projects}/{usage.limits.projects} dự án{usage.plan==='guest'?' hôm nay':usage.limits.project_window?' / 30 ngày':''}{usage.plan!=='guest'&&<> · AI {usage.used.ai_reads}/{usage.limits.ai_reads}</>}</>}
+   <strong>{usage.plan_name}</strong> · {unlimited?'không giới hạn':<>{usage.used.projects}/{usage.limits.projects} dự án{usage.plan==='guest'?' hôm nay':usage.limits.project_window?' / 30 ngày':''}{usage.plan!=='guest'&&<> · AI {usage.used.ai_reads}/{usage.limits.ai_reads}{usage.limits.chat!=null&&<> · trợ lý {usage.used.chat??0}/{usage.limits.chat}</>}</>}</>}
   </span>
   {!usage.is_admin&&<button className="button secondary small" onClick={()=>show('plans')}>{usage.plan==='business'?'Gói của bạn':'Nâng cấp'}</button>}
   {signedIn&&<button className="button secondary small" onClick={()=>show('team')}>{team?`Nhóm: ${team.name}`:'Nhóm'}</button>}
@@ -85,14 +86,14 @@ export function PlanCenter({signedIn,onLogin}:{signedIn:boolean;onLogin:()=>void
   {open==='plans'&&<Modal title="Gói sử dụng SolarOpt" art onClose={()=>setOpen(null)}>
    <p className="plan-note">{left===0?'Bạn đã dùng hết lượt của gói hiện tại. ':''}Mỗi dự án chỉ trừ một lượt; tính lại hoặc so sánh 3 phương án của cùng dự án không trừ thêm.{usage.plan_until?` Gói hiện tại hiệu lực đến ${date(usage.plan_until)}.`:''}</p>
    <div className="plan-grid">{Object.entries(usage.plans).map(([id,p])=><article key={id} className={`plan-card plan-${id}${usage.plan===id?' current':''}`}>
-    {id==='pro'&&<span className="plan-ribbon">Phổ biến</span>}
+    {id==='team'&&<span className="plan-ribbon">Phổ biến</span>}
     <div className="plan-card-head"><span className="plan-icon"><Icon name={PLAN_ICON[id]||'sparkles'} size={18}/></span><h3>{p.name}</h3></div>
     <div className="plan-price"><strong>{p.price_vnd_month?vnd(p.price_vnd_month,''):'0'}</strong><small>{p.price_vnd_month?'đ / tháng':'đ · miễn phí'}</small></div>
     <ul>{p.features.map(f=><li key={f}>{f}</li>)}</ul>
     {usage.plan===id?<span className="badge">Đang dùng</span>:id==='free'?(usage.plan==='guest'?<button className="button secondary small" onClick={()=>{setOpen(null);onLogin()}}>Đăng ký miễn phí</button>:null)
      :!signedIn?<button className="button secondary small" onClick={()=>{setOpen(null);onLogin()}}>Đăng nhập để nâng cấp</button>
      :usage.pending_request===id?<span className="badge amber">Đã gửi yêu cầu</span>
-     :id==='business'&&team?.role!=='owner'?<button className="button secondary small" onClick={()=>show('team')}>{team?'Chỉ chủ nhóm yêu cầu':'Tạo nhóm trước'}</button>
+     :TEAM_PLANS.includes(id)&&team?.role!=='owner'?<button className="button secondary small" onClick={()=>show('team')}>{team?'Chỉ chủ nhóm yêu cầu':'Tạo nhóm trước'}</button>
      :<button className="button primary small" onClick={()=>void run(()=>call('/api/account/upgrade-request',{plan:id,note:''}),`Đã gửi yêu cầu nâng cấp lên gói ${p.name}. Quản trị viên sẽ liên hệ và kích hoạt.`)}>Gửi yêu cầu nâng cấp</button>}
    </article>)}</div>
    <p className="plan-note">Giá là mức dự kiến trong giai đoạn thử nghiệm. Thanh toán trực tuyến chưa tích hợp: sau khi gửi yêu cầu, quản trị viên liên hệ và kích hoạt gói.</p>

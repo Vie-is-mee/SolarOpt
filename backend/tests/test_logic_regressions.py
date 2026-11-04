@@ -170,6 +170,19 @@ def test_pvgis_missing_irradiance_does_not_masquerade_as_real_data(monkeypatch):
     assert solar.fetch_pvgis(10,106).source=='fallback'
 
 
+def test_pvgis_irradiance_comes_with_its_own_performance_ratio(monkeypatch):
+    # TP.HCM, flat plane, PVGIS-ERA5 (queried 04/11/2026): 1854.05 kWh/m2 and 1384.99 kWh/kWp.
+    # Pairing that irradiance with the generic 0.82 would claim ~1520 kWh/kWp, about 10% above PVGIS itself.
+    from app.services import solar
+    class Response:
+        def raise_for_status(self):pass
+        def json(self):return {'outputs':{'totals':{'fixed':{'E_y':1384.99,'H(i)_y':1854.05}}}}
+    monkeypatch.setattr(solar.requests,'get',lambda *a,**k:Response())
+    r=solar.fetch_pvgis(10.7769,106.7009,0,180)
+    assert r.source=='PVGIS' and r.performance_ratio==0.747
+    assert abs(r.annual_irradiance_kwh_m2*r.performance_ratio-r.specific_yield_kwh_kwp)<2
+
+
 @pytest.mark.parametrize('corruption',['energy_total','panel_energy','gap'])
 def test_approval_endpoint_rejects_corrupted_or_too_close_layout(corruption,monkeypatch,authenticated_client):
     from fastapi.testclient import TestClient

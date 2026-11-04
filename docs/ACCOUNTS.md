@@ -33,12 +33,15 @@ Account changes are synchronized between tabs and revalidated on focus. Expired 
 
 Mã: `backend/app/billing.py`, giao diện `frontend/src/components/PlanCenter.tsx`.
 
-| Gói | Giá dự kiến | Dự án tính phương án | AI đọc ảnh |
-|---|---|---|---|
-| Khách (chưa đăng nhập) | 0 đ | 6 dự án mỗi ngày theo IP (`SOLAROPT_GUEST_DAILY_PROJECTS`) | Không (cần đăng nhập) |
-| Miễn phí | 0 đ | 5 dự án tổng cộng | 10 lượt / 30 ngày |
-| Cá nhân Pro | 399.000 đ/tháng | 30 dự án / 30 ngày | 100 lượt / 30 ngày |
-| Doanh nghiệp | 2.500.000 đ/tháng | 300 dự án / 30 ngày | 1.000 lượt / 30 ngày |
+| Gói | Giá dự kiến | Ghế | Dự án tính phương án | AI đọc ảnh | Câu hỏi trợ lý AI |
+|---|---|---|---|---|---|
+| Khách (chưa đăng nhập) | 0 đ | — | 2 dự án mỗi ngày theo IP (`SOLAROPT_GUEST_DAILY_PROJECTS`) | Không (cần đăng nhập) | Không: trợ lý và tư vấn trả lời bằng bộ quy tắc |
+| Miễn phí | 0 đ | 1 | 5 dự án tổng cộng | 10 lượt / 30 ngày | 30 / 30 ngày |
+| Cá nhân (`pro`) | 790.000 đ/tháng | 1 | 20 dự án / 30 ngày | 40 lượt / 30 ngày | 300 / 30 ngày |
+| Team (`team`, gắn nhóm) | 3.490.000 đ/tháng | 3 | 60 dự án / 30 ngày | 120 lượt / 30 ngày | 900 / 30 ngày |
+| Doanh nghiệp (`business`, gắn nhóm) | 9.900.000 đ/tháng | 10 | 250 dự án / 30 ngày | 500 lượt / 30 ngày | 3.000 / 30 ngày |
+
+Giá tính từ mô hình chi phí `output/report/SolarOpt_Mo_hinh_tai_chinh.xlsx` (AI trả phí). Enterprise (từ 24 triệu/tháng) ký hợp đồng riêng, không bán qua bảng này. Mỗi câu trả lời của trợ lý dùng mô hình AI trừ một lượt "câu hỏi trợ lý AI"; hết lượt hoặc là khách thì trợ lý vẫn trả lời bằng bộ quy tắc, kèm ghi chú.
 
 - **Một lượt = một dự án mới được tính phương án thành công.** Tính lại, sửa phương án hoặc so sánh 3 mục tiêu của cùng dự án (cùng tên, không phân biệt hoa thường/khoảng trắng) không trừ thêm. Đổi tên dự án sẽ tính là dự án mới.
 - AI đọc ảnh trừ một lượt mỗi lần gọi nhà cung cấp; kết quả lấy từ bộ nhớ đệm và trường hợp chưa cấu hình AI không trừ.
@@ -47,7 +50,7 @@ Mã: `backend/app/billing.py`, giao diện `frontend/src/components/PlanCenter.t
 - **Quản trị viên không bị giới hạn.** Quyền lưu trong cột `users.role` và **chỉ cấp trên máy chủ**:
   `python scripts/manage_admin.py grant email@cua-ban.com` (chạy trong thư mục `backend`, cùng `SOLAROPT_DB_PATH` với máy chủ; tài khoản phải đăng ký trên web trước). `revoke` để thu hồi, `list` để xem. Không cấp qua API hay theo danh sách email, vì chưa có xác minh email nên ai đăng ký trước bằng email đó sẽ chiếm quyền.
 - **Admin dùng chung cho máy local và web:** mỗi máy chủ có cơ sở dữ liệu riêng, nên admin tạo ở máy này không tồn tại ở máy kia. Đặt `SOLAROPT_ADMIN_EMAIL` và `SOLAROPT_ADMIN_PASSWORD` (≥ 10 ký tự) giống nhau trong `backend/.env` và trong biến môi trường của dịch vụ backend trên host; khi khởi động, máy chủ tự tạo tài khoản đó (hoặc đặt lại mật khẩu theo biến) và cấp quyền admin. Mật khẩu do bạn đặt trong môi trường nên không ai chiếm được email bằng cách đăng ký trước.
-- **Nhóm doanh nghiệp:** người dùng tạo nhóm và là chủ nhóm; gói Doanh nghiệp gắn với nhóm (chủ nhóm gửi yêu cầu, quản trị viên kích hoạt), mở 5 chỗ. Chủ nhóm thêm kỹ sư bằng email đã đăng ký, xóa thành viên, hoặc giải tán nhóm khi chỉ còn mình. Khi nhóm có gói trả phí còn hạn: mọi thành viên dùng chung hạn mức (đếm theo nhóm) và xem chung lịch sử dự án của nhóm. Mỗi người thuộc tối đa một nhóm; rời nhóm thì quay về gói cá nhân.
+- **Nhóm doanh nghiệp:** người dùng tạo nhóm và là chủ nhóm; gói Team (3 chỗ) và Doanh nghiệp (10 chỗ) gắn với nhóm (chủ nhóm gửi yêu cầu, quản trị viên kích hoạt). Chủ nhóm thêm kỹ sư bằng email đã đăng ký, xóa thành viên, hoặc giải tán nhóm khi chỉ còn mình. Khi nhóm có gói trả phí còn hạn: mọi thành viên dùng chung hạn mức (đếm theo nhóm) và xem chung lịch sử dự án của nhóm. Mỗi người thuộc tối đa một nhóm; rời nhóm thì quay về gói cá nhân.
 - Giá là giả thuyết cần kiểm chứng với khách hàng; sửa ở một chỗ trong `PLANS`.
 
 API: `GET /api/account/usage`, `POST /api/account/upgrade-request`, `GET|POST /api/team`, `POST /api/team/members`, `POST /api/team/members/{id}/remove`, `POST /api/team/leave`, `GET /api/admin/users`, `GET /api/admin/teams`, `POST /api/admin/users/{id}/plan`, `POST /api/admin/teams/{id}/plan`.

@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.auth import COOKIE, ensure_env_admin, router as auth_router, optional_user, require_user
-from app.billing import router as billing_router, ProjectQuota, check_ai, record_ai, team_member_ids
+from app.billing import router as billing_router, ProjectQuota, chat_block, check_ai, record_ai, record_chat, team_member_ids
 from fastapi import Request
 from app.database import init_db, list_versions, save_version, get_version
 from app.schemas import (
@@ -155,11 +155,17 @@ def advisor_propose(req: AdvisorRequest, request: Request, user=Depends(optional
     quota = None if demo.recording_enabled() else ProjectQuota(request, user, req.config.project_name)
     if quota:
         quota.check()
+    # Guests get the rule-based planner: a paid AI call needs an account.
+    guest_rules = user is None and req.use_llm and not demo.recording_enabled()
+    if guest_rules:
+        req = req.model_copy(update={"use_llm": False})
     try:
         # A recording should hold the model's full reasoning, so it gets the normal time budget, not the stage one.
         result = propose(req.model_copy(update={"demo": False}) if demo.recording_enabled() else req)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
+    if guest_rules:
+        result.notice = "Đăng nhập để dùng trợ lý AI; đề xuất dưới đây do bộ quy tắc của SolarOpt lập từ cùng số liệu."
     if quota:
         quota.record()
     if demo.recording_enabled() and result.mode == "llm":
@@ -168,14 +174,23 @@ def advisor_propose(req: AdvisorRequest, request: Request, user=Depends(optional
 
 
 @app.post("/api/assistant/chat", response_model=AssistantReply)
-def assistant_chat(req: AssistantRequest):
+def assistant_chat(req: AssistantRequest, user=Depends(optional_user)):
     # Answers read facts and may run one what-if layout; edits come back as proposals the engineer confirms.
     key = demo.assistant_key(req)
     if req.demo and (record := demo.load("assistant", key)):
         result = AssistantReply.model_validate(record["result"])
         result.replay, result.elapsed_ms = demo.label(record), 0
         return result
+    # Each AI answer is billed per account; guests and exhausted plans get the rule-based reader instead.
+    billed = req.use_llm and not demo.recording_enabled()
+    blocked = chat_block(user) if billed else None
+    if blocked:
+        req = req.model_copy(update={"use_llm": False})
     result = assistant_answer(req.model_copy(update={"demo": False}) if demo.recording_enabled() else req)
+    if blocked:
+        result.notice = blocked
+    elif billed and result.mode == "llm":
+        record_chat(user)
     if demo.recording_enabled() and result.mode == "llm":
         demo.save("assistant", key, result.model_dump(), result.model, result.elapsed_ms, demo.assistant_inputs(req))
     return result
