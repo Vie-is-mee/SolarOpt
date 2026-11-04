@@ -18,22 +18,27 @@ from app.database import connect
 
 DAY = 24 * 60 * 60
 WINDOW = 30 * DAY
-UNLIMITED = {"projects": None, "project_window": None, "ai_reads": None}
-# Prices are hypotheses to validate with customers, not a published tariff.
+UNLIMITED = {"projects": None, "project_window": None, "ai_reads": None, "chat": None}
+LIMIT_KEYS = ("projects", "project_window", "ai_reads", "chat")
+# Priced from the cost model (output/report/SolarOpt_Mo_hinh_tai_chinh.xlsx); still to validate with customers.
+# "chat" = AI answers from the assistant per 30 days; past it the assistant answers with its rule-based reader.
 PLANS = {
-    "free": {"name": "Miễn phí", "price_vnd_month": 0, "projects": 5, "project_window": None, "ai_reads": 10, "seats": 1,
-             "features": ["5 dự án tính phương án", "10 lượt AI đọc ảnh mỗi 30 ngày", "Lịch sử riêng theo tài khoản"]},
-    "pro": {"name": "Cá nhân Pro", "price_vnd_month": 399_000, "projects": 30, "project_window": WINDOW, "ai_reads": 100, "seats": 1,
-            "features": ["30 dự án mỗi 30 ngày", "100 lượt AI đọc ảnh mỗi 30 ngày", "Lịch sử riêng theo tài khoản"]},
-    "business": {"name": "Doanh nghiệp", "price_vnd_month": 2_500_000, "projects": 300, "project_window": WINDOW, "ai_reads": 1000, "seats": 5,
-                 "features": ["Nhóm tới 5 kỹ sư dùng chung hạn mức", "300 dự án mỗi 30 ngày", "1.000 lượt AI đọc ảnh mỗi 30 ngày", "Lịch sử dự án chung trong nhóm"]},
+    "free": {"name": "Miễn phí", "price_vnd_month": 0, "projects": 5, "project_window": None, "ai_reads": 10, "chat": 30, "seats": 1,
+             "features": ["5 dự án tính phương án", "10 lượt AI đọc ảnh, 30 câu hỏi trợ lý AI mỗi 30 ngày", "Lịch sử riêng theo tài khoản"]},
+    "pro": {"name": "Cá nhân", "price_vnd_month": 790_000, "projects": 20, "project_window": WINDOW, "ai_reads": 40, "chat": 300, "seats": 1,
+            "features": ["1 kỹ sư", "20 dự án mỗi 30 ngày", "40 lượt AI đọc ảnh, 300 câu hỏi trợ lý AI", "Lịch sử riêng theo tài khoản"]},
+    "team": {"name": "Team", "price_vnd_month": 3_490_000, "projects": 60, "project_window": WINDOW, "ai_reads": 120, "chat": 900, "seats": 3,
+             "features": ["Nhóm 3 kỹ sư dùng chung hạn mức", "60 dự án mỗi 30 ngày", "120 lượt AI đọc ảnh, 900 câu hỏi trợ lý AI", "Lịch sử dự án chung trong nhóm"]},
+    "business": {"name": "Doanh nghiệp", "price_vnd_month": 9_900_000, "projects": 250, "project_window": WINDOW, "ai_reads": 500, "chat": 3000, "seats": 10,
+                 "features": ["Nhóm tới 10 kỹ sư dùng chung hạn mức", "250 dự án mỗi 30 ngày", "500 lượt AI đọc ảnh, 3.000 câu hỏi trợ lý AI", "Lịch sử dự án chung trong nhóm"]},
 }
+TEAM_PLANS = ("team", "business")   # attached to a team, requested by its owner
 
 router = APIRouter(tags=["billing"])
 
 
 def guest_daily_projects() -> int:
-    return max(0, int(os.getenv("SOLAROPT_GUEST_DAILY_PROJECTS", "6")))
+    return max(0, int(os.getenv("SOLAROPT_GUEST_DAILY_PROJECTS", "2")))
 
 
 def project_key(name: str) -> str:
@@ -82,16 +87,16 @@ def current_plan(user_id: int) -> str:
 def scope(user):
     """(owner key, limits, plan id, label). Admins are unlimited; a paid team pools usage."""
     if user is None:
-        return None, {"projects": guest_daily_projects(), "project_window": DAY, "ai_reads": 0}, "guest", "Khách"
+        return None, {"projects": guest_daily_projects(), "project_window": DAY, "ai_reads": 0, "chat": 0}, "guest", "Khách"
     if is_admin(user):
         return f"u:{user['id']}", dict(UNLIMITED), "admin", "Quản trị viên"
     team = team_of(user["id"])
     if team and team[3] != "free":
         plan = PLANS[team[3]]
-        return f"o:{team[0]}", {k: plan[k] for k in ("projects", "project_window", "ai_reads")}, team[3], f"{plan['name']} · {team[1]}"
+        return f"o:{team[0]}", {k: plan[k] for k in LIMIT_KEYS}, team[3], f"{plan['name']} · {team[1]}"
     plan_id = current_plan(user["id"])
     plan = PLANS[plan_id]
-    return f"u:{user['id']}", {k: plan[k] for k in ("projects", "project_window", "ai_reads")}, plan_id, plan["name"]
+    return f"u:{user['id']}", {k: plan[k] for k in LIMIT_KEYS}, plan_id, plan["name"]
 
 
 def _since(window):
@@ -103,7 +108,8 @@ def usage_for(owner: str, limits: dict) -> dict:
         projects = conn.execute("SELECT COUNT(DISTINCT project_key) FROM usage_events WHERE owner=? AND kind='project' AND created_at>?",
                                 (owner, _since(limits["project_window"]))).fetchone()[0]
         ai = conn.execute("SELECT COUNT(*) FROM usage_events WHERE owner=? AND kind='ai' AND created_at>?", (owner, _since(WINDOW))).fetchone()[0]
-    return {"projects": projects, "ai_reads": ai}
+        chat = conn.execute("SELECT COUNT(*) FROM usage_events WHERE owner=? AND kind='chat' AND created_at>?", (owner, _since(WINDOW))).fetchone()[0]
+    return {"projects": projects, "ai_reads": ai, "chat": chat}
 
 
 class ProjectQuota:
@@ -147,8 +153,25 @@ def record_ai(user) -> None:
         conn.execute("INSERT INTO usage_events(owner,kind,project_key,created_at) VALUES(?,?,NULL,?)", (owner, "ai", int(time.time())))
 
 
+def chat_block(user) -> str | None:
+    """Why the assistant may not call the AI model for this user, or None when it may.
+    Guests and exhausted plans still get answers, from the rule-based reader, so no paid call leaks."""
+    if user is None:
+        return "Đăng nhập để dùng trợ lý AI; câu trả lời dưới đây do bộ quy tắc của SolarOpt lập từ số liệu đã tính."
+    owner, limits, _, _ = scope(user)
+    if limits["chat"] is not None and usage_for(owner, limits)["chat"] >= limits["chat"]:
+        return f"Đã dùng hết {limits['chat']} câu hỏi trợ lý AI trong 30 ngày; câu trả lời dưới đây do bộ quy tắc lập. Nâng cấp gói để dùng tiếp AI."
+    return None
+
+
+def record_chat(user) -> None:
+    owner = scope(user)[0]
+    with connect() as conn:
+        conn.execute("INSERT INTO usage_events(owner,kind,project_key,created_at) VALUES(?,?,NULL,?)", (owner, "chat", int(time.time())))
+
+
 def _catalog():
-    return {k: {key: v[key] for key in ("name", "price_vnd_month", "projects", "ai_reads", "features", "seats")}
+    return {k: {key: v[key] for key in ("name", "price_vnd_month", "projects", "ai_reads", "chat", "features", "seats")}
             | {"project_window_days": v["project_window"] // DAY if v["project_window"] else None} for k, v in PLANS.items()}
 
 
@@ -178,7 +201,7 @@ def account_usage(request: Request, user=Depends(optional_user)):
             pending = conn.execute("SELECT plan FROM upgrade_requests WHERE user_id=? AND status='pending' ORDER BY id DESC LIMIT 1", (user["id"],)).fetchone()
         team = _team_payload(user["id"])
         shared = team is not None and team["plan"] != "free" and plan != "admin"
-        out.update(plan_until=team["plan_until"] if shared else (until if plan in ("pro", "business") else None),
+        out.update(plan_until=team["plan_until"] if shared else (until if plan in PLANS and plan != "free" else None),
                    pending_request=pending[0] if pending else None, team=team)
     return out
 
@@ -193,8 +216,8 @@ def upgrade_request(body: UpgradeRequest, user=Depends(require_user)):
     if body.plan not in PLANS or body.plan == "free":
         raise HTTPException(422, "Gói không hợp lệ.")
     team = team_of(user["id"])
-    if body.plan == "business" and (team is None or team[2] != "owner"):
-        raise HTTPException(409, "Gói Doanh nghiệp áp dụng cho nhóm: hãy tạo nhóm trước (bạn sẽ là chủ nhóm).")
+    if body.plan in TEAM_PLANS and (team is None or team[2] != "owner"):
+        raise HTTPException(409, f"Gói {PLANS[body.plan]['name']} áp dụng cho nhóm: hãy tạo nhóm trước (bạn sẽ là chủ nhóm).")
     with connect() as conn:
         conn.execute("UPDATE upgrade_requests SET status='replaced' WHERE user_id=? AND status='pending'", (user["id"],))
         conn.execute("INSERT INTO upgrade_requests(user_id,plan,note,created_at) VALUES(?,?,?,?)", (user["id"], body.plan, body.note.strip(), int(time.time())))
@@ -245,7 +268,7 @@ def add_member(body: MemberAdd, user=Depends(require_user)):
     if team_of(target[0]):
         raise HTTPException(409, "Người này đã thuộc một nhóm.")
     if count >= PLANS[plan]["seats"]:
-        raise HTTPException(402, f"Gói {PLANS[plan]['name']} của nhóm có {PLANS[plan]['seats']} chỗ. Nâng cấp gói Doanh nghiệp để thêm kỹ sư.")
+        raise HTTPException(402, f"Gói {PLANS[plan]['name']} của nhóm có {PLANS[plan]['seats']} chỗ. Nâng cấp gói Team hoặc Doanh nghiệp để thêm kỹ sư.")
     with connect() as conn:
         conn.execute("INSERT INTO org_members(org_id,user_id,role,added_at) VALUES(?,?,'member',?)", (org_id, target[0], int(time.time())))
     return _team_payload(user["id"])
@@ -309,7 +332,7 @@ def admin_teams(admin=Depends(require_admin)):
     out = []
     for org_id, name, plan, until, owner_email, members in rows:
         active = _active(plan, until)
-        limits = {k: PLANS[active][k] for k in ("projects", "project_window", "ai_reads")}
+        limits = {k: PLANS[active][k] for k in LIMIT_KEYS}
         out.append({"id": org_id, "name": name, "plan": active, "plan_until": until, "owner": owner_email, "members": members,
                     "seats": PLANS[active]["seats"], "used": usage_for(f"o:{org_id}", limits), "limits": limits, "pending_request": requests.get(org_id)})
     return out

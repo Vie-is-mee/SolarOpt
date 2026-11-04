@@ -65,14 +65,19 @@ def fetch_pvgis(lat: float, lon: float, tilt: float = 10.0, azimuth: float = 180
         specific = float(totals.get("E_y", 0) or 0)
         if not math.isfinite(annual_irrad) or annual_irrad <= 0:
             raise ValueError("PVGIS thiếu bức xạ năm hợp lệ; không thay bằng giá trị giả định dưới nhãn PVGIS.")
+        ratio = specific / annual_irrad if specific > 0 else None
+        if ratio is None or not 0.5 <= ratio <= 0.95:   # outside a physical PR: keep the irradiance, not the ratio
+            ratio = None
         if specific <= 0:
             specific = annual_irrad * 0.82
         return IrradianceResult(
             source="PVGIS",
             annual_irradiance_kwh_m2=round(annual_irrad, 1),
             specific_yield_kwh_kwp=round(specific, 1),
-            detail="PVGIS PVcalc, hệ 1 kWp với tổn thất mặc định 14%.",
+            detail="PVGIS PVcalc, hệ 1 kWp với tổn thất mặc định 14%"
+                   + (f"; hệ số hiệu năng {ratio:.3f} = sản lượng PVGIS ÷ bức xạ (gồm tổn thất nhiệt)." if ratio else "."),
             reference_tilt_deg=tilt, reference_azimuth_deg=azimuth,
+            performance_ratio=round(ratio, 3) if ratio else None,
         )
     except Exception as exc:
         return IrradianceResult(

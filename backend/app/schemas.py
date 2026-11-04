@@ -416,6 +416,9 @@ class IrradianceResult(BaseModel):
     detail: str
     reference_tilt_deg: float = 0
     reference_azimuth_deg: float = 180
+    # PVGIS yield / plane irradiance: its own temperature, angular and system losses as one ratio.
+    # Pair it with this irradiance; pairing PVGIS irradiance with a generic 0.82 overstates the yield.
+    performance_ratio: float | None = None
 
 class UncertaintyRequest(BaseModel):
     config: ProjectConfig

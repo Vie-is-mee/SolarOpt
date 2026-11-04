@@ -43,6 +43,6 @@ export const studioApi={
   versions:(name:string)=>request<Version[]>(`/api/projects/${encodeURIComponent(name)}/versions`),
   version:(name:string,id:number)=>request<Version>(`/api/projects/${encodeURIComponent(name)}/versions/${id}`),
   approve:(config:Config,panel:Panel,obstacles:Obstacle[],design:Design,sun:Sun|null,evidence?:ProjectEvidence|null)=>request<{version_id:number;scope:string}>('/api/projects/approve',{config,panel,obstacles,design,sun,evidence}),
-  irradiance:(config:Config)=>request<{source:string;annual_irradiance_kwh_m2:number;detail:string;reference_tilt_deg:number;reference_azimuth_deg:number}>(`/api/solar/irradiance?lat=${config.latitude}&lon=${config.longitude}&tilt=0&azimuth=180`),
+  irradiance:(config:Config)=>request<{source:string;annual_irradiance_kwh_m2:number;detail:string;reference_tilt_deg:number;reference_azimuth_deg:number;performance_ratio?:number|null}>(`/api/solar/irradiance?lat=${config.latitude}&lon=${config.longitude}&tilt=0&azimuth=180`),
   uncertainty:(config:Config,panel:Panel,obstacles:Obstacle[],obstacle_id:string,low_height_m:number,high_height_m:number)=>request<{layout_difference_pct:number;energy_difference_pct:number;action:string;explanation:string}>('/api/uncertainty/evaluate',{config,panel,obstacles,obstacle_id,low_height_m,high_height_m}),
 }

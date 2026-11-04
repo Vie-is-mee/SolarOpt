@@ -38,16 +38,15 @@ def design(client, name):
     return client.post('/api/design/generate', json=body)
 
 
-def test_guest_gets_six_projects_per_day_and_reruns_are_free(api):
+def test_guest_gets_two_projects_per_day_and_reruns_are_free(api):
     assert design(api, 'Nhà A').status_code == 200
     assert design(api, 'nhà  a ').status_code == 200          # same project, normalised name
-    for name in 'BCDEF':
-        assert design(api, f'Nhà {name}').status_code == 200
-    blocked = design(api, 'Nhà G')
+    assert design(api, 'Nhà B').status_code == 200
+    blocked = design(api, 'Nhà C')
     assert blocked.status_code == 402 and 'Đăng ký' in blocked.json()['detail']
     assert design(api, 'Nhà A').status_code == 200
     usage = api.get('/api/account/usage').json()
-    assert usage['plan'] == 'guest' and usage['used']['projects'] == 6
+    assert usage['plan'] == 'guest' and usage['used']['projects'] == 2 and usage['limits']['chat'] == 0
 
 
 def test_free_account_has_five_projects_then_must_upgrade(api):
@@ -80,6 +79,31 @@ def test_ai_reads_need_login_and_are_counted_only_when_billed(api, monkeypatch):
     assert upload().status_code == 402
 
 
+def test_chat_ai_needs_an_account_and_stops_at_the_plan_quota(api, monkeypatch):
+    from app.services import assistant
+    calls = []
+
+    class Fake:
+        model = 'fake-model'
+        def chat(self, messages, tools=None, json_mode=False):
+            calls.append(1)
+            return {'content': 'Mái này xếp được số tấm như phương án đã tính.'}
+    monkeypatch.setattr(assistant, 'assistant_client', lambda: Fake())
+    cfg = ProjectConfig(roof_width_m=5, roof_height_m=4, budget_vnd=1e12)
+    body = {'messages': [{'role': 'user', 'content': 'Vì sao chỉ lắp được bấy nhiêu tấm?'}], 'config': cfg.model_dump(),
+            'panel': PanelSpec().model_dump(), 'obstacles': [], 'design': DESIGN.model_dump()}
+    guest = api.post('/api/assistant/chat', json=body).json()
+    assert guest['mode'] == 'rules' and 'Đăng nhập' in guest['notice'] and calls == []      # no paid call for guests
+    register(api, 'chat@example.com')
+    assert api.post('/api/assistant/chat', json=body).json()['mode'] == 'llm' and len(calls) == 1
+    assert api.get('/api/account/usage').json()['used']['chat'] == 1
+    with database.connect() as conn:
+        conn.executemany("INSERT INTO usage_events(owner,kind,project_key,created_at) VALUES(?,?,NULL,?)",
+                         [('u:1', 'chat', int(time.time()))] * 29)
+    over = api.post('/api/assistant/chat', json=body).json()
+    assert over['mode'] == 'rules' and 'hết 30' in over['notice'] and len(calls) == 1      # free plan: 30 AI answers
+
+
 def test_upgrade_request_admin_activation_and_expiry(api):
     register(api, 'eng@example.com')
     assert api.post('/api/account/upgrade-request', json={'plan': 'pro', 'note': 'Đội 2 kỹ sư'}).status_code == 201
@@ -91,7 +115,8 @@ def test_upgrade_request_admin_activation_and_expiry(api):
     uid = users['eng@example.com']['id']
     assert admin.post(f'/api/admin/users/{uid}/plan', json={'plan': 'pro', 'months': 1}).status_code == 200
     usage = api.get('/api/account/usage').json()
-    assert usage['plan'] == 'pro' and usage['limits']['projects'] == 30 and usage['pending_request'] is None
+    assert usage['plan'] == 'pro' and usage['limits']['projects'] == 20 and usage['pending_request'] is None
+    assert usage['plans']['pro']['price_vnd_month'] == 790_000 and usage['plans']['team']['seats'] == 3
     with database.connect() as conn:
         conn.execute('UPDATE users SET plan_until=? WHERE id=?', (int(time.time()) - 1, uid))
     assert api.get('/api/account/usage').json()['plan'] == 'free'
@@ -114,6 +139,7 @@ def test_team_pools_quota_shares_history_and_respects_seats(api):
     eng = TestClient(main.app, headers={'X-SolarOpt-Request': '1'}); register(eng, 'eng@example.com')
     other = TestClient(main.app, headers={'X-SolarOpt-Request': '1'}); register(other, 'other@example.com')
     assert owner.post('/api/account/upgrade-request', json={'plan': 'business'}).status_code == 409   # needs a team first
+    assert owner.post('/api/account/upgrade-request', json={'plan': 'team'}).status_code == 409
     team = owner.post('/api/team', json={'name': 'Công ty Nắng'}).json()
     assert team['role'] == 'owner' and team['seats'] == 1
     assert owner.post('/api/team/members', json={'email': 'eng@example.com'}).status_code == 402      # free team: 1 seat
@@ -128,7 +154,7 @@ def test_team_pools_quota_shares_history_and_respects_seats(api):
     assert design(eng, 'Nhà xưởng A').status_code == 200
     assert design(owner, 'Nhà xưởng A').status_code == 200                                               # same project, one use
     usage = owner.get('/api/account/usage').json()
-    assert usage['plan'] == 'business' and usage['used']['projects'] == 1 and usage['limits']['projects'] == 300
+    assert usage['plan'] == 'business' and usage['used']['projects'] == 1 and usage['limits']['projects'] == 250
     assert any(v['project_name'] == 'Nhà xưởng A' for v in owner.get('/api/history').json())             # engineer's version visible
     assert other.get('/api/history').json() == []                                                        # outsiders see nothing
     eng_member = [m for m in owner.get('/api/team').json()['members'] if m['email'] == 'eng@example.com'][0]
