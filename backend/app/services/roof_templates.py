@@ -166,7 +166,8 @@ def generate_faces(config: ProjectConfig, shape: str, ridge_axis: str = "x", ris
         raise ValueError("Quá nhiều mặt mái; tăng dung sai hoặc giảm kích thước.")
     if region is None and not roof_polygon(config).equals(box(0, 0, W, D)):
         notes.append("Biên mái không phải hình chữ nhật: mặt mái được cắt theo biên; kiểm tra lại hướng nóc và cao độ.")
-    notes.append("Kích thước tấm trên mặt dốc vẫn tính theo mặt bằng (chưa co theo độ dốc) nên số tấm có thể thấp hơn thực tế.")
+    if any(f.tilt_deg > 1 for f in faces):
+        notes.append("Trên mặt dốc, tấm, khe và khoảng lùi được tính theo chiều dài thật trên mái (mặt bằng co theo cos độ dốc); tọa độ định vị có cột đo theo dốc.")
     return faces, notes
 
 

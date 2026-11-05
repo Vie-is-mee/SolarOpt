@@ -69,7 +69,7 @@ def search_layouts(req, ctx, shade_contexts, *, budget_seconds=25., diagnostics=
     if cfg.layout_angle_deg is None:
         angles=sorted(set(angles+[p.rotation_deg%180 for p in req.previous_panels]))
     margin=cfg.setback_m+cfg.layout_edge_reserve_m
-    regions=installable_regions(ctx.surfaces,margin)
+    regions=installable_regions(ctx.surfaces,margin,cfg)
     # Obstacle tops and sloped faces get their own grid: tops sit inside a blocked footprint, and on a
     # slope the panel's plan footprint shrinks along the fall line, so it must follow that face's contour.
     own=lambda s:s.id.startswith(TOP_PREFIX) or own_grid(s)
@@ -254,8 +254,11 @@ def _best_top_grid(req,ctx,energy_context,surface,region,tag,robust,centre=None)
         ny=int((maxy-miny-ph+1e-7)//sy)+1 if maxy-miny>=ph-1e-7 else 0
         if not nx or not ny:continue
         spare_x,spare_y=maxx-minx-((nx-1)*sx+pw),maxy-miny-((ny-1)*sy+ph)
-        for ox in {0.0,spare_x/2}:
-            for oy in {0.0,spare_y/2}:
+        # Offsets across the spare length, not just flush or centred: a triangular hip end or a cut face
+        # fits a row only when the grid is anchored near its base.
+        steps=(0.0,.25,.5,.75,1.0)
+        for ox in sorted({round(spare_x*t,6) for t in steps}):
+            for oy in sorted({round(spare_y*t,6) for t in steps}):
                 candidates=[]
                 for row in range(ny):
                     for col in range(nx):
