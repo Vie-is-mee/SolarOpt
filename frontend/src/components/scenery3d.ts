@@ -1,28 +1,13 @@
 import * as THREE from 'three'
 import type {Obstacle} from '../studioTypes'
+import {solarPosition} from '../solarPosition'
+export {solarPosition}
 
 const D=Math.PI/180
 /** Drawing (x right, y up the page) -> three (X right, Y up in the air, Z towards the viewer). */
 export const v3=(x:number,y:number,z:number)=>new THREE.Vector3(x,z,-y)
 /** Unit vector in drawing coordinates for a compass azimuth, given the azimuth of the drawing's +Y axis. */
 export const compassDir=(azimuth:number,rot:number)=>{const b=(azimuth-rot)*D;return [Math.sin(b),Math.cos(b)]}
-
-/** NOAA solar position (good to a fraction of a degree): altitude and compass azimuth for a local
- * date/hour in a fixed UTC offset. Used only to draw the day's sun path; the live sun comes from pvlib. */
-export function solarPosition(lat:number,lon:number,date:string,hour:number,tz=7){
- const [Y,M,Dd]=date.split('-').map(Number)
- const jd=Date.UTC(Y,M-1,Dd)/86400000+2440587.5+(hour-tz)/24,T=(jd-2451545)/36525
- const L0=(280.46646+T*(36000.76983+T*.0003032))%360,Mm=357.52911+T*(35999.05029-.0001537*T),e=.016708634-T*(.000042037+.0000001267*T)
- const C=Math.sin(Mm*D)*(1.914602-T*(.004817+.000014*T))+Math.sin(2*Mm*D)*(.019993-.000101*T)+Math.sin(3*Mm*D)*.000289
- const omega=125.04-1934.136*T,lambda=L0+C-.00569-.00478*Math.sin(omega*D)
- const eps=23+(26+(21.448-T*(46.815+T*(.00059-T*.001813)))/60)/60+.00256*Math.cos(omega*D)
- const decl=Math.asin(Math.sin(eps*D)*Math.sin(lambda*D)),y=Math.tan(eps*D/2)**2
- const eqt=4/D*(y*Math.sin(2*L0*D)-2*e*Math.sin(Mm*D)+4*e*y*Math.sin(Mm*D)*Math.cos(2*L0*D)-.5*y*y*Math.sin(4*L0*D)-1.25*e*e*Math.sin(2*Mm*D))
- const ha=(hour*60+eqt+4*lon-60*tz)/4-180
- const zen=Math.acos(Math.max(-1,Math.min(1,Math.sin(lat*D)*Math.sin(decl)+Math.cos(lat*D)*Math.cos(decl)*Math.cos(ha*D))))
- const az=(Math.atan2(Math.sin(ha*D),Math.cos(ha*D)*Math.sin(lat*D)-Math.tan(decl)*Math.cos(lat*D))/D+180+360)%360
- return {alt:90-zen/D,az}
-}
 
 /** Point on the sky dome at radius r for a compass azimuth/altitude. */
 export function skyPoint(centre:THREE.Vector3,r:number,az:number,alt:number,rot:number){
@@ -98,6 +83,22 @@ export function assetModel(o:Obstacle,base:number,m:AssetMats,prism:()=>THREE.Ob
    // Facade texture repeats per 3 m bay and 3.3 m floor on each side of the box.
    const sizes=[[d,h],[d,h],[w,d],[w,d],[w,h],[w,h]];for(let f=0;f<6;f++)for(let k=0;k<4;k++){const i=f*4+k;uv.setXY(i,uv.getX(i)*sizes[f][0]/3,uv.getY(i)*sizes[f][1]/3.3)}
    add(new THREE.BoxGeometry(w+.3,.25,d+.3),m.cap,0,h+.12);break}
+  case 'tank_flat':{const r=Math.min(d,h*.85)/2,c=add(new THREE.CylinderGeometry(r,r,w*.95,24),m.steel,0,h-r);c.rotation.z=Math.PI/2
+   for(const s of [-1,1])add(new THREE.BoxGeometry(.12,h-r,d*.9),m.dark,s*w*.32,(h-r)/2);break}
+  case 'solar_heater':{const tank=add(new THREE.CylinderGeometry(.22,.22,w*.95,18),m.steel,0,h-.22,-d*.32);tank.rotation.z=Math.PI/2
+   const tubes=add(new THREE.BoxGeometry(w*.9,.06,d*.95),m.glass,0,h*.5,0);tubes.rotation.x=-Math.atan2(h*.8,d)
+   for(const s of [-1,1])add(new THREE.BoxGeometry(.05,h,.05),m.dark,s*w*.45,h/2,-d*.32);break}
+  case 'hatch':add(new THREE.BoxGeometry(w,h,d),m.concrete,0,h/2);add(new THREE.BoxGeometry(w*.9,.05,d*.9),m.dark,0,h+.025);break
+  case 'parapet':case 'wall':add(new THREE.BoxGeometry(w,h,d),o.kind==='wall'?m.facade:m.concrete,0,h/2);break
+  case 'vent_turbine':add(new THREE.CylinderGeometry(w*.2,w*.25,h*.35,12),m.steel,0,h*.175);add(new THREE.SphereGeometry(Math.min(w,d)/2,16,12),m.steel,0,h*.62);break
+  case 'dish':{add(new THREE.CylinderGeometry(.04,.04,h*.75,8),m.dark,0,h*.375);const dish=add(new THREE.SphereGeometry(Math.min(w,d)/2,20,10,0,Math.PI*2,0,Math.PI/3.2),m.white,0,h*.75);dish.rotation.x=-Math.PI/2.6;break}
+  case 'lightning':case 'pole':add(new THREE.CylinderGeometry(Math.min(w,d)*.25,Math.min(w,d)*.5,h,10),o.kind==='pole'?m.concrete:m.steel,0,h/2);if(o.kind==='pole')add(new THREE.BoxGeometry(1.4,.08,.08),m.dark,0,h*.9);break
+  case 'cooling':add(new THREE.CylinderGeometry(Math.min(w,d)/2,Math.min(w,d)/2*.85,h*.85,24),m.white,0,h*.425);add(new THREE.CylinderGeometry(Math.min(w,d)/2*.6,Math.min(w,d)/2*.6,h*.15,20),m.dark,0,h*.925);break
+  case 'sign':add(new THREE.BoxGeometry(w,h*.6,.08),m.white,0,h*.7);for(const s of [-1,1])add(new THREE.BoxGeometry(.08,h*.4,.08),m.dark,s*w*.4,h*.2);break
+  case 'drying':for(const s of [-1,1])add(new THREE.BoxGeometry(.05,h,d),m.steel,s*w/2,h/2);for(let i=0;i<4;i++)add(new THREE.BoxGeometry(w,.02,.02),m.dark,0,h*.95,-d/2+i*d/3);break
+  case 'tower':{const box=add(new THREE.BoxGeometry(w,h,d),m.facade,0,h/2),uv=box.geometry.attributes.uv as THREE.BufferAttribute
+   const sizes=[[d,h],[d,h],[w,d],[w,d],[w,h],[w,h]];for(let f=0;f<6;f++)for(let k=0;k<4;k++){const i=f*4+k;uv.setXY(i,uv.getX(i)*sizes[f][0]/3,uv.getY(i)*sizes[f][1]/3.3)}
+   add(new THREE.BoxGeometry(w+.3,.3,d+.3),m.cap,0,h+.15);break}
   default:return prism()
  }
  g.position.copy(v3(o.x+w/2,o.y+d/2,base));g.rotation.y=(o.rotation_deg||0)*D

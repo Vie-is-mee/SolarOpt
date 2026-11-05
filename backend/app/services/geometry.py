@@ -226,7 +226,7 @@ def is_roof_exit(o:RectObstacle)->bool:
     if o.scope!='roof':return False
     if o.roof_exit is not None:return o.roof_exit
     text=(o.label or '').lower()
-    return o.kind=='stair' or any(w in text for w in _EXIT_WORDS)
+    return o.kind in ('stair','hatch') or any(w in text for w in _EXIT_WORDS)
 
 
 def fire_breaks(roof:Polygon)->list[Polygon]:

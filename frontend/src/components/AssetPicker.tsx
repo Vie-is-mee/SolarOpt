@@ -1,7 +1,7 @@
 import {useState} from 'react'
 import {PRESETS,type Preset} from '../assets'
 
-const ICON:Record<string,string>={tank:'◍',chimney:'▮',ac:'▣',stair:'▤',skylight:'◇',tree_round:'●',tree_cone:'▲',tree_palm:'✳',house:'▦'}
+const ICON:Record<string,string>={tank:'◍',chimney:'▮',ac:'▣',stair:'▤',skylight:'◇',tree_round:'●',tree_cone:'▲',tree_palm:'✳',house:'▦',tank_flat:'▭',solar_heater:'▤',hatch:'▫',parapet:'▬',vent_turbine:'◉',dish:'◒',lightning:'↑',cooling:'◎',sign:'▯',drying:'≡',pole:'┃',wall:'▌',tower:'▥'}
 
 /** Library of typical rooftop objects and surroundings; each adds an editable obstacle. */
 export function AssetPicker({onAdd}:{onAdd:(p:Preset)=>void}){

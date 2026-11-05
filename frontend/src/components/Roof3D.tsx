@@ -90,6 +90,20 @@ function wallQuads(face:Face,rot:number,outline:number[][][]){
  return {facade:geo(fac,facUV),plinth:geo(pl,plUV)}
 }
 
+/** Walls under a stacked roof part (faces sub<n>-…): from its outer edges down to the main eave. The lower
+ * roof hides the part of the wall below it, so a raised gable or second tier reads as standing on the roof. */
+function riserWalls(face:Face,rot:number,faces:Face[],floor:number){
+ const prefix=face.id.split('-')[0]+'-',siblings=faces.filter(f=>f!==face&&f.id.startsWith(prefix)),pts:number[]=[]
+ const rings=(f:Face)=>(f.regions||f.polygons.map(p=>({boundary:p,openings:[] as number[][][]}))).map(r=>r.boundary)
+ for(const ring of rings(face))for(let i=0;i<ring.length-1;i++){
+  const [ax,ay]=ring[i],[bx,by]=ring[i+1],mid:[number,number]=[(ax+bx)/2,(ay+by)/2]
+  if(Math.hypot(bx-ax,by-ay)<1e-6||siblings.some(s=>onOutline(mid,rings(s))))continue
+  const za=zOn(face,ax,ay,rot),zb=zOn(face,bx,by,rot)
+  pts.push(ax,floor,-ay,bx,floor,-by,bx,zb,-by,ax,floor,-ay,bx,zb,-by,ax,za,-ay)
+ }
+ const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pts,3));g.computeVertexNormals();return g
+}
+
 /** Low parapet with a darker coping along the outer edge of flat roof faces. */
 function parapet(face:Face,rot:number,outline:number[][][],wallMat:THREE.Material,capMat:THREE.Material){
  const group=new THREE.Group();if((face.tilt_deg||0)>1)return group
@@ -247,6 +261,7 @@ export default function Roof3D({config,obstacles,scene,design,photo,sunDate}:{co
   const concreteMat=new THREE.MeshStandardMaterial({map:A.concrete,roughness:.95})
   const sheetMat=new THREE.MeshStandardMaterial({map:A.sheet,bumpMap:A.sheetBump,bumpScale:3,roughness:.45,metalness:.45})
   const facadeMat=new THREE.MeshStandardMaterial({map:A.facade,roughness:.9,side:THREE.DoubleSide}),plinthMat=new THREE.MeshStandardMaterial({map:A.plinth,roughness:1,side:THREE.DoubleSide})
+  const wallMat=new THREE.MeshStandardMaterial({color:PALETTE.parapet,roughness:.9,side:THREE.DoubleSide})
   const parapetMat=new THREE.MeshStandardMaterial({color:PALETTE.parapet,roughness:.9}),capMat=new THREE.MeshStandardMaterial({color:PALETTE.cap,roughness:.8})
   for(const f of faces){
    const sloped=(f.tilt_deg||0)>3
@@ -254,6 +269,7 @@ export default function Roof3D({config,obstacles,scene,design,photo,sunDate}:{co
    const {facade,plinth}=wallQuads(f,rot,outline)
    for(const [g,m] of [[facade,facadeMat],[plinth,plinthMat]] as const){const mesh=new THREE.Mesh(g,m);mesh.castShadow=true;mesh.receiveShadow=true;st.content.add(mesh)}
    if(!f.id.startsWith('top-'))st.content.add(parapet(f,rot,outline,parapetMat,capMat))
+   if(/^sub\d+-/.test(f.id)){const mesh=new THREE.Mesh(riserWalls(f,rot,faces,config.roof_elevation_m),wallMat);mesh.castShadow=true;mesh.receiveShadow=true;st.content.add(mesh)}
   }
   const levels=new Map((scene?.obstacle_elevations||[]).map(e=>[e.id,e]))
   const obstacleMat=new THREE.MeshStandardMaterial({color:PALETTE.concrete,roughness:.85}),steelMat=new THREE.MeshStandardMaterial({color:PALETTE.steel,roughness:.3,metalness:.7})

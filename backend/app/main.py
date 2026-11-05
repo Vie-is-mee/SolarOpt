@@ -219,13 +219,32 @@ class RoofTemplateRequest(BaseModel):
     low_side: Literal["start", "end"] = "start"
     tolerance_m: float = Field(default=.05, gt=0, le=.5)
     panel_pitch_m: float | None = Field(default=None, gt=0, le=10)
+    strips: int | None = Field(default=None, ge=2, le=20, description="Curved roofs: number of flat strips; None follows the panel rows")
+    # Stacked roof part: x, y (bottom-left), width, depth on the drawing; its eave defaults to the roof below.
+    region: list[float] | None = Field(default=None, min_length=4, max_length=4)
+    eave_m: float | None = Field(default=None, ge=0, le=300)
 
 
 @app.post("/api/roof/template")
 def roof_template(req: RoofTemplateRequest):
-    from app.services.roof_templates import generate_faces
+    from app.services.roof_templates import generate_faces, height_below, stack_faces, stacked_prefix
     try:
-        faces, notes = generate_faces(req.config, req.shape, req.ridge_axis, req.rise_m, req.low_side, req.tolerance_m, req.panel_pitch_m)
+        if req.region:
+            x, y, w, d = req.region
+            if w <= 0 or d <= 0:
+                raise ValueError("Vùng mái phụ cần chiều rộng và chiều sâu dương.")
+            region = (x, y, x + w, y + d)
+            eave = req.eave_m if req.eave_m is not None else height_below(req.config, region)
+            n = stacked_prefix(req.config)
+            part, notes = generate_faces(req.config, req.shape, req.ridge_axis, req.rise_m, req.low_side, req.tolerance_m, req.panel_pitch_m,
+                                         req.strips, region, eave, prefix=f"sub{n}-", label_prefix=f"Mái phụ {n} · ")
+            if not part:
+                raise ValueError("Vùng mái phụ nằm ngoài biên mái.")
+            faces = stack_faces(req.config, part, region)
+            notes = [f"Mái phụ {n}: diềm cao {eave:.2f} m".replace(".", ",") + (" (lấy theo đỉnh mái bên dưới)." if req.eave_m is None else "."),
+                     *[t for t in notes if not t.startswith("Kích thước tấm")], "Các mặt mái bên dưới vùng này được cắt bỏ; phần còn lại giữ nguyên độ dốc và hướng."]
+        else:
+            faces, notes = generate_faces(req.config, req.shape, req.ridge_axis, req.rise_m, req.low_side, req.tolerance_m, req.panel_pitch_m, req.strips)
         ProjectConfig(**{**req.config.model_dump(), "roof_faces": [f.model_dump() for f in faces]})
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
