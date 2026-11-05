@@ -10,7 +10,9 @@ export type Obstacle = {
   confirmed:boolean; floors?:number|null;
   shape?:'rect'|'ellipse'|'polygon';rotation_deg?:number;points?:Point[];base_elevation_m?:number|null;top_installable?:boolean;kind?:string|null;
 }
+import type {WeatherYear,YieldLosses} from './yieldLosses'
 export type Config = {
+  weather?:WeatherYear|null;yield_losses?:YieldLosses|null;
   irradiance_reference_tilt_deg?:number;irradiance_reference_azimuth_deg?:number;
   target_energy_kwh_year?:number|null;
   layout_edge_reserve_m?:number;
@@ -36,7 +38,7 @@ export type Scene = {
 }
 export type PlacedPanel = {rotation_deg?:number;face_id?:string|null;id:string;x:number;y:number;width_m:number;height_m:number;annual_energy_kwh:number;shading_loss_pct:number;preserved:boolean}
 export type LayoutTrial={search_stage?:'coarse'|'refined';angle_deg:number;offset_x_m:number;offset_y_m:number;candidate_count:number;geometry_candidate_count?:number;shading_rejected_count?:number;robustness_rejected_count?:number;target_met?:boolean|null;panel_count:number;annual_energy_kwh:number;objective_score:number;selected:boolean}
-export type Design = {objective?:Objective;target_energy_kwh_year?:number|null;target_met?:boolean|null;robustness_checks?:{id:string;name:string;status:"PASS"|"WARN"|"FAIL";detail:string}[];layout_trials?:LayoutTrial[];panels:PlacedPanel[]; metrics:{panel_count:number;peak_power_kwp:number;annual_energy_kwh:number;annual_energy_mwh:number;estimated_cost_vnd:number;average_shading_loss_pct:number;maximum_shading_loss_pct?:number;roof_utilization_pct:number;preserved_panel_count:number;layout_preservation_rate_pct:number;usable_area_m2?:number|null;area_upper_bound_panels?:number|null}; warnings:string[];solver_status:string;monthly_energy_kwh?:number[]}
+export type Design = {objective?:Objective;target_energy_kwh_year?:number|null;target_met?:boolean|null;robustness_checks?:{id:string;name:string;status:"PASS"|"WARN"|"FAIL";detail:string}[];layout_trials?:LayoutTrial[];panels:PlacedPanel[]; metrics:{panel_count:number;peak_power_kwp:number;annual_energy_kwh:number;annual_energy_mwh:number;estimated_cost_vnd:number;average_shading_loss_pct:number;maximum_shading_loss_pct?:number;roof_utilization_pct:number;preserved_panel_count:number;layout_preservation_rate_pct:number;usable_area_m2?:number|null;area_upper_bound_panels?:number|null}; warnings:string[];solver_status:string;monthly_energy_kwh?:number[];month_hour_kwh?:number[]}
 export type Verification = {valid:boolean;checks:{id:string;label:string;status:'PASS'|'FAIL'|'WARN';detail:string;affected_panel_ids?:string[]}[]}
 export type Stress = {passed:number;warned?:number;failed?:number;total:number;scenarios:{id:string;name:string;status:'PASS'|'WARN'|'FAIL';panel_count:number;annual_energy_kwh:number;detail:string;failed_checks?:{id:string;label:string;detail:string}[];warning_checks?:{id:string;label:string;detail:string}[];recommendations?:string[];affected_panel_ids?:string[]}[]}
 export type Repair = {impact:{changed_input:string;affected_nodes:string[];reused_nodes:string[];recomputation_ratio_pct:number};design:Design;verification:Verification}

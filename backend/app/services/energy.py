@@ -1,9 +1,10 @@
 """Shared, reproducible preliminary energy calculation, with no network calls.
 
-Annual input is irradiance on an explicitly declared reference plane. Ratios
-between that plane and roof faces use pvlib clear-sky transposition on twelve
-monthly representative days (24 hourly midpoints, weighted by days/month).
-This corrects orientation dependence; it is NOT an hourly weather-year model.
+Annual input is irradiance on an explicitly declared reference plane. Ratios between that plane and
+roof faces use pvlib transposition on twelve monthly representative days (24 hourly midpoints, weighted
+by days/month). The sky on those days is the site's typical-year weather when the project holds it
+(PVGIS TMY averaged per month and hour, services/weather.py), otherwise a clear-sky model. The same sky
+sets the monthly and hourly shape of the output and the weight of beam light in the shading loss.
 
 Shading (ShadeSeries): every daylight hour of the same twelve days (about 140 instants) casts
 the obstacles' shadows, rasterised on a ~10 cm grid of the roof. Each panel is sampled on its
@@ -32,10 +33,23 @@ MODEL_NOTE = ("Nắng năm được quy đổi riêng theo hướng/độ dốc 
               "với 12 ngày trời quang đại diện; bóng tính cho mọi giờ có nắng của 12 ngày đó, "
               "theo 3 chuỗi cell có diode bypass của mỗi tấm. "
               "Chưa phải mô phỏng 8760 giờ với thời tiết thực hoặc đã đối chuẩn.")
+WEATHER_NOTE = ("Nắng lấy từ năm khí tượng điển hình PVGIS (trung bình từng giờ của mỗi tháng), quy đổi riêng theo "
+                "hướng/độ dốc từng mặt mái bằng pvlib; bóng tính cho mọi giờ có nắng của 12 ngày đại diện, theo 3 chuỗi "
+                "cell có diode bypass, phần trực xạ theo thời tiết thật. Ngày nắng và ngày mây được gộp thành trung bình.")
+
+
+def model_note(cfg):
+    return WEATHER_NOTE if getattr(cfg, "weather", None) else MODEL_NOTE
+
+
+def _wkey(cfg):
+    """Hashable sky of a project for the cached transposition helpers: None means clear sky."""
+    w = getattr(cfg, "weather", None)
+    return (tuple(w.ghi), tuple(w.dni), tuple(w.dhi)) if w else None
 
 
 @lru_cache(maxsize=128)
-def _sky(latitude, longitude):
+def _sky(latitude, longitude, weather=None):
     import numpy as np
     import pandas as pd
     import pvlib
@@ -44,15 +58,19 @@ def _sky(latitude, longitude):
         for month in range(1, 13) for hour in range(24)
     ]).tz_localize("Asia/Ho_Chi_Minh")
     position = pvlib.solarposition.get_solarposition(times, latitude, longitude)
-    sky = pvlib.location.Location(latitude, longitude, tz="Asia/Ho_Chi_Minh").get_clearsky(times)
+    if weather is not None:
+        ghi, dni, dhi = (np.asarray(v, dtype=float) for v in weather)
+        sky = pd.DataFrame({"ghi": ghi, "dni": dni, "dhi": dhi}, index=times)
+    else:
+        sky = pvlib.location.Location(latitude, longitude, tz="Asia/Ho_Chi_Minh").get_clearsky(times)
     weights = np.repeat([monthrange(2026, m)[1] for m in range(1, 13)], 24)
     return position, sky, weights
 
 
 @lru_cache(maxsize=2048)
-def _plane_sum(latitude, longitude, tilt, azimuth):
+def _plane_sum(latitude, longitude, tilt, azimuth, weather=None):
     import pvlib
-    position, sky, weights = _sky(latitude, longitude)
+    position, sky, weights = _sky(latitude, longitude, weather)
     poa = pvlib.irradiance.get_total_irradiance(
         tilt, azimuth, position.apparent_zenith, position.azimuth,
         sky.dni, sky.ghi, sky.dhi,
@@ -61,11 +79,11 @@ def _plane_sum(latitude, longitude, tilt, azimuth):
 
 
 @lru_cache(maxsize=256)
-def _tracker_sum(latitude, longitude, gcr, max_angle):
+def _tracker_sum(latitude, longitude, gcr, max_angle, weather=None):
     """Clear-sky plane-of-array sum for a horizontal 1-axis tracker on a N-S axis, with backtracking
     so rows never shade each other (pvlib); same representative days and weights as _plane_sum."""
     import pvlib
-    position, sky, weights = _sky(latitude, longitude)
+    position, sky, weights = _sky(latitude, longitude, weather)
     track = pvlib.tracking.singleaxis(position.apparent_zenith, position.azimuth, axis_tilt=0, axis_azimuth=180,
                                       max_angle=max_angle, backtrack=True, gcr=gcr)
     poa = pvlib.irradiance.get_total_irradiance(
@@ -76,12 +94,12 @@ def _tracker_sum(latitude, longitude, gcr, max_angle):
 
 
 @lru_cache(maxsize=2048)
-def _plane_months(latitude, longitude, tilt, azimuth, tracker=None):
+def _plane_months(latitude, longitude, tilt, azimuth, tracker=None, weather=None):
     """Share of each month in the clear-sky plane-of-array year (12 values summing to 1).
     Same representative days and weights as _plane_sum; tracker=(gcr, max_angle) for 1-axis."""
     import numpy as np
     import pvlib
-    position, sky, weights = _sky(latitude, longitude)
+    position, sky, weights = _sky(latitude, longitude, weather)
     if tracker:
         track = pvlib.tracking.singleaxis(position.apparent_zenith, position.azimuth, axis_tilt=0, axis_azimuth=180,
                                           max_angle=tracker[1], backtrack=True, gcr=tracker[0])
@@ -97,10 +115,10 @@ def _plane_months(latitude, longitude, tilt, azimuth, tracker=None):
 def monthly_shares(cfg, surface):
     mount = getattr(surface, "mount", None)
     if mount == "tracker":
-        return _plane_months(cfg.latitude, cfg.longitude, 0, 180, (round(cfg.tracker_gcr, 4), cfg.tracker_max_angle_deg))
+        return _plane_months(cfg.latitude, cfg.longitude, 0, 180, (round(cfg.tracker_gcr, 4), cfg.tracker_max_angle_deg), _wkey(cfg))
     if mount == "tilted_rack":
-        return _plane_months(cfg.latitude, cfg.longitude, surface.mount_tilt, surface.mount_azimuth)
-    return _plane_months(cfg.latitude, cfg.longitude, surface.tilt, surface.azimuth)
+        return _plane_months(cfg.latitude, cfg.longitude, surface.mount_tilt, surface.mount_azimuth, None, _wkey(cfg))
+    return _plane_months(cfg.latitude, cfg.longitude, surface.tilt, surface.azimuth, None, _wkey(cfg))
 
 
 def monthly_energy(cfg, obstacles, panels):
@@ -118,19 +136,46 @@ def monthly_energy(cfg, obstacles, panels):
     return [round(v, 1) for v in months]
 
 
+def month_hour_energy(cfg, obstacles, panels):
+    """Energy of a typical day of each month, hour by hour (288 values, kWh): each panel's annual energy spread
+    by its face's plane-of-array irradiance at that month-hour. Summed over days per month it gives back the
+    annual energy; as with monthly_energy the shading loss is spread evenly over the year."""
+    if not panels:
+        return []
+    import numpy as np
+    surfaces = {s.id: s for s in build_context(cfg, obstacles, None).surfaces}
+    _, _, weights = _sky(cfg.latitude, cfg.longitude)
+    days = np.asarray(weights, dtype=float)
+    shapes, out = {}, np.zeros(288)
+    for panel in panels:
+        surface = surfaces.get(panel.face_id)
+        key = surface.id if surface is not None else None
+        if key not in shapes:
+            share = days / days.sum()                         # unknown face: spread evenly over the year
+            if surface is not None:
+                beam, diffuse = plane_components(cfg, surface)
+                poa = (beam + diffuse) * days
+                if poa.sum() > 0:
+                    share = poa / poa.sum()
+            shapes[key] = share / days                        # per typical day, not per month
+        out += panel.annual_energy_kwh * shapes[key]
+    return [round(float(v), 4) for v in out]
+
+
 def plane_annual_irradiance(cfg, surface):
     """Annual irradiance on the panels of a face: the face itself, a tilted rack, or a tracker."""
+    key = _wkey(cfg)
     reference = _plane_sum(cfg.latitude, cfg.longitude,
-                           cfg.irradiance_reference_tilt_deg, cfg.irradiance_reference_azimuth_deg)
+                           cfg.irradiance_reference_tilt_deg, cfg.irradiance_reference_azimuth_deg, key)
     if reference <= 0:
         raise ValueError("Không xác định được bức xạ trên mặt tham chiếu; kiểm tra vị trí và hướng.")
     mount = getattr(surface, "mount", None)
     if mount == "tracker":
-        target = _tracker_sum(cfg.latitude, cfg.longitude, round(cfg.tracker_gcr, 4), cfg.tracker_max_angle_deg)
+        target = _tracker_sum(cfg.latitude, cfg.longitude, round(cfg.tracker_gcr, 4), cfg.tracker_max_angle_deg, key)
     elif mount == "tilted_rack":
-        target = _plane_sum(cfg.latitude, cfg.longitude, surface.mount_tilt, surface.mount_azimuth)
+        target = _plane_sum(cfg.latitude, cfg.longitude, surface.mount_tilt, surface.mount_azimuth, key)
     else:
-        target = _plane_sum(cfg.latitude, cfg.longitude, surface.tilt, surface.azimuth)
+        target = _plane_sum(cfg.latitude, cfg.longitude, surface.tilt, surface.azimuth, key)
     return cfg.annual_irradiance_kwh_m2 * target / reference
 
 
@@ -146,11 +191,11 @@ def representative_contexts(cfg, obstacles):
 
 
 @lru_cache(maxsize=2048)
-def _plane_components(latitude, longitude, tilt, azimuth, tracker=None):
-    """Clear-sky beam and diffuse irradiance (W/m²) on a plane at the 288 representative instants."""
+def _plane_components(latitude, longitude, tilt, azimuth, tracker=None, weather=None):
+    """Beam and diffuse irradiance (W/m²) on a plane at the 288 representative instants (clear sky or typical year)."""
     import numpy as np
     import pvlib
-    position, sky, _ = _sky(latitude, longitude)
+    position, sky, _ = _sky(latitude, longitude, weather)
     if tracker:
         track = pvlib.tracking.singleaxis(position.apparent_zenith, position.azimuth, axis_tilt=0, axis_azimuth=180,
                                           max_angle=tracker[1], backtrack=True, gcr=tracker[0])
@@ -165,10 +210,10 @@ def _plane_components(latitude, longitude, tilt, azimuth, tracker=None):
 def plane_components(cfg, surface):
     mount = getattr(surface, "mount", None)
     if mount == "tracker":
-        return _plane_components(cfg.latitude, cfg.longitude, 0, 180, (round(cfg.tracker_gcr, 4), cfg.tracker_max_angle_deg))
+        return _plane_components(cfg.latitude, cfg.longitude, 0, 180, (round(cfg.tracker_gcr, 4), cfg.tracker_max_angle_deg), _wkey(cfg))
     if mount == "tilted_rack":
-        return _plane_components(cfg.latitude, cfg.longitude, surface.mount_tilt, surface.mount_azimuth)
-    return _plane_components(cfg.latitude, cfg.longitude, surface.tilt, surface.azimuth)
+        return _plane_components(cfg.latitude, cfg.longitude, surface.mount_tilt, surface.mount_azimuth, None, _wkey(cfg))
+    return _plane_components(cfg.latitude, cfg.longitude, surface.tilt, surface.azimuth, None, _wkey(cfg))
 
 
 SUBSTRINGS = 3                    # bypass diodes per module (60/120-cell and 72/144-cell modules)

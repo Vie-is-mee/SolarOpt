@@ -1,6 +1,7 @@
 import type {Economics} from '../economics'
 import type {Design,Objective} from '../studioTypes'
 import {evaluateSize,sizeSweep,withReferenceCosts,type SizePoint} from '../sizing'
+import {consumptionOf} from '../loadProfiles'
 import {OBJECTIVES} from './DesignOptions'
 import {vnd} from '../format'
 import {CardHead,MissingList} from './CardHead'
@@ -24,19 +25,21 @@ function NpvChart({points,best,current}:{points:SizePoint[];best:SizePoint;curre
  </svg>
 }
 
-export function SizingAdvisor({economics,onEconomics,design,options,panelPrice,budget,onBudget}:{economics:Economics;onEconomics:(v:Economics)=>void;design:Design;options:Partial<Record<Objective,Design>>;panelPrice:number;budget:number;onBudget:(v:number)=>void}){
+export function SizingAdvisor({economics,onEconomics,design,options,panelPrice,budget,onBudget,latitude}:{economics:Economics;onEconomics:(v:Economics)=>void;design:Design;options:Partial<Record<Objective,Design>>;panelPrice:number;budget:number;onBudget:(v:number)=>void;latitude:number}){
  const N=design.metrics.panel_count,bound=design.metrics.area_upper_bound_panels
- const full=N?evaluateSize(economics,design,N):null
- const {points,best,fastest}=sizeSweep(economics,design)
- const daytime=economics.daytime_use_kwh_month??null
+ const full=N?evaluateSize(economics,design,N,design.metrics.peak_power_kwp,latitude):null
+ const {points,best,fastest}=sizeSweep(economics,design,latitude)
+ // Demand known: hour by hour from the consumption, or (older projects) from a daytime figure.
+ const consumption=consumptionOf(economics,latitude),hourly=!!consumption&&design.month_hour_kwh?.length===288
+ const daytime=hourly?null:economics.daytime_use_kwh_month??null,demandKnown=hourly||(daytime!=null&&daytime>0)
  const budgetLimited=budget<(N+1)*panelPrice
- const optionRows=OBJECTIVES.flatMap(o=>{const d=options[o.id];if(!d||!d.metrics.panel_count)return [];return [{name:o.name,design:d,point:evaluateSize(economics,d,d.metrics.panel_count,design.metrics.peak_power_kwp)}]}).filter(r=>!r.point.missing.length)
+ const optionRows=OBJECTIVES.flatMap(o=>{const d=options[o.id];if(!d||!d.metrics.panel_count)return [];return [{name:o.name,design:d,point:evaluateSize(economics,d,d.metrics.panel_count,design.metrics.peak_power_kwp,latitude)}]}).filter(r=>!r.point.missing.length)
  const bestOption=optionRows.reduce<typeof optionRows[number]|null>((b,r)=>!b||r.point.npv>b.point.npv?r:b,null)
  return <section className="card sizing-advisor">
   <CardHead icon="sparkles" title="Gợi ý quy mô và ngân sách" sub="Chọn số tấm có giá trị hiện tại ròng (NPV) cao nhất theo giả định ở bảng dự toán"/>
   <p className="muted-note">SolarOpt thử giữ lại 1…{N} tấm cho sản lượng cao nhất của phương án hiện tại, tính dòng tiền cho từng quy mô theo giả định ở bảng dự toán, rồi chọn quy mô có giá trị hiện tại ròng (NPV) cao nhất. Đây là lời khuyên để kỹ sư cân nhắc, không thay báo giá.</p>
   <div className="field-grid">
-   <label className="field"><span>Điện dùng ban ngày của khách (kWh/tháng)</span><div className="input-wrap"><input type="number" min={0} aria-label="Điện dùng ban ngày" value={daytime??''} placeholder="Ví dụ 350" onChange={e=>onEconomics({...economics,daytime_use_kwh_month:e.target.value===''?null:Math.max(0,Number(e.target.value))})}/><small>kWh</small></div><em>Lấy từ hóa đơn: phần điện dùng 6h–18h. Khi có số này, tỷ lệ tự dùng được tính theo từng quy mô.</em></label>
+   <div className="field"><span>Nhu cầu điện của khách</span><p className="muted-note">{hourly?`${Math.round(consumption!.monthlyKwh).toLocaleString('vi-VN')} kWh/tháng, tự dùng tính theo từng giờ cho mỗi quy mô.`:daytime?`Điện dùng ban ngày ${daytime.toLocaleString('vi-VN')} kWh/tháng (cách tính cũ theo tổng năm).`:'Chưa có: nhập điện tiêu thụ hoặc tiền điện ở mục Hiệu quả kinh tế để quy mô gợi ý dừng đúng chỗ.'}</p></div>
    {economics.cost_mode!=='per_kwp'&&<div className="field sizing-actions"><span>Chưa có báo giá?</span><button type="button" className="button secondary small" onClick={()=>onEconomics(withReferenceCosts(economics,design.metrics.peak_power_kwp))}>Điền đơn giá tham khảo vào ô trống</button><em>Chỉ điền ô chi phí còn trống; ghi chú nguồn là giả định lập kế hoạch.</em></div>}
   </div>
   {!N?<p className="muted-note">Chưa có tấm pin trong phương án.</p>:full&&full.missing.length?<MissingList title="Cần thêm dữ liệu ở bảng dự toán để gợi ý quy mô." items={full.missing}/>:best&&<>
@@ -48,11 +51,11 @@ export function SizingAdvisor({economics,onEconomics,design,options,panelPrice,b
    </div>
    <NpvChart points={points.filter(p=>!p.missing.length)} best={best} current={N}/>
    <ul className="sizing-notes">
-    {best.panels<N&&<li>Thêm tấm sau mức {best.panels} tấm làm NPV giảm{daytime?': điện tạo thêm vượt nhu cầu ban ngày, phần dư chỉ được trả theo giá điện dư đã nhập.':'.'}</li>}
+    {best.panels<N&&<li>Thêm tấm sau mức {best.panels} tấm làm NPV giảm{demandKnown?': điện tạo thêm vượt nhu cầu ban ngày, phần dư chỉ được trả theo giá điện dư (tối đa 50% sản lượng).':'.'}</li>}
     {best.panels===N&&(budgetLimited||(bound!=null&&bound>N))&&<li>NPV vẫn tăng tới tấm cuối cùng. {budgetLimited?'Ngân sách tấm pin hiện tại đang giới hạn số tấm; tăng ngân sách rồi tính lại để xem quy mô lớn hơn.':'Mái có thể còn chỗ; thử phương án khác hoặc nới ngưỡng bóng.'}</li>}
     {fastest&&fastest.panels!==best.panels&&<li>Hoàn vốn nhanh nhất ở {fastest.panels} tấm ({years(fastest.payback)}), nhưng tổng lợi ích thấp hơn.</li>}
-    {!daytime&&<li>Chưa nhập điện dùng ban ngày nên tỷ lệ tự dùng được giữ cố định ({economics.self_use_pct??0}%) ở mọi quy mô; khi đó NPV thường tăng đều theo số tấm. Nhập nhu cầu để định cỡ sát thực tế hơn.</li>}
-    {daytime!=null&&daytime>0&&<li>Tỷ lệ tự dùng ở quy mô gợi ý ≈ {best.selfUsePct.toLocaleString('vi-VN',{maximumFractionDigits:0})}%, tính theo tổng năm; chưa xét lệch giờ, mùa và ngày nghỉ nên có thể lạc quan.</li>}
+    {!demandKnown&&<li>Chưa có nhu cầu điện nên tỷ lệ tự dùng giữ cố định ({best.selfUsePct.toLocaleString('vi-VN',{maximumFractionDigits:0})}%) ở mọi quy mô; khi đó NPV thường tăng đều theo số tấm. Nhập điện tiêu thụ để định cỡ sát thực tế hơn.</li>}
+    {demandKnown&&<li>Tỷ lệ tự dùng ở quy mô gợi ý ≈ {best.selfUsePct.toLocaleString('vi-VN',{maximumFractionDigits:0})}%{hourly?', tính theo từng giờ, có ngày nắng và ngày mây, theo mùa và ngày nghỉ.':', tính theo tổng năm; chưa xét lệch giờ, mùa và ngày nghỉ nên có thể lạc quan.'}</li>}
    </ul>
    <div className="inline-actions"><button type="button" className="button primary small" disabled={Math.abs(budget-best.panelCost)<1} onClick={()=>onBudget(Math.round(best.panelCost))}>Đặt ngân sách tấm pin = {million(best.panelCost)}</button></div>
   </>}

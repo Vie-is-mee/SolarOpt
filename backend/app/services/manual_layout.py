@@ -8,7 +8,7 @@ ones a fresh verification would produce, and panels that now collide or overhang
 from __future__ import annotations
 
 from app.schemas import VerifyRequest
-from app.services.energy import EnergyContext, monthly_energy, summarize
+from app.services.energy import EnergyContext, month_hour_energy, monthly_energy, summarize
 from app.services.geometry import build_context, footprint_dims, panel_shape
 from app.services.verifier import verify_design
 
@@ -35,6 +35,7 @@ def evaluate_layout(req: VerifyRequest):
     target = req.config.target_energy_kwh_year
     design = req.design.model_copy(update={
         "panels": panels, "metrics": metrics, "monthly_energy_kwh": monthly_energy(req.config, req.obstacles, panels),
+        "month_hour_kwh": month_hour_energy(req.config, req.obstacles, panels),
         "warnings": [w for w in req.design.warnings if w != note] + [note],
         "target_met": (metrics.annual_energy_kwh + 1e-7 >= target) if req.design.objective == "min_cost" and target else req.design.target_met,
     })

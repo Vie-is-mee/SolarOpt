@@ -66,10 +66,56 @@ class PanelSpec(StrictModel):
     width_m: float = Field(default=1.134, gt=0, le=10)
     height_m: float = Field(default=2.278, gt=0, le=10)
     power_w: float = Field(default=580.0, gt=0, le=2000)
-    price_vnd: float = Field(default=4_200_000, ge=1)
+    price_vnd: float = Field(default=2_200_000, ge=1)
     voc_v: float = 52.1
     vmp_v: float = 43.6
     imp_a: float = 13.3
+
+
+LOSS_FIELDS = ("temperature_pct", "soiling_pct", "iam_pct", "module_pct", "mismatch_pct", "dc_cable_pct",
+               "inverter_pct", "ac_cable_pct", "availability_pct")
+
+
+class YieldLosses(StrictModel):
+    """Itemised losses from in-plane irradiance to energy at the meter (percent of what reaches each stage).
+    Defaults are conservative planning values for rooftops in Việt Nam; the temperature loss is computed from
+    the site's typical-year weather when that is loaded (services/weather.py). The product is the
+    performance ratio; the frontend (src/yieldLosses.ts) uses the same formula."""
+    temperature_pct: float = Field(default=8.0, ge=0, le=30, description="Cell temperature above 25 °C")
+    soiling_pct: float = Field(default=4.0, ge=0, le=30, description="Dust, bird droppings; rain cleans part of the year")
+    iam_pct: float = Field(default=2.5, ge=0, le=10, description="Reflection at oblique incidence")
+    module_pct: float = Field(default=2.0, ge=0, le=10, description="First-year LID/LeTID and power tolerance")
+    mismatch_pct: float = Field(default=1.5, ge=0, le=10)
+    dc_cable_pct: float = Field(default=1.5, ge=0, le=10)
+    inverter_pct: float = Field(default=2.5, ge=0, le=15, description="1 − weighted (Euro) efficiency")
+    ac_cable_pct: float = Field(default=1.0, ge=0, le=10)
+    availability_pct: float = Field(default=2.0, ge=0, le=30, description="Downtime and grid over-voltage trips at the end of LV lines")
+    temp_coeff_pct: float = Field(default=-0.32, ge=-1, le=0, description="Pmax temperature coefficient, %/°C (PERC ≈ −0,35, TOPCon ≈ −0,30)")
+
+    def performance_ratio(self) -> float:
+        ratio = 1.0
+        for name in LOSS_FIELDS:
+            ratio *= 1 - getattr(self, name) / 100
+        return round(ratio, 4)
+
+
+class WeatherYear(StrictModel):
+    """Typical-year weather on the 12 × 24 month-hour grid (index month*24 + local hour, values at HH:30)."""
+    source: str = Field(max_length=200)
+    latitude: float = Field(ge=-89, le=89)
+    longitude: float = Field(ge=-180, le=180)
+    ghi: list[float] = Field(min_length=288, max_length=288)
+    dni: list[float] = Field(min_length=288, max_length=288)
+    dhi: list[float] = Field(min_length=288, max_length=288)
+    temp_air: list[float] = Field(min_length=288, max_length=288)
+    wind: list[float] = Field(min_length=288, max_length=288)
+    annual_ghi_kwh_m2: float = Field(gt=0, le=4000)
+
+    @model_validator(mode="after")
+    def physical(self):
+        if any(v < 0 or v > 1500 for series in (self.ghi, self.dni, self.dhi) for v in series):
+            raise ValueError("Dữ liệu thời tiết có bức xạ ngoài khoảng 0–1.500 W/m².")
+        return self
 
 
 class ProjectConfig(StrictModel):
@@ -108,6 +154,18 @@ class ProjectConfig(StrictModel):
     rack_azimuth_deg: float = Field(default=180.0, ge=0, le=360)
     tracker_gcr: float = Field(default=0.4, ge=0.2, le=0.8, description="Panel width across the axis / row pitch")
     tracker_max_angle_deg: float = Field(default=55.0, ge=20, le=70)
+    # Typical-year weather replaces the clear-sky model for transposition, seasonality and shading weights.
+    weather: WeatherYear | None = None
+    # When present, the performance ratio is the product of these losses (set by the validator below).
+    yield_losses: YieldLosses | None = None
+
+    @model_validator(mode="after")
+    def validate_weather_and_losses(self):
+        if self.weather and (abs(self.weather.latitude - self.latitude) > .1 or abs(self.weather.longitude - self.longitude) > .1):
+            raise ValueError("Dữ liệu thời tiết thuộc vị trí khác (lệch hơn khoảng 10 km); tải lại dữ liệu thời tiết cho vị trí mới.")
+        if self.yield_losses:
+            self.performance_ratio = self.yield_losses.performance_ratio()
+        return self
 
     @model_validator(mode="after")
     def validate_polygon(self):
@@ -238,6 +296,7 @@ class DesignResult(BaseModel):
     target_met: bool | None = None
     robustness_checks: list[RobustnessCheck] = Field(default_factory=list)
     monthly_energy_kwh: list[float] = Field(default_factory=list, description="Annual energy spread by month (clear-sky seasonality)")
+    month_hour_kwh: list[float] = Field(default_factory=list, description="Energy of a typical day of each month, hour by hour (index month*24 + local hour), kWh")
 
 
 class VerifyRequest(BaseModel):

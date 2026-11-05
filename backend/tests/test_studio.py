@@ -86,7 +86,7 @@ def test_sun_position_moves_east_to_west_and_fractional_hour_works():
 
 def test_stress_tests_original_design_not_reoptimized():
     cfg=ProjectConfig(budget_vnd=100_000_000)
-    panel=PanelSpec()
+    panel=PanelSpec(price_vnd=4_200_000)
     design=generate_design(DesignRequest(config=cfg,panel=panel))
     result=run_stress_tests(StressRequest(config=cfg,panel=panel,design=design))
     budget=next(s for s in result.scenarios if s.id=='budget')

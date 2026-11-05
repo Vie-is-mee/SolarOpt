@@ -45,11 +45,13 @@ def call(i, **args):
 
 
 def test_stepped_tariff_round_trips_and_removes_the_top_tiers_first():
-    assert residential_bill(100, 0) == 50 * 1984 + 50 * 2050
+    # QĐ 2892/QĐ-BCT (01/11/2026): five tiers, 0–100 / 101–200 / 201–400 / 401–700 / above 700 kWh.
+    assert residential_bill(100, 0) == 100 * 1901
+    assert residential_bill(800, 0) == 100 * 1901 + 100 * 2289 + 200 * 2894 + 300 * 3456 + 100 * 3844
     for kwh in (30, 120, 260, 450, 1200):
         assert residential_kwh(residential_bill(kwh, 8), 8) == pytest.approx(kwh)
-    # Saving 100 kWh from a 400 kWh month removes tier 5 (301–400 kWh), not an average price.
-    assert monthly_saving(400, 100, 'residential', None, 0) == pytest.approx(100 * 3350)
+    # Saving 100 kWh from a 500 kWh month removes tier 4 (401–700 kWh), not an average price.
+    assert monthly_saving(500, 100, 'residential', None, 0) == pytest.approx(100 * 3456)
 
 
 def test_rule_planner_proposes_grounded_scenarios_and_apply_reproduces_the_choice():

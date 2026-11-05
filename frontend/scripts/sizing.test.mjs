@@ -2,10 +2,10 @@ import {test} from 'node:test'
 import assert from 'node:assert/strict'
 import {readFileSync} from 'node:fs'
 import ts from 'typescript'
+import {loadTs} from './tsload.mjs'
 const load=(name,replace=s=>s)=>'data:text/javascript;base64,'+Buffer.from(replace(ts.transpileModule(readFileSync(new URL(`../src/${name}.ts`,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext}}).outputText)).toString('base64')
-const economicsUrl=load('economics')
-const {defaultEconomics}=await import(economicsUrl)
-const {evaluateSize,sizeSweep,withReferenceCosts,REFERENCE_NOTE}=await import(load('sizing',s=>s.replace("'./economics'",`'${economicsUrl}'`)))
+const {defaultEconomics}=await loadTs('economics')
+const {evaluateSize,sizeSweep,withReferenceCosts,REFERENCE_NOTE}=await loadTs('sizing')
 
 // 20 panels, 580 W, 4,2 tr each; energy falls off so the last panels are the weakest.
 const panels=Array.from({length:20},(_,i)=>({id:'p'+i,x:i,y:0,width_m:1.134,height_m:2.278,annual_energy_kwh:900-i*10,shading_loss_pct:0,preserved:false}))
@@ -30,7 +30,8 @@ test('full-size evaluation matches the design totals and keeps the strongest pan
 })
 
 test('daytime demand caps self-use, so the advisor stops before exporting unpaid energy',()=>{
- const a={...complete(),daytime_use_kwh_month:600}
+ // A typed self-use always wins, so the demand-based cap applies when self-use is left empty.
+ const a={...complete(),self_use_pct:null,daytime_use_kwh_month:600}
  const {best,points}=sizeSweep(a,design)
  assert(best.panels<20,`expected a smaller system, got ${best.panels}`)
  assert(best.energy<=600*12+900,'best size should sit near annual daytime demand')

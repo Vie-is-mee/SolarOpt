@@ -40,11 +40,11 @@ def test_flat_reference_matches_physical_units_without_orientation_penalty():
 def test_generation_changes_annual_energy_when_only_roof_tilt_changes():
     flat=config()
     tilted=flat.model_copy(update={'roof_tilt_deg':40,'roof_azimuth_deg':0})
-    a=generate_design(DesignRequest(config=flat,panel=PanelSpec(),objective='max_energy'))
-    b=generate_design(DesignRequest(config=tilted,panel=PanelSpec(),objective='max_energy'))
+    a=generate_design(DesignRequest(config=flat,panel=PanelSpec(price_vnd=4_200_000),objective='max_energy'))
+    b=generate_design(DesignRequest(config=tilted,panel=PanelSpec(price_vnd=4_200_000),objective='max_energy'))
     assert len(a.panels)==len(b.panels)>0
     assert b.metrics.annual_energy_kwh<a.metrics.annual_energy_kwh*.95
-    assert check(tilted,PanelSpec(),b).valid
+    assert check(tilted,PanelSpec(price_vnd=4_200_000),b).valid
 
 
 def test_each_roof_face_uses_its_own_orientation():
