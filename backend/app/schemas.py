@@ -76,8 +76,8 @@ class ProjectConfig(StrictModel):
     project_name: str = "SolarOpt Demo"
     latitude: float = Field(default=10.7769, ge=-89, le=89)
     longitude: float = Field(default=106.7009, ge=-180, le=180)
-    roof_width_m: float = Field(default=10.0, gt=0, le=100)
-    roof_height_m: float = Field(default=8.0, gt=0, le=100)
+    roof_width_m: float = Field(default=10.0, gt=0, le=300)
+    roof_height_m: float = Field(default=8.0, gt=0, le=300)
     roof_azimuth_deg: float = Field(default=180.0, ge=0, le=360)
     roof_tilt_deg: float = Field(default=0.0, ge=0, le=60)
     layout_edge_reserve_m: float = Field(default=0, ge=0, le=5, description="Additional packing reserve; independent of mandatory setback")
@@ -92,7 +92,7 @@ class ProjectConfig(StrictModel):
     measurement_image_width_px: float | None = Field(default=None, gt=0, le=40000)
     measurement_image_height_px: float | None = Field(default=None, gt=0, le=40000)
     dimensions_verified: bool = False
-    calibration_reference_m: float | None = Field(default=None, gt=0, le=100)
+    calibration_reference_m: float | None = Field(default=None, gt=0, le=300)
     setback_m: float = Field(default=0.35, ge=0, le=10)
     panel_gap_m: float = Field(default=0.08, ge=0.02, le=5)
     obstacle_clearance_m: float = Field(default=0.25, ge=0, le=10)
@@ -120,20 +120,25 @@ class ProjectConfig(StrictModel):
             if any(p.x < 0 or p.y < 0 or p.x > self.roof_width_m or p.y > self.roof_height_m for p in self.roof_polygon):
                 raise ValueError("Điểm biên mái phải nằm trong kích thước khung mái.")
             boundary = poly
+        # Coordinates travel rounded (4–5 decimals), so a face cut along a slanted traced edge can sit a few
+        # hundredths of a millimetre outside it. 1 mm is far below any measurement and keeps real errors out.
+        slack=boundary.buffer(1e-3,join_style=2)
         faces=[]
         ids=set()
         for face in self.roof_faces:
             poly=Polygon([(p.x,p.y) for p in face.polygon])
-            if not poly.is_valid or poly.area<0.01 or not boundary.buffer(1e-7).covers(poly):
-                raise ValueError("Phần mái phải có diện tích, không tự cắt và nằm trong biên mái.")
-            if face.id in ids or any(poly.intersection(old).area>1e-5 for old in faces):
+            if not poly.is_valid or poly.area<0.01:
+                raise ValueError(f"Phần mái “{face.label}” bị tự cắt hoặc gần như không có diện tích; vẽ lại phần mái này.")
+            if not slack.covers(poly):
+                raise ValueError(f"Phần mái “{face.label}” vượt ra ngoài biên mái; kéo các đỉnh của nó vào trong biên.")
+            if face.id in ids or any(poly.intersection(old).area>max(1e-3,1e-4*poly.area) for old in faces):
                 raise ValueError("Các phần mái không được trùng tên định danh hoặc chồng diện tích.")
             faces.append(poly);ids.add(face.id)
         for points in self.roof_openings:
             if len(points)<3 or len(points)>80:
                 raise ValueError("Khoảng trống mái cần 3–80 điểm.")
             poly=Polygon([(p.x,p.y) for p in points])
-            if not poly.is_valid or poly.area<.01 or not boundary.buffer(1e-7).covers(poly):
+            if not poly.is_valid or poly.area<.01 or not slack.covers(poly):
                 raise ValueError("Khoảng trống phải nằm trong biên mái và không tự cắt.")
         return self
 

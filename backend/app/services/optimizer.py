@@ -53,7 +53,7 @@ def describe_goal(req, result):
 def generate_design(req: DesignRequest) -> DesignResult:
     cfg, spec = req.config, req.panel
     if (cfg.roof_width_m/(spec.width_m+cfg.panel_gap_m))*(cfg.roof_height_m/(spec.height_m+cfg.panel_gap_m)) > 10000:
-        raise ValueError("Lưới ứng viên quá lớn cho bản MVP; giảm phạm vi mái hoặc kiểm tra kích thước tấm pin.")
+        raise ValueError(f"Mái {cfg.roof_width_m:g} × {cfg.roof_height_m:g} m cần hơn 10.000 vị trí thử cho tấm pin, quá lớn cho một lần tính. Chia mái thành từng khu (mỗi khu khoảng 100 × 100 m trở xuống) và tính riêng từng khu.")
     # Hình học vật cản là ràng buộc cứng. Bóng che dùng nhiều thời điểm đại diện trong năm,
     # không phụ thuộc riêng thanh kéo giờ trên giao diện (thanh kéo chỉ để trực quan hóa).
     ctx = build_context(cfg, req.obstacles, None)

@@ -123,3 +123,23 @@ def test_a_small_hip_roof_wires_all_faces_together_with_a_warning():
     r = run(panels, ProjectConfig(roof_width_m=10, roof_height_m=12, roof_faces=faces), inverter_id="huawei-3ktl-l1")
     assert not r.unassigned_panel_ids and len(r.strings) == 1 and r.strings[0].length == 6
     assert next(c for c in r.checks if c.id == "orientation").status == "WARN"
+
+
+def test_factory_roof_gets_a_feasible_three_phase_inverter_and_every_model_is_sized():
+    # 140 panels × 580 W = 81,2 kWp: beyond the old 20 kW catalogue ceiling.
+    panels = layout(10, 14)
+    r = run(panels, config=ProjectConfig(roof_width_m=40, roof_height_m=30))
+    assert r.valid, [c.detail for c in r.checks if c.status == "FAIL"]
+    assert r.phase == "three" and 0.85 <= r.dc_ac_ratio <= 1.35
+    assert len(r.options) >= 5
+    assert r.options[0].feasible and r.options[0].inverter_id == r.inverter.id
+    assert all(o.ac_kw > 0 for o in r.options)
+
+
+def test_grid_connection_limit_caps_the_ac_capacity():
+    panels = layout(10, 14)
+    r = run(panels, config=ProjectConfig(roof_width_m=40, roof_height_m=30), max_ac_kw=70)
+    assert r.ac_kw <= 70
+    assert any(c.id == "ac_limit" and c.status == "PASS" for c in r.checks)
+    over = run(panels, config=ProjectConfig(roof_width_m=40, roof_height_m=30), inverter_id="sungrow-sg110cx", max_ac_kw=70)
+    assert not over.valid and any(c.id == "ac_limit" and c.status == "FAIL" for c in over.checks)

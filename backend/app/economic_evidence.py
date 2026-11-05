@@ -33,6 +33,11 @@ class EconomicAssumptions(BaseModel):
     # 'per_kwp': one all-in installed price (EPC, tax included) times kWp, for early estimates before itemised quotes.
     cost_mode:Literal['itemized','per_kwp']='itemized'
     capex_million_per_kwp:float|None=Field(default=None,ge=0,le=200)
+    # Empty assumptions take the market reference for this customer type (frontend economics.ts).
+    customer_type:Literal['residential','business','industrial']|None=None
+    # Pessimistic / optimistic changes from the base case, keyed like economics.ts Spread.
+    spread_low:dict[str,float]|None=Field(default=None,max_length=12)
+    spread_high:dict[str,float]|None=Field(default=None,max_length=12)
     source:str=Field(default='',max_length=4000)
 
 

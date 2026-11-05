@@ -57,7 +57,27 @@ CATALOG: list[InverterSpec] = [
          "Huawei FusionSolar, thông số SUN2000-3-10KTL-M1 bản High Current"),
     _inv("huawei-20ktl-m2", "Huawei", "SUN2000-20KTL-M2", "three", 20000, 30000, 1080, 160, 950, 200, 2, 2, 22, 30, 45_000_000,
          "Huawei FusionSolar, thông số SUN2000-12-20KTL-M2"),
+    # Three-phase range for larger homes, shops and factories (planning prices; check the current datasheet revision).
+    _inv("huawei-8ktl-m1", "Huawei", "SUN2000-8KTL-M1", "three", 8000, 12000, 1100, 140, 980, 200, 2, 1, 11, 15, 26_000_000,
+         "Huawei FusionSolar, thông số SUN2000-3-10KTL-M1"),
+    _inv("growatt-mod-10ktl3-x", "Growatt", "MOD 10KTL3-X", "three", 10000, 15000, 1100, 140, 1000, 160, 2, 1, 13, 16, 20_000_000,
+         "Growatt, datasheet MOD 3-15KTL3-X"),
+    _inv("huawei-12ktl-m2", "Huawei", "SUN2000-12KTL-M2", "three", 12000, 18000, 1080, 160, 950, 200, 2, 2, 22, 30, 36_000_000,
+         "Huawei FusionSolar, thông số SUN2000-12-20KTL-M2"),
+    _inv("huawei-15ktl-m2", "Huawei", "SUN2000-15KTL-M2", "three", 15000, 22500, 1080, 160, 950, 200, 2, 2, 22, 30, 40_000_000,
+         "Huawei FusionSolar, thông số SUN2000-12-20KTL-M2"),
+    _inv("huawei-30ktl-m3", "Huawei", "SUN2000-30KTL-M3", "three", 30000, 45000, 1100, 200, 1000, 200, 4, 2, 26, 40, 60_000_000,
+         "Huawei FusionSolar, thông số SUN2000-30/36/40KTL-M3"),
+    _inv("huawei-40ktl-m3", "Huawei", "SUN2000-40KTL-M3", "three", 40000, 60000, 1100, 200, 1000, 200, 4, 2, 26, 40, 72_000_000,
+         "Huawei FusionSolar, thông số SUN2000-30/36/40KTL-M3"),
+    _inv("sungrow-sg50cx", "Sungrow", "SG50CX", "three", 50000, 75000, 1100, 200, 1000, 250, 5, 2, 26, 40, 85_000_000,
+         "Sungrow, datasheet SG33/40/50CX"),
+    _inv("huawei-100ktl-m1", "Huawei", "SUN2000-100KTL-M1", "three", 100000, 150000, 1100, 200, 1000, 200, 10, 2, 26, 40, 120_000_000,
+         "Huawei FusionSolar, thông số SUN2000-100KTL-M1"),
+    _inv("sungrow-sg110cx", "Sungrow", "SG110CX", "three", 110000, 165000, 1100, 200, 1000, 200, 9, 2, 26, 40, 135_000_000,
+         "Sungrow, datasheet SG110CX"),
 ]
+CATALOG.sort(key=lambda i: (i.phase != "single", i.ac_rated_w))
 CATALOG_NOTE = "Thông số inverter lấy từ datasheet hãng để tham khảo; kỹ sư đối chiếu đúng phiên bản thiết bị mua. Giá là giả định lập kế hoạch, chưa phải báo giá."
 
 
@@ -76,6 +96,7 @@ class ElectricalRequest(BaseModel):
     isc_a: float | None = Field(default=None, gt=0, le=50, description="Datasheet Isc; Imp × 1.05 when empty")
     home_run_m: float = Field(default=15, ge=0, le=500, description="DC run from the array to the inverter, each polarity")
     ac_run_m: float = Field(default=20, ge=0, le=1000, description="Inverter to the main board")
+    max_ac_kw: float | None = Field(default=None, gt=0, le=10_000, description="Grid connection limit (approved or contracted AC capacity)")
 
 
 class StringPlan(BaseModel):
@@ -122,6 +143,8 @@ class BomItem(BaseModel):
 class InverterOption(BaseModel):
     inverter_id: str
     label: str
+    phase: Phase = "single"
+    ac_kw: float = 0
     count: int
     dc_ac_ratio: float
     feasible: bool
@@ -439,31 +462,49 @@ def design_electrical(req: ElectricalRequest) -> ElectricalResult:
         pool = [i for i in CATALOG if i.phase in phases]
     fixed = bool(req.custom_inverter or req.inverter_id)
 
-    candidates = []
-    for inv in pool:
+    def tries(inv: InverterSpec):
+        """Counts of one model, smallest first, until one passes every check (or three were tried)."""
+        out = []
         first = max(1, math.ceil(dc_w / (inv.ac_rated_w * 1.35)))
+        if first > 30:
+            return out          # far too small for this system: thirty boxes on a wall is not a design
         for count in range(first, first + 3):
             plan, lo, hi, checks = _evaluate(req, inv, count, t_min)
+            ac_kw = inv.ac_rated_w * count / 1000
+            if req.max_ac_kw:
+                over = ac_kw > req.max_ac_kw + 1e-9
+                checks = checks + [ElectricalCheck(id="ac_limit", label="Công suất AC trong giới hạn đấu nối", status="FAIL" if over else "PASS",
+                                                   detail=f"{vn(ac_kw, 1)} kW so với giới hạn {vn(req.max_ac_kw, 1)} kW" + (" — chọn inverter nhỏ hơn hoặc giảm số bộ." if over else "."))]
             fails = sum(c.status == "FAIL" for c in checks)
             warns = sum(c.status == "WARN" for c in checks)
             ratio = dc_w / (inv.ac_rated_w * count)
             phase_rank = phases.index(inv.phase) if inv.phase in phases else 1
             # Feasible first, then fewest warnings, preferred supply, a DC/AC near 1,15, and price.
             score = (fails, warns, phase_rank, round(abs(ratio - 1.15) * 4), inv.price_vnd * count)
-            candidates.append((score, inv, count, plan, lo, hi, checks, ratio))
+            out.append((score, inv, count, plan, lo, hi, checks, ratio))
             if fails == 0:
                 break
-    candidates.sort(key=lambda c: c[0])
+        return out
+
+    # Every model is sized for this project, so the engineer can compare and pick by capacity; the automatic
+    # choice still only draws from the supply phases that fit (or the one model the engineer named).
+    every = [*CATALOG, *([req.custom_inverter] if req.custom_inverter else [])]
+    tried = {inv.id: tries(inv) for inv in every}
+    candidates = sorted((c for inv in pool for c in tried.get(inv.id) or tries(inv)), key=lambda c: c[0])
+    if not candidates:
+        raise ValueError("Inverter này quá nhỏ so với hệ (cần hơn 30 bộ); chọn loại công suất lớn hơn.")
     score, inv, count, plan, lo, hi, checks, ratio = candidates[0]
-    options, seen = [], set()
-    for sc, i, cnt, _, _, _, chk, r in candidates:
-        if i.id in seen:
+    options = []
+    for runs in tried.values():
+        if not runs:
             continue
-        seen.add(i.id)
+        sc, i, cnt, _, _, _, chk, r = min(runs, key=lambda c: c[0])
         fails = [c.label for c in chk if c.status == "FAIL"]
-        options.append(InverterOption(inverter_id=i.id, label=f"{i.manufacturer} {i.model}", count=cnt, dc_ac_ratio=round(r, 2),
-                                      feasible=not fails, price_vnd=i.price_vnd * cnt,
-                                      note="Đạt mọi giới hạn" if not fails else "Chưa đạt: " + "; ".join(fails)))
+        warns = [c.label for c in chk if c.status == "WARN"]
+        options.append((sc, InverterOption(inverter_id=i.id, label=f"{i.manufacturer} {i.model}", phase=i.phase, ac_kw=round(i.ac_rated_w * cnt / 1000, 2),
+                                           count=cnt, dc_ac_ratio=round(r, 2), feasible=not fails, price_vnd=i.price_vnd * cnt,
+                                           note="Đạt mọi giới hạn" + (f"; lưu ý: {'; '.join(warns)}" if warns else "") if not fails else "Chưa đạt: " + "; ".join(fails))))
+    options = [o for _, o in sorted(options, key=lambda x: x[0])]
 
     phase = inv.phase
     _, rows = _serpentine(req.design.panels)
@@ -490,4 +531,4 @@ def design_electrical(req: ElectricalRequest) -> ElectricalResult:
     return ElectricalResult(valid=valid, inverter=inv, inverter_count=count, phase=phase, dc_kwp=round(dc_w / 1000, 3),
                             ac_kw=round(inv.ac_rated_w * count / 1000, 2), dc_ac_ratio=round(ratio, 3), string_min=lo, string_max=hi,
                             strings=plan.strings, mppts=plan.mppts, unassigned_panel_ids=plan.unassigned, checks=checks, bom=bom,
-                            cost_by_group={k: round(v) for k, v in cost.items()}, options=options[:6], assumptions=assumptions, summary=summary)
+                            cost_by_group={k: round(v) for k, v in cost.items()}, options=options[:12], assumptions=assumptions, summary=summary)

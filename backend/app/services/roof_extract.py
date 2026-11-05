@@ -6,6 +6,8 @@ use a tight image bounding box, origin BOTTOM LEFT. No physical scale is guessed
 from __future__ import annotations
 import base64
 import io
+import math
+from typing import Literal
 from time import perf_counter
 import numpy as np
 import cv2
@@ -29,6 +31,80 @@ class TraceRequest(StrictModel):
     quad_aspect_ratio: float | None = Field(default=None,ge=.02,le=50)
     detail: float = Field(default=.003,ge=.0005,le=.02)
     straighten: bool = True
+    # Photos of patched or two-tone roofs give ragged colour masks: 'orthogonal' snaps walls to right angles,
+    # 'rectangle' keeps the smallest enclosing rectangle. Manual outlines are never reshaped.
+    regularize: Literal['none','orthogonal','rectangle'] = 'none'
+
+
+def _tidy_mask(mask,background,w,h,notes):
+    """Colour masks of real roofs have pinholes and gaps where sheets, patches or shade differ in colour.
+    Bridge narrow gaps, and fill every hole the user did not mark as background: a hole is a courtyard
+    only when the engineer says so (a 'Loại nền' point inside it), never because a patch looked darker."""
+    k=max(3,int(round(min(h,w)*.012))|1)
+    mask=cv2.morphologyEx(mask,cv2.MORPH_CLOSE,cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(k,k)))
+    contours,hierarchy=cv2.findContours(mask,cv2.RETR_CCOMP,cv2.CHAIN_APPROX_SIMPLE)
+    filled=0
+    if hierarchy is not None:
+        for i,entry in enumerate(hierarchy[0]):
+            if entry[3]==-1:continue
+            if any(cv2.pointPolygonTest(contours[i],(float(p.x*w/100),float(p.y*h/100)),False)>=0 for p in background):continue
+            cv2.drawContours(mask,contours,i,1,-1);filled+=1
+    if filled:notes.append(f"Đã lấp {filled} lỗ nhỏ do mái khác màu/bóng đổ. Sân trong thật: chấm 'Loại nền −' vào giữa sân rồi tách lại.")
+    return mask
+
+
+def _orthogonal(points,min_len):
+    """Snap an outline whose walls run along the axes to a right-angled polygon.
+    Each edge becomes horizontal or vertical at the length-weighted position of its pixels; steps shorter
+    than min_len (ragged colour edges) are dropped. Returns None when no right-angled shape fits."""
+    pts=np.asarray(points,np.float64);edges=[]
+    for i in range(len(pts)):
+        a,b=pts[i],pts[(i+1)%len(pts)];dx,dy=b-a;length=math.hypot(dx,dy)
+        if length<1e-9:continue
+        horizontal=abs(dx)>=abs(dy)
+        edges.append(['h' if horizontal else 'v',(a[1]+b[1])/2 if horizontal else (a[0]+b[0])/2,length])
+    def merge(items):
+        i=0
+        while len(items)>4 and i<len(items):
+            j=(i+1)%len(items)
+            if items[i][0]==items[j][0]:
+                total=items[i][2]+items[j][2]
+                items[i]=[items[i][0],(items[i][1]*items[i][2]+items[j][1]*items[j][2])/total,total];del items[j];i=0
+            else:i+=1
+        return items
+    edges=merge(edges)
+    while len(edges)>4:
+        shortest=min(range(len(edges)),key=lambda k:edges[k][2])
+        if edges[shortest][2]>=min_len:break
+        del edges[shortest];edges=merge(edges)
+    if len(edges)<4 or len(edges)%2:return None
+    corners=[]
+    for k,e in enumerate(edges):
+        f=edges[(k+1)%len(edges)]
+        if e[0]==f[0]:return None
+        corners.append((e[1] if e[0]=='v' else f[1],e[1] if e[0]=='h' else f[1]))
+    return np.asarray(corners)
+
+
+def _regularize(approx,contour,mode,notes):
+    from shapely.geometry import Polygon
+    original=Polygon(approx)
+    if mode=='rectangle':
+        shaped=np.round(cv2.boxPoints(cv2.minAreaRect(contour))).astype(np.int32)
+    else:
+        skew=_skew_deg(approx);centre=tuple(float(v) for v in approx.mean(axis=0))
+        matrix=cv2.getRotationMatrix2D(centre,skew,1);inverse=cv2.invertAffineTransform(matrix)
+        turned=np.asarray(approx,np.float64)@matrix[:,:2].T+matrix[:,2]
+        span=float(max(np.ptp(turned[:,0]),np.ptp(turned[:,1])))
+        snapped=_orthogonal(turned,max(4.,.03*span))
+        if snapped is None:
+            notes.append("Chưa nắn được biên thành các cạnh vuông góc; giữ biên theo màu. Chọn 'Hình chữ nhật' hoặc chấm biên tay nếu cần.");return approx
+        shaped=np.round(snapped@inverse[:,:2].T+inverse[:,2]).astype(np.int32)
+    candidate=Polygon(shaped)
+    if not candidate.is_valid or not original.area or not .8<=candidate.area/original.area<=1.25:
+        notes.append("Biên nắn thẳng lệch quá nhiều so với vùng mái tìm được; giữ biên theo màu để kỹ sư kiểm tra.");return approx
+    notes.append("Đã nắn biên thành "+("hình chữ nhật nhỏ nhất bao vùng mái." if mode=='rectangle' else f"{len(shaped)} cạnh vuông góc theo hướng tường chính (bỏ răng cưa do mái khác màu)."))
+    return shaped
 
 
 def data_url(image, ext=".png"):
@@ -173,6 +249,7 @@ def extract_roof(req:TraceRequest):
         algorithm='opencv_grabcut'
         notes.append("Tách vùng theo màu và cạnh; bóng, cây hoặc mái cùng màu có thể làm sai biên. Thêm điểm giữ/loại hoặc chấm biên để sửa.")
     else:raise ValueError("Phương pháp tách biên không hợp lệ.")
+    if req.method=='grabcut':mask=_tidy_mask(mask,req.background,w,h,notes)
     contours,hierarchy=cv2.findContours(mask,cv2.RETR_CCOMP,cv2.CHAIN_APPROX_SIMPLE)
     if not contours:raise ValueError("Không tìm được vùng mái. Khoanh lại hoặc thêm điểm giữ mái.")
     external=[i for i,entry in enumerate(hierarchy[0]) if entry[3]==-1]
@@ -185,6 +262,7 @@ def extract_roof(req:TraceRequest):
     while len(approx)>50:
         tolerance*=1.3;approx=cv2.approxPolyDP(contour,tolerance,True).reshape(-1,2)
     if len(approx)<3:raise ValueError("Đường biên chưa hợp lệ.")
+    if req.regularize!='none' and req.method!='manual':approx=_regularize(approx,contour,req.regularize,notes)
     # A roof photographed at an angle has an axis-aligned box larger than its sides, so measured
     # width/length could never match it. Straighten the roof along its minimum-area rectangle;
     # the frame then measures the roof's own sides and the caller turns north by the same angle.

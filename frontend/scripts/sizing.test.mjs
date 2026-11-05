@@ -37,10 +37,15 @@ test('daytime demand caps self-use, so the advisor stops before exporting unpaid
  assert(points[19].selfUsePct<100)
 })
 
-test('missing assumptions are reported instead of producing a suggestion',()=>{
- const {best,points}=sizeSweep(defaultEconomics(),design)
+test('unpriced quote lines are reported instead of producing a suggestion',()=>{
+ const {best,points}=sizeSweep({...defaultEconomics(),cost_mode:'itemized'},design)
  assert.equal(best,null)
  assert(points[0].missing.length>0)
+})
+
+test('a new project sizes on the market reference without typing anything',()=>{
+ const {best}=sizeSweep(defaultEconomics(),design)
+ assert(best!==null)
 })
 
 test('a price per kWp scales the investment with the size being evaluated',()=>{

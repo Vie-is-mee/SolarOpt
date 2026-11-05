@@ -202,7 +202,7 @@ Giới hạn tối đa 20 vật cản và 30 điểm biên. Mỗi quan sát/ghi 
             left=max(0,min(xs)-3);top=max(0,min(ys)-3)
             right=min(100,max(xs)+3);bottom=min(100,max(ys)+3)
             try:
-                traced=extract_roof(TraceRequest(image_data_url="data:image/jpeg;base64,"+base64.b64encode(images[0]).decode(),rect=[left,top,right-left,bottom-top],polygon=image_outline,straighten=False))
+                traced=extract_roof(TraceRequest(image_data_url="data:image/jpeg;base64,"+base64.b64encode(images[0]).decode(),rect=[left,top,right-left,bottom-top],polygon=image_outline,straighten=False,regularize="orthogonal" if input_kind=="drone" else "none"))
                 bx,by,bw,bh=traced["roof_bbox_image_pct"]
                 raw["roof_polygon_pct"]=traced["roof_polygon_pct"]
                 raw["roof_polygon_image_pct"]=traced["polygon_image_pct"]
@@ -236,7 +236,7 @@ Giới hạn tối đa 20 vật cản và 30 điểm biên. Mỗi quan sát/ghi 
                 bbox=[min(xs),min(ys),max(xs)-min(xs),max(ys)-min(ys)]
             check=analyze_dimensions([d for d in dimension_labels if isinstance(d,dict)],image_w,image_h,bbox)
             for key in ("suggested_width_m","suggested_height_m"):
-                if check[key] is not None and not .1<=check[key]<=100:check[key]=None
+                if check[key] is not None and not .1<=check[key]<=300:check[key]=None
             raw["dimensions"]=check
             readable=sum(1 for r in check["labels"] if r["value_m"])
             events.append({"stage":"dimensions","status":"complete" if check["consistent"] is not False else "needs_review","detail":f"Đọc {readable}/{len(check['labels'])} số đo trên bản vẽ"+("; tỉ lệ khớp nhau." if check["consistent"] else "; tỉ lệ lệch nhau, cần kiểm tra." if check["consistent"] is False else ".")})
