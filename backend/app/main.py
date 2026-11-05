@@ -6,6 +6,8 @@ import os
 from pathlib import Path
 from time import perf_counter
 from threading import BoundedSemaphore
+import asyncio
+from app.memory import limit_arenas, release_memory
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFile
@@ -47,6 +49,7 @@ ensure_env_admin()
 
 app = FastAPI(title="SolarOpt API", version="2.0.0", description="Bộ tính toán và trích xuất ảnh cho SolarOpt Studio")
 
+limit_arenas()
 app.include_router(auth_router)
 app.include_router(billing_router)
 
@@ -62,6 +65,12 @@ async def private_responses(request, call_next):
 
 
 compute_slots = BoundedSemaphore(max(1, int(os.getenv("SOLAROPT_MAX_COMPUTE", "1"))))
+# Interactive calculations (the shadow scene is requested several times a second while the hour slider
+# plays) wait their turn instead of running side by side in the thread pool: each one allocates a lot.
+light_paths = {"/api/solar/scene", "/api/design/electrical", "/api/site/review", "/api/design/verify", "/api/design/evaluate",
+               "/api/solar/weather", "/api/roof/template", "/api/projects/validate"}
+light_slots = asyncio.Semaphore(max(1, int(os.getenv("SOLAROPT_MAX_LIGHT", "2"))))
+_served = 0
 heavy_paths = {"/api/advisor/propose", "/api/assistant/chat", "/api/design/mounting-compare", "/api/design/stress-preview", "/api/design/generate", "/api/design/repair", "/api/design/stress-test", "/api/uncertainty/evaluate", "/api/roof/trace", "/api/vision/analyze"}
 
 
@@ -69,6 +78,14 @@ heavy_paths = {"/api/advisor/propose", "/api/assistant/chat", "/api/design/mount
 async def bound_compute(request, call_next):
     if request.method not in {"GET", "HEAD", "OPTIONS"} and request.cookies.get(COOKIE) and request.headers.get("X-SolarOpt-Request") != "1":
         return JSONResponse(status_code=403, content={"detail": "Thiếu xác nhận yêu cầu."})
+    global _served
+    if request.method == "POST" and request.url.path in light_paths:
+        async with light_slots:
+            response = await call_next(request)
+        _served += 1
+        if _served % 25 == 0:
+            release_memory()
+        return response
     if request.method != "POST" or request.url.path not in heavy_paths:
         return await call_next(request)
     if not compute_slots.acquire(blocking=False):
@@ -77,6 +94,7 @@ async def bound_compute(request, call_next):
         return await call_next(request)
     finally:
         compute_slots.release()
+        release_memory()
 
 
 @app.exception_handler(ValueError)

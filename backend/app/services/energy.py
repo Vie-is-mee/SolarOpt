@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from datetime import date
 from functools import lru_cache
 from threading import Lock
+from threading import Lock
 from shapely import prepare
 
 from app.schemas import DesignMetrics, SunPosition, SunRequest
@@ -42,17 +43,35 @@ def model_note(cfg):
     return WEATHER_NOTE if getattr(cfg, "weather", None) else MODEL_NOTE
 
 
+# Typical-year skies by digest. Cache keys carry the short digest, never the 864 numbers themselves: each
+# request parses its own copy of the weather, and keys holding those copies filled the 512 MB of the host.
+_SKIES: "OrderedDict[str, tuple]" = OrderedDict()
+_SKIES_LOCK = Lock()
+
+
 def _wkey(cfg):
     """Hashable sky of a project for the cached transposition helpers: None means clear sky."""
     w = getattr(cfg, "weather", None)
-    return (tuple(w.ghi), tuple(w.dni), tuple(w.dhi)) if w else None
+    if not w:
+        return None
+    values = (tuple(w.ghi), tuple(w.dni), tuple(w.dhi))
+    key = hashlib.sha1(repr(values).encode()).hexdigest()
+    with _SKIES_LOCK:
+        _SKIES[key] = values
+        _SKIES.move_to_end(key)
+        while len(_SKIES) > 16:
+            _SKIES.popitem(last=False)
+    return key
 
 
-@lru_cache(maxsize=128)
+@lru_cache(maxsize=64)
 def _sky(latitude, longitude, weather=None):
     import numpy as np
     import pandas as pd
     import pvlib
+    if weather is not None:
+        with _SKIES_LOCK:
+            weather = _SKIES[weather]
     times = pd.DatetimeIndex([
         f"2026-{month:02d}-15 {hour:02d}:30:00"
         for month in range(1, 13) for hour in range(24)
@@ -67,7 +86,7 @@ def _sky(latitude, longitude, weather=None):
     return position, sky, weights
 
 
-@lru_cache(maxsize=2048)
+@lru_cache(maxsize=512)
 def _plane_sum(latitude, longitude, tilt, azimuth, weather=None):
     import pvlib
     position, sky, weights = _sky(latitude, longitude, weather)
@@ -93,7 +112,7 @@ def _tracker_sum(latitude, longitude, gcr, max_angle, weather=None):
     return float((poa.to_numpy() * weights).sum()) / 1000
 
 
-@lru_cache(maxsize=2048)
+@lru_cache(maxsize=512)
 def _plane_months(latitude, longitude, tilt, azimuth, tracker=None, weather=None):
     """Share of each month in the clear-sky plane-of-array year (12 values summing to 1).
     Same representative days and weights as _plane_sum; tracker=(gcr, max_angle) for 1-axis."""
@@ -190,7 +209,7 @@ def representative_contexts(cfg, obstacles):
     return contexts
 
 
-@lru_cache(maxsize=2048)
+@lru_cache(maxsize=512)
 def _plane_components(latitude, longitude, tilt, azimuth, tracker=None, weather=None):
     """Beam and diffuse irradiance (W/m²) on a plane at the 288 representative instants (clear sky or typical year)."""
     import numpy as np
