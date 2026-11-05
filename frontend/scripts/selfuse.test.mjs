@@ -2,7 +2,7 @@ import {test} from 'node:test'
 import assert from 'node:assert/strict'
 import {loadTs} from './tsload.mjs'
 const {residentialBill,residentialKwh,bandShares,TOU}=await loadTs('tariff')
-const {selfConsumption,kwhFromBill,consumptionOf}=await loadTs('loadProfiles')
+const {selfConsumption,kwhFromBill,consumptionOf,nearestProfile,daytimeShare}=await loadTs('loadProfiles')
 const {defaultEconomics,calculateEconomics,calculateScenarios}=await loadTs('economics')
 const {DAYS}=await loadTs('yieldLosses')
 
@@ -67,4 +67,16 @@ test('scenarios recompute self-use from their own output and load',()=>{
  assert(low.result.hourly&&high.result.hourly)
  assert(low.result.payback>base.result.payback&&base.result.payback>high.result.payback)
  assert(Math.abs(low.result.hourly.loadKwh/base.result.hourly.loadKwh-.85)<1e-6)
+})
+test('golden figures shared with the backend twin (backend/tests/test_selfuse.py)',()=>{
+ const golden=[[{kind:'residential',profile:'home_day',monthlyKwh:500},[21496.9881,6001.4795,2978.0801,10037298.9646]],[{kind:'business',profile:'shop',monthlyKwh:3000},[21496.9881,36000,18811.6141,63134813.5348]]]
+ for(const [c,[production,load,used,avoided]] of golden){
+  const r=selfConsumption(profile,{...c,voltage:'low',latitude:10.78})
+  assert(Math.abs(r.productionKwh-production)<1e-3);assert(Math.abs(r.loadKwh-load)<1e-3);assert(Math.abs(r.selfKwh-used)<1e-3);assert(Math.abs(r.avoidedVnd-avoided)<1)
+ }
+})
+test('daytime extra load and profile matching agree with the backend twin',()=>{
+ const r=selfConsumption(profile,{kind:'residential',profile:'away_day',monthlyKwh:400,voltage:'low',latitude:10.78,extraDaytimeKwhYear:1800})
+ assert(Math.abs(r.loadKwh-6601.1836)<1e-3);assert(Math.abs(r.selfKwh-3614.0059)<1e-3);assert(Math.abs(r.avoidedVnd-12388894.18)<1)
+ assert(Math.abs(daytimeShare('home_day')-41.82)<.01);assert.equal(nearestProfile('residential',40),'home_day');assert.equal(nearestProfile('residential',25),'away_day')
 })

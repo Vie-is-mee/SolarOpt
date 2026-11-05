@@ -41,7 +41,8 @@ export const DAY_KINDS:[number,number][]=[[.5,.2],[1,.4],[1.25,.4]]
 // Mon–Fri, Saturday, Sunday as shares of the days of a month.
 const DAY_TYPES:[keyof Pick<LoadProfile,'workday'|'saturday'|'sunday'>,number,boolean][]=[['workday',5/7,false],['saturday',1/7,false],['sunday',1/7,true]]
 
-export type Consumption={kind:CustomerKind;profile:LoadProfileId;monthlyKwh:number;voltage:Voltage;latitude:number}
+/** extraDaytimeKwhYear: load added evenly from 9:00 to 17:00 every day (EV charging, a heat pump). */
+export type Consumption={kind:CustomerKind;profile:LoadProfileId;monthlyKwh:number;voltage:Voltage;latitude:number;extraDaytimeKwhYear?:number}
 
 /** Average monthly kWh from a bill: the stepped tariff for households, the profile's time-band mix otherwise. */
 export function kwhFromBill(bill:number,kind:CustomerKind,profile:LoadProfileId,voltage:Voltage){
@@ -54,10 +55,10 @@ export function kwhFromBill(bill:number,kind:CustomerKind,profile:LoadProfileId,
 
 /** The consumption an economics entry describes, or null when neither monthly kWh nor a bill is known.
  * A profile that does not fit the customer kind (e.g. a household profile on a factory) falls back to the kind's default. */
-export function consumptionOf(a:{customer_type?:CustomerKind|null;load_profile?:LoadProfileId|null;voltage?:Voltage|null;monthly_use_kwh?:number|null;monthly_bill_vnd?:number|null},latitude:number):Consumption|null{
+export function consumptionOf(a:{customer_type?:CustomerKind|null;load_profile?:LoadProfileId|null;voltage?:Voltage|null;monthly_use_kwh?:number|null;monthly_bill_vnd?:number|null;extra_daytime_kwh_month?:number|null},latitude:number):Consumption|null{
  const kind=a.customer_type??'residential',chosen=profileById(a.load_profile),profile=chosen&&chosen.kinds.includes(kind)?chosen.id:defaultProfile(kind),voltage=kind==='residential'?'low':a.voltage??'low'
  const monthly=a.monthly_use_kwh!=null&&a.monthly_use_kwh>0?a.monthly_use_kwh:a.monthly_bill_vnd!=null&&a.monthly_bill_vnd>0?kwhFromBill(a.monthly_bill_vnd,kind,profile,voltage):null
- return monthly&&Number.isFinite(monthly)&&monthly>0?{kind,profile,monthlyKwh:monthly,voltage,latitude}:null
+ return monthly&&Number.isFinite(monthly)&&monthly>0?{kind,profile,monthlyKwh:monthly,voltage,latitude,extraDaytimeKwhYear:Math.max(0,a.extra_daytime_kwh_month??0)*12}:null
 }
 
 export type SelfConsumption={productionKwh:number;loadKwh:number;selfKwh:number;exportKwh:number;selfPct:number;coveragePct:number;avoidedVnd:number;buyPrice:number;
@@ -67,7 +68,8 @@ export type SelfConsumption={productionKwh:number;loadKwh:number;selfKwh:number;
 export function selfConsumption(production:number[],c:Consumption):SelfConsumption{
  const p=profileById(c.profile)!,season=seasonFactors(p,c.latitude),mean=DAYS.reduce((s,d)=>s+d,0)/12
  const norm=DAY_TYPES.reduce((s,[t,share])=>s+share*p[t].weight,0)
- const loadOf=(m:number,type:'workday'|'saturday'|'sunday')=>{const daily=c.monthlyKwh*season[m]/mean*p[type].weight/norm,sum=p[type].shape.reduce((s,v)=>s+v,0);return p[type].shape.map(v=>daily*v/sum)}
+ const extra=Array.from({length:24},(_,h)=>h>=9&&h<17?(c.extraDaytimeKwhYear??0)/365/8:0)
+ const loadOf=(m:number,type:'workday'|'saturday'|'sunday')=>{const daily=c.monthlyKwh*season[m]/mean*p[type].weight/norm,sum=p[type].shape.reduce((s,v)=>s+v,0);return p[type].shape.map((v,h)=>daily*v/sum+extra[h])}
  const prices=c.kind==='residential'?null:TOU[c.kind][c.voltage]
  let selfKwh=0,prodKwh=0,loadKwh=0,avoided=0
  const months=[]
@@ -90,6 +92,19 @@ export function selfConsumption(production:number[],c:Consumption):SelfConsumpti
  return {productionKwh:prodKwh,loadKwh,selfKwh,exportKwh:Math.max(0,prodKwh-selfKwh),selfPct:prodKwh>0?selfKwh/prodKwh*100:0,coveragePct:loadKwh>0?selfKwh/loadKwh*100:0,
   avoidedVnd:avoided,buyPrice:selfKwh>0?avoided/selfKwh:0,months,
   day:(m:number)=>({production:production.slice(m*24,m*24+24),load:DAY_TYPES.reduce((acc,[t,share])=>{loadOf(m,t).forEach((v,h)=>acc[h]+=share*v);return acc},Array(24).fill(0) as number[])})}
+}
+const DAYTIME=[7,17]
+/** Share of a week's consumption between 7 and 17 o'clock (backend selfuse.daytime_share). */
+export function daytimeShare(id:LoadProfileId){
+ const p=profileById(id)!;let total=0,day=0
+ for(const [t,share] of DAY_TYPES){const {shape,weight}=p[t],s=shape.reduce((a,v)=>a+v,0);total+=share*weight;day+=share*weight*shape.slice(DAYTIME[0],DAYTIME[1]).reduce((a,v)=>a+v,0)/s}
+ return day/total*100
+}
+/** The profile matching a stated daytime share (backend selfuse.nearest_profile). */
+export function nearestProfile(kind:CustomerKind,daytimePct:number|null|undefined):LoadProfileId{
+ if(kind!=='residential')return kind==='business'?'shop':'factory_1'
+ if(daytimePct==null)return 'away_day'
+ return (['away_day','home_day'] as LoadProfileId[]).reduce((b,p)=>Math.abs(daytimeShare(p)-daytimePct)<Math.abs(daytimeShare(b)-daytimePct)?p:b)
 }
 /** Scale a typical-day profile so its year sums to annualEnergy (a scenario or a smaller system). */
 export function scaleProfile(profile:number[],annualEnergy:number){

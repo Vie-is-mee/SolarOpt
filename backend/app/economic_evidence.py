@@ -43,6 +43,7 @@ class EconomicAssumptions(BaseModel):
     monthly_bill_vnd:float|None=Field(default=None,ge=0,le=1e12)
     load_profile:Literal['home_day','away_day','shop','factory_1','factory_2','continuous']|None=None
     voltage:Literal['low','medium']|None=None
+    extra_daytime_kwh_month:float|None=Field(default=None,ge=0,le=1e7)
     source:str=Field(default='',max_length=4000)
 
 

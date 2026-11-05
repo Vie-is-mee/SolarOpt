@@ -65,7 +65,7 @@ export function AdvisorPanel({value,onChange,config,panel,obstacles,confirmed,di
    {chosen&&<div className="advisor-kpis">
     <div><span>Quy mô</span><strong>{chosen.panel_count} tấm</strong><small>{n(chosen.peak_power_kwp,2)} kWp</small></div>
     <div><span>Sản lượng</span><strong>{n(chosen.annual_energy_kwh,0)}</strong><small>kWh/năm{chosen.coverage_pct!==null?` · đáp ứng ${n(chosen.coverage_pct)}%`:''}</small></div>
-    <div><span>Vốn đầu tư</span><strong>{money(chosen.investment_vnd)}</strong><small>{n(p.capex_million_per_kwp,2)} triệu đ/kWp</small></div>
+    <div><span>Vốn đầu tư</span><strong>{money(chosen.investment_vnd)}</strong><small>{n(chosen.peak_power_kwp>0?chosen.investment_vnd/chosen.peak_power_kwp/1e6:p.capex_million_per_kwp,2)} triệu đ/kWp</small></div>
     <div className="accent"><span>Ngân sách đề xuất</span><strong>{money(p.recommended_budget_vnd)}</strong><small>gồm 10% dự phòng</small></div>
     <div><span>Hoàn vốn</span><strong>{chosen.payback_years!==null?n(chosen.payback_years)+' năm':'Chưa hoàn vốn'}</strong><small>NPV {money(chosen.npv_vnd)}</small></div>
     <div><span>Điện tiêu thụ</span><strong>{p.consumption.annual_kwh!==null?n(p.consumption.annual_kwh,0):'Chưa rõ'}</strong><small>kWh/năm · ban ngày {n(p.consumption.daytime_share_pct)}%</small></div>

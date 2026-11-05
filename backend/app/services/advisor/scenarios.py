@@ -13,12 +13,22 @@ from app.services.advisor.models import AdvisorRequest, ApplyPlan, Consumption, 
 from app.services.advisor.tariff import TARIFF_SOURCE, marginal_price, monthly_saving, residential_kwh
 from app.services.geometry import build_context
 from app.services.optimizer import area_upper_bound, generate_design
+from app.services.selfuse import nearest_profile, scale_profile, self_consumption
 
-# SolarOpt planning reference (same unit prices as the sizing advisor's reference costs): inverter 1.8,
-# racking 1.0, wiring/protection 0.7, labour 1.0 million VND per kWp, plus 4 million fixed per project.
-# Not a market quote; the proposal labels it and the engineer replaces it with the installer's price.
-REFERENCE_BOS_PER_KWP = 4_500_000
-REFERENCE_FIXED = 4_000_000
+EXPORT_CAP = 0.5   # surplus paid on at most half the output (NĐ 58/2025 as amended by NĐ 243/2026)
+
+# All-in installed price (equipment, labour, installer margin and VAT) by size, the same table as the
+# handover economics (frontend economics.ts marketCapex): press quotes of 2026 put households at about
+# 12–15 and businesses at about 7.5–13 million VND per kWp. Not a quote; the engineer replaces it.
+MARKET_CAPEX_SOURCE = ("Suất đầu tư trọn gói tham khảo theo quy mô (thị trường Việt Nam 11/2026, gồm thiết bị, thi công, lãi nhà thầu và VAT): "
+                       "hộ gia đình đến 5 kWp 13,5; đến 15 kWp 12; lớn hơn 11 triệu đ/kWp; kinh doanh đến 50 kWp 10; đến 200 kWp 8,5; lớn hơn 7,5. "
+                       "Thay bằng báo giá thật trước khi chốt.")
+
+
+def market_capex(tariff: str, kwp: float) -> float:
+    if tariff == "business":
+        return 10.0 if kwp <= 50 else 8.5 if kwp <= 200 else 7.5
+    return 13.5 if kwp <= 5 else 12.0 if kwp <= 15 else 11.0
 DEFAULT_DAYTIME = {"residential": 35.0, "business": 60.0}
 
 
@@ -45,14 +55,11 @@ def consumption(req: AdvisorRequest) -> Consumption:
     return Consumption(annual_kwh=annual, monthly_kwh=monthly, daytime_share_pct=share, daytime_kwh_year=annual * share / 100 if annual else None, source=source)
 
 
-def capex(req: AdvisorRequest) -> tuple[float, str]:
-    """All-in investment in million VND per kWp, and where it came from."""
+def capex(req: AdvisorRequest) -> tuple[float | None, str]:
+    """All-in price per kWp the engineer typed (None: the market table by size), and where it came from."""
     if req.customer.capex_million_per_kwp:
         return req.customer.capex_million_per_kwp, "Suất đầu tư trọn gói do kỹ sư nhập theo báo giá."
-    kwp = req.panel.power_w / 1000
-    per_kwp = (req.panel.price_vnd / kwp + REFERENCE_BOS_PER_KWP) / 1e6
-    return round(per_kwp, 2), (f"Đơn giá tham khảo SolarOpt: tấm pin {vn(req.panel.price_vnd / kwp / 1e6, 2)} tr/kWp + inverter, khung, dây, nhân công 4,5 tr/kWp + 4 tr cố định; "
-                               "giả định lập kế hoạch, chưa gồm thuế và lãi nhà thầu. Thay bằng báo giá thật trước khi chốt.")
+    return None, MARKET_CAPEX_SOURCE
 
 
 def site_facts(req: AdvisorRequest) -> dict[str, float | str | None]:
@@ -74,22 +81,38 @@ def site_facts(req: AdvisorRequest) -> dict[str, float | str | None]:
     }
 
 
-def cash_flow(req: AdvisorRequest, cons: Consumption, kwp: float, energy: float, investment: float):
-    """Self-used energy saves the customer's own top tariff tiers; surplus earns sell_price (0 by default).
-    Self use is capped by daytime demand; without a known demand all output counts as self-used."""
+def cash_flow(req: AdvisorRequest, cons: Consumption, kwp: float, energy: float, investment: float,
+              profile: list[float] | None = None, extra_daytime: float = 0.0):
+    """Self-used energy saves the customer's own tariff; surplus earns sell_price (0 by default) on at most half
+    the output. With the layout's hourly output and a known bill, self-use is matched hour by hour against the
+    customer's load profile (services/selfuse.py, the same model as the handover economics); otherwise it is
+    capped by daytime demand, and without a known demand all output counts as self-used."""
     f, c = req.finance, req.customer
     monthly = cons.monthly_kwh
+    base = consumption(req)                       # the bill alone; extra daytime load is added hour by hour
+    hourly = None
+    if profile and len(profile) == 288 and base.monthly_kwh and energy > 0:
+        kind = "business" if c.tariff == "business" else "residential"
+        hourly = self_consumption(scale_profile(profile, energy), kind, nearest_profile(kind, base.daytime_share_pct), base.monthly_kwh,
+                                  req.config.latitude, vat_pct=c.vat_pct, extra_daytime_kwh_year=extra_daytime)
+        if kind == "business" and c.business_price_vnd_kwh:
+            hourly["avoided_vnd"] = hourly["self_kwh"] * c.business_price_vnd_kwh * (1 + c.vat_pct / 100)
     cumulative, npv, payback = -investment, -investment, None
     first_saving, self_use_pct = 0.0, 100.0
     for year in range(1, f.years + 1):
-        e = energy * (1 - f.degradation_pct / 100) ** (year - 1)
-        self_used = min(e, cons.daytime_kwh_year) if cons.daytime_kwh_year is not None else e
+        fade = (1 - f.degradation_pct / 100) ** (year - 1)
+        e = energy * fade
         growth = (1 + f.price_growth_pct / 100) ** (year - 1)
-        if monthly:
-            saving = 12 * monthly_saving(monthly, self_used / 12, c.tariff, c.business_price_vnd_kwh, c.vat_pct) * growth
-        else:   # No bill: value self use at the 4th residential tier, a conservative middle price.
-            saving = self_used * marginal_price(250) * (1 + c.vat_pct / 100) * growth
-        export = (e - self_used) * f.sell_price_vnd_kwh * growth
+        if hourly:
+            self_used = min(e, hourly["self_kwh"] * fade)
+            saving = hourly["avoided_vnd"] * fade * growth
+        else:
+            self_used = min(e, cons.daytime_kwh_year) if cons.daytime_kwh_year is not None else e
+            if monthly:
+                saving = 12 * monthly_saving(monthly, self_used / 12, c.tariff, c.business_price_vnd_kwh, c.vat_pct) * growth
+            else:   # No bill: value self use at the 3rd residential tier, a conservative middle price.
+                saving = self_used * marginal_price(250) * (1 + c.vat_pct / 100) * growth
+        export = min(e - self_used, e * EXPORT_CAP) * f.sell_price_vnd_kwh * growth
         net = saving + export - f.maintenance_vnd_per_kwp_year * kwp
         if year == 1:
             first_saving, self_use_pct = saving + export, (self_used / e * 100 if e else 0)
@@ -108,14 +131,22 @@ class ScenarioBook:
     def __init__(self, req: AdvisorRequest):
         self.req = req
         self.cons = consumption(req)
-        self.capex, self.capex_source = capex(req)
+        self.fixed_capex, self.capex_source = capex(req)
         self.items: list[Scenario] = []
         self.applied: dict[str, ApplyPlan] = {}   # project settings that reproduce each scenario
         # Without an investment cap the roof is the limit; this bound can never bind the optimizer.
         self.area_bound = max(1, area_upper_bound(req.config, req.panel, build_context(req.config, req.obstacles, None))[1])
 
+    def per_kwp(self, kwp: float) -> float:
+        return self.fixed_capex or market_capex(self.req.customer.tariff, kwp)
+
+    @property
+    def capex(self) -> float:
+        """Price per kWp quoted to the model and the page: the typed price, or the market price at the roof's full size."""
+        return self.per_kwp(self.area_bound * self.req.panel.power_w / 1000)
+
     def investment(self, kwp: float) -> float:
-        return self.capex * 1e6 * kwp + (0 if self.req.customer.capex_million_per_kwp else REFERENCE_FIXED * (kwp > 0))
+        return self.per_kwp(kwp) * 1e6 * kwp if kwp > 0 else 0.0
 
     def demand(self, extra_daytime: float) -> Consumption:
         """Consumption with extra daytime load (e.g. an EV charged at home); it shifts the bill into higher tiers too."""
@@ -134,9 +165,9 @@ class ScenarioBook:
         cap = params.max_investment_vnd or req.customer.budget_vnd
         cons = self.demand(params.extra_daytime_kwh_year)
         panel_kwp = panel.power_w / 1000
-        # The optimizer caps panels by panel price; translate an all-in cap into that panel count.
-        fixed = 0 if req.customer.capex_million_per_kwp else REFERENCE_FIXED
-        max_panels = math.floor(max(0.0, cap - fixed) / (self.capex * 1e6 * panel_kwp) + 1e-9) if cap else self.area_bound
+        # The optimizer caps panels by panel price; translate an all-in cap into that panel count
+        # (the price per kWp steps down with size, so count down from the roof's limit).
+        max_panels = next((n for n in range(self.area_bound, -1, -1) if self.investment(n * panel_kwp) <= cap + 1e-6), 0) if cap else self.area_bound
         target = params.target_energy_kwh_year if params.objective == "min_cost" else None
         if params.objective == "min_cost" and target is None:
             target = cons.annual_kwh or None
@@ -152,7 +183,7 @@ class ScenarioBook:
         m = result.metrics
         kwp, energy = m.peak_power_kwp, m.annual_energy_kwh
         investment = self.investment(kwp) if m.panel_count else 0.0
-        saving, self_use, payback, npv = cash_flow(req, cons, kwp, energy, investment)
+        saving, self_use, payback, npv = cash_flow(req, cons, kwp, energy, investment, result.month_hour_kwh, params.extra_daytime_kwh_year)
         notes = [w for w in result.warnings if w.startswith(("Chưa đáp ứng", "Dự phòng", "Đã đạt giới hạn")) or "trên nóc vật cản" in w]
         item = Scenario(
             id=f"S{len(self.items) + 1}", label=label[:80] or params.objective, intent=intent[:400], params=params,
