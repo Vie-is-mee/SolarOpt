@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 
 from app.schemas import CandidatePanel, DesignResult, PanelSpec, ProjectConfig, StrictModel
 from app.services.geometry import SLOPED_TILT
+from app.services.site import SiteSurvey, edge_panel_ids, mounting_plan
 
 Phase = Literal["single", "three"]
 
@@ -97,6 +98,9 @@ class ElectricalRequest(BaseModel):
     home_run_m: float = Field(default=15, ge=0, le=500, description="DC run from the array to the inverter, each polarity")
     ac_run_m: float = Field(default=20, ge=0, le=1000, description="Inverter to the main board")
     max_ac_kw: float | None = Field(default=None, gt=0, le=10_000, description="Grid connection limit (approved or contracted AC capacity)")
+    survey: SiteSurvey | None = Field(default=None, description="Site survey: wind attachments, corrosion-grade materials, emergency shutdown")
+    zero_export: bool = Field(default=False, description="Customer does not sell surplus: anti-reverse-power meter")
+    grid_voltage_v: float | None = Field(default=None, ge=180, le=280, description="Phase-neutral voltage measured at the main board at noon, system off")
 
 
 class StringPlan(BaseModel):
@@ -331,6 +335,56 @@ def _wire(req: ElectricalRequest, inv: InverterSpec, count: int, groups, lo: int
     return plan
 
 
+# ---- voltage drop, grid voltage and phases -------------------------------------------------------
+
+RHO = 0.0225          # Ω·mm²/m: copper near its 80 °C working temperature
+DROP_LIMIT = 1.5      # % per side (DC, AC); the cable is upsized until it holds
+DC_SIZES = [(4, 18_000), (6, 26_000), (10, 42_000)]
+V_TRIP, V_BAND = 253.0, 241.5   # inverter over-voltage trip (110 % of 230 V); +5 % of the distribution band
+PHASE_IMBALANCE_KW = 5.0
+
+
+def dc_drop_pct(s: StringPlan, panel: PanelSpec, size: float) -> float:
+    return panel.imp_a * RHO * s.cable_m / size / (panel.vmp_v * s.length) * 100
+
+
+def dc_cable(strings: list[StringPlan], panel: PanelSpec) -> tuple[int, int, float]:
+    """Smallest DC section whose worst string drop holds the limit (size mm², price, worst drop %)."""
+    for size, price in DC_SIZES:
+        worst = max((dc_drop_pct(s, panel, size) for s in strings), default=0.0)
+        if worst <= DROP_LIMIT:
+            return size, price, worst
+    return size, price, worst
+
+
+def ac_current(inv: InverterSpec, phase: str) -> float:
+    return inv.ac_rated_w / (230 if phase == "single" else math.sqrt(3) * 400)
+
+
+def ac_drop_pct(inv: InverterSpec, phase: str, run: float, size: float) -> float:
+    i = ac_current(inv, phase)
+    return (2 * run * i * RHO / size / 230 if phase == "single" else math.sqrt(3) * run * i * RHO / size / 400) * 100
+
+
+def ac_cable(inv: InverterSpec, phase: str, run: float) -> tuple[float, float, float]:
+    """AC section: first by current (1,1 × rated), then up until the drop holds."""
+    current = ac_current(inv, phase) * 1.1
+    start = next((i for i, (limit, _, _) in enumerate(AC_CABLE) if current <= limit), len(AC_CABLE) - 1)
+    for _, size, price in AC_CABLE[start:]:
+        drop = ac_drop_pct(inv, phase, run, size)
+        if drop <= DROP_LIMIT:
+            return size, price, drop
+    return size, price, drop
+
+
+def phase_split(inv: InverterSpec, count: int) -> list[float]:
+    """kW on L1, L2, L3 when single-phase inverters are spread round the phases."""
+    loads = [0.0, 0.0, 0.0]
+    for i in range(count):
+        loads[i % 3] += inv.ac_rated_w / 1000
+    return loads
+
+
 def _checks(req, inv, count, plan: _Plan, lo, hi, dc_w, t_min, total_panels) -> list[ElectricalCheck]:
     out: list[ElectricalCheck] = []
     if not plan.strings:
@@ -366,6 +420,26 @@ def _checks(req, inv, count, plan: _Plan, lo, hi, dc_w, t_min, total_panels) -> 
                                    detail=f"Phần mái {', '.join(plan.mixed)} quá ít tấm để thành chuỗi riêng nên được nối chung chuỗi khác hướng; sản lượng giảm vì lệch dòng. Cân nhắc tối ưu hóa công suất (optimizer) cho các tấm này."))
     else:
         out.append(ElectricalCheck(id="orientation", label="Mỗi MPPT một hướng mái", status="PASS", detail="Không có chuỗi nào nối tấm khác hướng."))
+    size, _, worst = dc_cable(plan.strings, req.panel)
+    out.append(ElectricalCheck(id="dc_drop", label="Sụt áp cáp DC ≤ 1,5%", status="PASS" if worst <= DROP_LIMIT else "WARN",
+                               detail=f"Chuỗi xa nhất sụt {vn(worst, 2)}% với cáp {size} mm²" + (" (đã tăng tiết diện từ 4 mm²)." if size > 4 else ".")
+                               + (" Rút ngắn tuyến cáp hoặc đặt inverter gần dàn pin." if worst > DROP_LIMIT else "")))
+    phase = inv.phase
+    a_size, _, a_drop = ac_cable(inv, phase, req.ac_run_m)
+    out.append(ElectricalCheck(id="ac_drop", label="Sụt áp cáp AC ≤ 1,5%", status="PASS" if a_drop <= DROP_LIMIT else "WARN",
+                               detail=f"{vn(a_drop, 2)}% trên {vn(req.ac_run_m, 0)} m cáp {vn(a_size, 0)} mm² ở công suất định mức."))
+    if req.grid_voltage_v:
+        v = req.grid_voltage_v * (1 + a_drop / 100)
+        status = "FAIL" if v >= V_TRIP else "WARN" if v > V_BAND else "PASS"
+        out.append(ElectricalCheck(id="grid_voltage", label="Điện áp tại inverter lúc phát cao nhất", status=status,
+                                   detail=f"Lưới đo {vn(req.grid_voltage_v, 1)} V, cộng {vn(a_drop, 2)}% tăng áp trên cáp AC → khoảng {vn(v, 1)} V; inverter thường tự ngắt ở {vn(V_TRIP, 0)} V (110%). "
+                                          + ("Đề nghị điện lực chỉnh nấc máy biến áp, tăng tiết diện cáp, cài chế độ Volt-Watt hoặc giới hạn công suất phát." if status != "PASS" else "Đạt.")))
+    if phase == "single" and count >= 2:
+        loads = phase_split(inv, count)
+        gap = max(loads) - min(loads)
+        out.append(ElectricalCheck(id="phase_balance", label="Cân bằng pha", status="PASS" if gap <= PHASE_IMBALANCE_KW else "WARN",
+                                   detail=f"{count} inverter 1 pha chia lên L1/L2/L3: {' / '.join(vn(x, 1) for x in loads)} kW, lệch {vn(gap, 1)} kW."
+                                          + (" Nhiều điện lực giới hạn lệch pha khoảng 5 kVA; hỏi điện lực khu vực hoặc dùng inverter 3 pha." if gap > PHASE_IMBALANCE_KW else "")))
     spread = max(s.shading_spread_pct for s in plan.strings)
     out.append(ElectricalCheck(id="shading", label="Bóng che đồng đều trong chuỗi", status="PASS" if spread <= 10 else "WARN",
                                detail=f"Chênh lệch tổn thất bóng lớn nhất trong một chuỗi là {vn(spread)} điểm %." + (" Tấm bị che nhiều kéo cả chuỗi xuống; cân nhắc optimizer cho các tấm này." if spread > 10 else "")))
@@ -380,7 +454,19 @@ def _checks(req, inv, count, plan: _Plan, lo, hi, dc_w, t_min, total_panels) -> 
 BREAKERS = [10, 16, 20, 25, 32, 40, 50, 63, 80, 100, 125, 160]
 AC_CABLE = [(25, 4, 28_000), (32, 6, 38_000), (45, 10, 62_000), (60, 16, 95_000), (80, 25, 145_000), (110, 35, 200_000), (150, 50, 280_000)]
 PRICES = {"dc_cable": 18_000, "mc4": 25_000, "dc_breaker": 450_000, "dc_spd": 650_000, "dc_box": 900_000, "ac_spd": 550_000,
-          "ac_box": 700_000, "earth_wire": 22_000, "earth_rod": 1_500_000, "rail": 135_000, "mid": 15_000, "end": 15_000, "foot": 45_000}
+          "ac_box": 700_000, "earth_wire": 22_000, "earth_rod": 1_500_000, "rail": 135_000, "mid": 15_000, "end": 15_000, "foot": 45_000,
+          # Planning prices: DC isolator, emergency stop with posted diagrams, smart meter + CT, dispatch link (≥ 100 kW).
+          "dc_isolator": 1_200_000, "estop": 800_000, "meter_1p": 2_500_000, "meter_3p": 3_500_000, "dispatch": 60_000_000}
+
+
+def _feet(req, used: list[CandidatePanel], rows: int, mount) -> tuple[int, str]:
+    rail = 2 * len(used) * req.panel.width_m * 1.05 + 0.1 * rows
+    if not mount.surveyed:
+        return math.ceil(rail / mount.foot_spacing_center_m), f"bước {vn(mount.foot_spacing_center_m)} m dọc ray (giả định, chưa khảo sát)"
+    edge = edge_panel_ids(req.config, req.design.model_copy(update={"panels": used}), mount.edge_zone_m) if used else set()
+    feet = sum(2 * p.width_m * 1.05 / (mount.foot_spacing_edge_m if p.id in edge else mount.foot_spacing_center_m) for p in used)
+    return math.ceil(feet) + 2 * rows, (f"bước {vn(mount.foot_spacing_center_m)} m giữa mái, {vn(mount.foot_spacing_edge_m)} m ở {len(edge)} tấm vùng mép; "
+                                         f"vùng gió {mount.wind_zone}, {vn(mount.foot_capacity_kn)} kN/chân")
 
 
 def _bom(req, inv, count, phase, plan: _Plan, rows: int, used_panels: int) -> list[BomItem]:
@@ -390,18 +476,25 @@ def _bom(req, inv, count, phase, plan: _Plan, rows: int, used_panels: int) -> li
 
     strings = len(plan.strings)
     mppts = len(plan.mppts)
-    dc_cable = math.ceil(sum(s.cable_m for s in plan.strings) * 1.1)
-    ac_current = inv.ac_rated_w / (230 if phase == "single" else math.sqrt(3) * 400) * 1.1
-    breaker = next((b for b in BREAKERS if b >= ac_current * 1.25), BREAKERS[-1])
-    size, cable_price = next(((s, p) for limit, s, p in AC_CABLE if ac_current <= limit), AC_CABLE[-1][1:])
+    dc_length = math.ceil(sum(s.cable_m for s in plan.strings) * 1.1)
+    dc_size, dc_price, _ = dc_cable(plan.strings, req.panel)
+    current = ac_current(inv, phase) * 1.1
+    breaker = next((b for b in BREAKERS if b >= current * 1.25), BREAKERS[-1])
+    size, cable_price, _ = ac_cable(inv, phase, req.ac_run_m)
     cores = 3 if phase == "single" else 5
+    mount = mounting_plan(req.config, req.panel, req.survey)
+    unassigned = set(plan.unassigned)
+    used = [p for p in req.design.panels if p.id not in unassigned]
+    feet, feet_spec = _feet(req, used, rows, mount)
+    f = mount.price_factor
+    dc_kw = len(req.design.panels) * req.panel.power_w / 1000
     dc_breaker = max(16, next((b for b in BREAKERS if b >= (req.isc_a or req.panel.imp_a * 1.05) * 1.25), BREAKERS[-1]))
     # Portrait rows: two rails under each row, as long as the row; clamps between and at the ends of panels.
     rail = 2 * used_panels * req.panel.width_m * 1.05 + 0.1 * rows
     bom = [
         item("panel", "Tấm pin", f"{req.panel.manufacturer} {req.panel.model}", used_panels, "tấm", req.panel.price_vnd),
         item("inverter", "Inverter hòa lưới", f"{inv.manufacturer} {inv.model} · {vn(inv.ac_rated_w / 1000, 1)} kW {'1 pha' if phase == 'single' else '3 pha'}", count, "bộ", inv.price_vnd),
-        item("dc", "Cáp DC solar", "4 mm², 1,5 kV DC, chống UV", dc_cable, "m", PRICES["dc_cable"]),
+        item("dc", "Cáp DC solar", f"{dc_size} mm², 1,5 kV DC, chống UV", dc_length, "m", dc_price),
         item("dc", "Đầu nối MC4", "cặp đực/cái", 2 * strings + 4, "cặp", PRICES["mc4"]),
         item("dc", "CB DC 2 cực", f"{dc_breaker} A, ≥ {vn(max(s.voc_cold_v for s in plan.strings), 0)} V DC", strings, "cái", PRICES["dc_breaker"]),
         item("dc", "Chống sét DC (SPD loại II)", f"≥ {vn(inv.max_dc_voltage_v, 0)} V DC", mppts, "cái", PRICES["dc_spd"]),
@@ -412,11 +505,20 @@ def _bom(req, inv, count, phase, plan: _Plan, rows: int, used_panels: int) -> li
         item("ac", "Tủ điện AC", "vỏ IP65", count, "tủ", PRICES["ac_box"]),
         item("earthing", "Dây tiếp địa", "Cu bọc vàng-xanh 6 mm², nối khung và vỏ thiết bị", math.ceil(rail / 2 + 15), "m", PRICES["earth_wire"]),
         item("earthing", "Cọc tiếp địa", "bộ 3 cọc 2,4 m, điện trở ≤ 10 Ω", 1, "bộ", PRICES["earth_rod"]),
-        item("mounting", "Ray nhôm", "ray 40 × 40", math.ceil(rail), "m", PRICES["rail"]),
-        item("mounting", "Kẹp giữa", "giữa hai tấm", 2 * max(0, used_panels - rows), "cái", PRICES["mid"]),
-        item("mounting", "Kẹp biên", "đầu dãy", 4 * rows, "cái", PRICES["end"]),
-        item("mounting", "Chân đỡ / móc mái", "bước 1,2 m dọc ray", math.ceil(rail / 1.2), "cái", PRICES["foot"]),
+        item("mounting", "Ray nhôm", f"ray 40 × 40, {mount.rail_spec}" if mount.surveyed else "ray 40 × 40", math.ceil(rail), "m", round(PRICES["rail"] * f)),
+        item("mounting", "Kẹp giữa", "giữa hai tấm" + (f", {mount.fastener_spec}" if mount.surveyed else ""), 2 * max(0, used_panels - rows), "cái", round(PRICES["mid"] * f)),
+        item("mounting", "Kẹp biên", "đầu dãy", 4 * rows, "cái", round(PRICES["end"] * f)),
+        item("mounting", "Chân đỡ / móc mái", feet_spec, feet, "cái", round(PRICES["foot"] * f)),
     ]
+    if mount.surveyed:
+        # Fire Police guidance 3288/C07-P4: emergency disconnection at the inverter and at the switchgear, instructions posted.
+        bom += [item("dc", "Ngắt khẩn cấp phía DC", "cầu dao cách ly DC đặt tại inverter, có biển hướng dẫn", count, "bộ", PRICES["dc_isolator"]),
+                item("ac", "Ngắt khẩn cấp tại tủ đóng cắt", "nút dừng khẩn cấp + sơ đồ bố trí, sơ đồ đấu nối niêm yết gần lối lên mái", 1, "bộ", PRICES["estop"])]
+    if req.zero_export:
+        bom.append(item("ac", "Đồng hồ chống phát ngược", f"công tơ thông minh {'1' if phase == 'single' else '3'} pha + CT, inverter cài chế độ không phát lên lưới", 1, "bộ",
+                        PRICES["meter_1p" if phase == "single" else "meter_3p"]))
+    if dc_kw >= 100 and (req.survey is None or req.survey.grid_connected):
+        bom.append(item("ac", "Giám sát, kết nối điều độ phân phối", "bộ thu thập dữ liệu, truyền thông theo yêu cầu kỹ thuật EVN (từ 100 kW, NĐ 58/2025 Điều 10)", 1, "bộ", PRICES["dispatch"]))
     return [b for b in bom if b.quantity > 0]
 
 
@@ -523,7 +625,9 @@ def design_electrical(req: ElectricalRequest) -> ElectricalResult:
         f"Hệ số nhiệt Voc {vn(req.voc_coeff_pct, 2)} %/°C, Vmp {vn(req.vmp_coeff_pct, 2)} %/°C; Isc " + (f"{vn(req.isc_a, 2)} A theo datasheet." if req.isc_a else f"ước tính {vn(req.panel.imp_a * 1.05, 2)} A (Imp × 1,05)."),
         f"Cáp DC: {vn(req.home_run_m)} m mỗi cực từ dàn pin tới inverter; cáp AC {vn(req.ac_run_m)} m tới tủ điện chính.",
         "Chuỗi đi theo từng hàng, đổi chiều mỗi hàng; mỗi MPPT chỉ nhận chuỗi cùng hướng mái và cùng số tấm.",
-        "Cỡ cáp, CB và SPD là đề xuất sơ bộ theo dòng định mức; kỹ sư điện kiểm tra sụt áp và tiêu chuẩn áp dụng trước khi thi công.",
+        "Cỡ cáp chọn theo dòng định mức rồi tăng tiết diện tới khi sụt áp mỗi phía ≤ 1,5% (đồng ρ = 0,0225 Ω·mm²/m); CB và SPD là đề xuất sơ bộ, kỹ sư điện kiểm tra phối hợp bảo vệ trước khi thi công.",
+        (f"Điện áp lưới đo lúc trưa {vn(req.grid_voltage_v, 1)} V." if req.grid_voltage_v else "Chưa có điện áp lưới đo lúc trưa: nhà cuối tuyến hạ thế hay vượt 253 V làm inverter tự ngắt; đo ở tủ điện lúc 11–13h khi hệ chưa chạy rồi nhập vào."),
+        *mounting_plan(req.config, req.panel, req.survey).notes[:1],
         CATALOG_NOTE if not req.custom_inverter else "Inverter do kỹ sư nhập; thông số lấy theo datasheet kỹ sư cung cấp.",
     ]
     if fixed and not valid:

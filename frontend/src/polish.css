@@ -457,3 +457,17 @@ details.handover-more[open]>summary{margin-bottom:10px}
 .selfuse-chart .key.self{background:#3f8f5f;margin-left:0}.selfuse-chart .key.export{background:#f3d68a}.selfuse-chart .key.load{background:#2f6fb0;height:3px;vertical-align:3px}
 .month-picker{flex-wrap:wrap;margin-bottom:8px}
 .month-picker button{padding:4px 8px;font-size:12px}
+
+/* Site survey and screening (SiteReview.tsx) */
+.site-review .site-form{margin:10px 0;border:1px solid var(--line,#dfe5df);border-radius:10px;padding:8px 12px}
+.site-review .site-form>summary,.site-review .site-section>summary{cursor:pointer;font-weight:600;padding:6px 0;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.site-review .check-line{display:flex;gap:8px;align-items:flex-start;margin:6px 0;font-size:13px}
+.site-review .site-kpis{margin:12px 0}
+.site-review .site-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 12px}
+.site-review .site-section{border-top:1px solid var(--line,#dfe5df);padding:4px 0}
+.site-review .site-counts{margin-left:auto;display:flex;gap:6px}
+.site-review .check-results>div{grid-template-columns:auto 1fr auto}
+.site-review .check-results small.muted-note{display:block;margin-top:2px;font-size:11.5px}
+.site-review .site-warranty{margin:6px 0 4px 18px;font-size:13px;line-height:1.55}
+.site-review .site-warranty li{margin:4px 0}
+.rp-source{color:#6b7a70;font-size:.92em}
