@@ -2,7 +2,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass,field
 from functools import lru_cache
-from shapely.affinity import rotate,scale
+from shapely.affinity import affine_transform,rotate,scale
 from shapely.geometry import Polygon,Point,box
 from shapely.ops import unary_union
 from app.schemas import ProjectConfig,RectObstacle,RoofFace,SunPosition
@@ -251,14 +251,27 @@ def fire_keepout(config:ProjectConfig,obstacles:list[RectObstacle],roof:Polygon|
     return unary_union(parts) if parts else None
 
 
-def installable_regions(planes,margin):
+def unfold(geom,surface,config,fold=False):
+    """Plan geometry of a planar sloped face mapped to true lengths on the roof (the fall line stretched
+    by 1/cos(tilt)); fold=True maps back. Distances measured on the roof (setbacks, gaps) are taken there."""
+    if surface is None or surface.tilt<=SLOPED_TILT or getattr(surface,'mount',None):return geom
+    c=math.cos(math.radians(surface.tilt));k=c if fold else 1/c
+    b=math.radians(surface.azimuth-config.north_rotation_deg);ux,uy=math.sin(b),math.cos(b)
+    return affine_transform(geom,[1+(k-1)*ux*ux,(k-1)*ux*uy,(k-1)*ux*uy,1+(k-1)*uy*uy,0,0])
+
+
+def installable_regions(planes,margin,config=None):
     """Usable part of each installable face. Grouped faces (one continuous surface split into strips)
-    are set back only from the group's outer edge, never along their shared seams."""
+    are set back only from the group's outer edge, never along their shared seams. With the config, the
+    setback on a planar sloped face is measured along the roof surface, as installers measure it."""
     groups={}
     for s in planes:
         if s.installable and s.group:groups.setdefault(s.group,[]).append(s.polygon)
     shrunk={g:unary_union(parts).buffer(-margin,join_style=2) for g,parts in groups.items()}
-    return [(s,s.polygon.intersection(shrunk[s.group]) if s.group else s.polygon.buffer(-margin,join_style=2)) for s in planes if s.installable]
+    def own(s):
+        if config is None:return s.polygon.buffer(-margin,join_style=2)
+        return unfold(unfold(s.polygon,s,config).buffer(-margin,join_style=2),s,config,fold=True)
+    return [(s,s.polygon.intersection(shrunk[s.group]) if s.group else own(s)) for s in planes if s.installable]
 
 
 def build_context(config:ProjectConfig,obstacles:list[RectObstacle],sun:SunPosition|None)->GeometryContext:
@@ -270,7 +283,7 @@ def build_context(config:ProjectConfig,obstacles:list[RectObstacle],sun:SunPosit
                 s.mount=config.mounting
                 # Trackers rotate about a N-S axis; an east-facing virtual plane gives that row direction.
                 s.mount_tilt,s.mount_azimuth=(config.rack_tilt_deg,config.rack_azimuth_deg) if config.mounting=='tilted_rack' else (0.0,90.0)
-    usable_parts=[region for _,region in installable_regions(planes,config.setback_m)]
+    usable_parts=[region for _,region in installable_regions(planes,config.setback_m,config)]
     usable=unary_union(usable_parts) if usable_parts else Polygon()
     if config.fire_code:
         keep=fire_keepout(config,obstacles,roof)
@@ -359,7 +372,13 @@ def row_spacing(width,height,angle,surface,config):
     if dims is None:return None
     pw,ph=dims;gap=config.panel_gap_m
     mount=getattr(surface,'mount',None) if surface is not None else None
-    if mount is None:return pw+gap,ph+gap
+    if mount is None:
+        # On a slope the gap is measured on the roof: along the fall line it is shorter in plan.
+        if surface is not None and surface.tilt>SLOPED_TILT:
+            c=math.cos(math.radians(surface.tilt))
+            fall_y=abs((angle-contour_angle(surface,config)+90)%180-90)<.01
+            return (pw+gap,ph+gap*c) if fall_y else (pw+gap*c,ph+gap)
+        return pw+gap,ph+gap
     across_rows_y=abs((angle-contour_angle(surface,config)+90)%180-90)<.01   # local y runs across rows
     slope_len=height if across_rows_y else width
     pitch=rack_row_pitch(slope_len,config) if mount=='tilted_rack' else slope_len/config.tracker_gcr

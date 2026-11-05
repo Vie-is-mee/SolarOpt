@@ -242,7 +242,7 @@ def roof_template(req: RoofTemplateRequest):
                 raise ValueError("Vùng mái phụ nằm ngoài biên mái.")
             faces = stack_faces(req.config, part, region)
             notes = [f"Mái phụ {n}: diềm cao {eave:.2f} m".replace(".", ",") + (" (lấy theo đỉnh mái bên dưới)." if req.eave_m is None else "."),
-                     *[t for t in notes if not t.startswith("Kích thước tấm")], "Các mặt mái bên dưới vùng này được cắt bỏ; phần còn lại giữ nguyên độ dốc và hướng."]
+                     *[t for t in notes if not t.startswith("Trên mặt dốc")], "Các mặt mái bên dưới vùng này được cắt bỏ; phần còn lại giữ nguyên độ dốc và hướng."]
         else:
             faces, notes = generate_faces(req.config, req.shape, req.ridge_axis, req.rise_m, req.low_side, req.tolerance_m, req.panel_pitch_m, req.strips)
         ProjectConfig(**{**req.config.model_dump(), "roof_faces": [f.model_dump() for f in faces]})

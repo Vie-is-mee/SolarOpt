@@ -3,8 +3,13 @@ from __future__ import annotations
 import math
 
 from app.schemas import CheckResult, VerifyRequest, VerifyResult
-from app.services.geometry import build_context, panel_shape, overlap_ratio, installable_regions, footprint_dims
+from app.services.geometry import build_context, panel_shape, overlap_ratio, installable_regions, footprint_dims, unfold
 from app.services.energy import EnergyContext, summarize
+
+
+def gap_distance(a, b, face_a, face_b, plane_of, config):
+    plane = plane_of.get(face_a) if face_a == face_b else None
+    return unfold(a, plane, config).distance(unfold(b, plane, config)) if plane is not None else a.distance(b)
 
 
 def verify_design(req: VerifyRequest, *, energy_context=None) -> VerifyResult:
@@ -13,7 +18,8 @@ def verify_design(req: VerifyRequest, *, energy_context=None) -> VerifyResult:
     panels = req.design.panels
     energy_context = energy_context if energy_context is not None else EnergyContext(req.config, req.obstacles, geometry=ctx)
     recalculated = []
-    face_regions = [region for _, region in installable_regions(ctx.surfaces, req.config.setback_m)]
+    face_regions = [region for _, region in installable_regions(ctx.surfaces, req.config.setback_m, req.config)]
+    plane_of = {s.id: s for s in ctx.surfaces}
 
     outside = []
     obstacle_hits = []
@@ -43,7 +49,8 @@ def verify_design(req: VerifyRequest, *, energy_context=None) -> VerifyResult:
         for j in range(i+1, len(shapes)):
             if shapes[i].intersection(shapes[j]).area > 1e-6:
                 overlap_pairs.append((panels[i].id, panels[j].id))
-            elif shapes[i].distance(shapes[j]) + 3e-6 < req.config.panel_gap_m:
+            # Gap on the roof: two panels on one sloped face are compared in true lengths on that face.
+            elif (gap_distance(shapes[i], shapes[j], recalculated[i].face_id, recalculated[j].face_id, plane_of, req.config)) + 3e-6 < req.config.panel_gap_m:
                 gap_pairs.append((panels[i].id, panels[j].id))
 
     actual_cost = len(panels)*req.panel.price_vnd

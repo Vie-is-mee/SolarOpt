@@ -32,7 +32,7 @@ def robust_contexts(req):
     from shapely import prepare
     for i, ctx in enumerate(contexts):
         distance=req.config.setback_m+(.15 if i==1 else 0)
-        ctx.robust_regions=[region for _,region in installable_regions(ctx.surfaces,distance)]
+        ctx.robust_regions=[region for _,region in installable_regions(ctx.surfaces,distance,req.config)]
         for region in [ctx.usable_roof,ctx.obstacle_union,*ctx.robust_regions]:prepare(region)
     return contexts
 
