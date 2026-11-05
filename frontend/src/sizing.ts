@@ -22,19 +22,20 @@ export type SizePoint={panels:number;kwp:number;energy:number;panelCost:number;t
 /** Economics of keeping the n most productive panels of a design. Cost items were entered for a
  * system of baseKwp (the design on screen): scalable items and the loan scale by kWp against it,
  * fixed items are kept. Passing another option's design compares it on the same unit prices. */
-export function evaluateSize(a:Economics,design:Design,n:number,baseKwp=design.metrics.peak_power_kwp):SizePoint{
+export function evaluateSize(a:Economics,design:Design,n:number,baseKwp=design.metrics.peak_power_kwp,latitude?:number):SizePoint{
  const N=design.metrics.panel_count,kwp=N?design.metrics.peak_power_kwp*n/N:0,ratio=baseKwp>0?kwp/baseKwp:0
  const energy=[...design.panels].map(p=>p.annual_energy_kwh).sort((x,y)=>y-x).slice(0,n).reduce((s,v)=>s+v,0)
- const daytime=a.daytime_use_kwh_month
- const selfUsePct=daytime!=null&&daytime>0&&energy>0?Math.min(100,daytime*12/energy*100):a.self_use_pct??0
- const scaled:Economics={...a,self_use_pct:daytime!=null&&daytime>0?selfUsePct:a.self_use_pct,loan_amount:a.loan_amount===null?null:a.loan_amount*ratio,
+ // Self-use is left to the economics model: hour by hour when the consumption is known (a smaller system uses
+ // a larger share of its output), capped by a known daytime demand otherwise; a typed value always wins.
+ const site=latitude!=null&&design.month_hour_kwh?.length===288?{profile:design.month_hour_kwh,latitude}:null
+ const scaled:Economics={...a,loan_amount:a.loan_amount==null?a.loan_amount:a.loan_amount*ratio,
   costs:a.costs.map(c=>SCALABLE_COSTS.has(c.name)&&c.amount!==null?{...c,amount:c.amount*ratio}:c)}
- const panelCost=N?design.metrics.estimated_cost_vnd*n/N:0,r=calculateEconomics(scaled,panelCost,energy,kwp)
- return {panels:n,kwp,energy,panelCost,total:r.total,npv:r.npv,payback:r.payback,selfUsePct,missing:r.missing}
+ const panelCost=N?design.metrics.estimated_cost_vnd*n/N:0,r=calculateEconomics(scaled,panelCost,energy,kwp,site)
+ return {panels:n,kwp,energy,panelCost,total:r.total,npv:r.npv,payback:r.payback,selfUsePct:r.resolved.self_use_pct??0,missing:r.missing}
 }
 
-export function sizeSweep(a:Economics,design:Design){
- const points=Array.from({length:design.metrics.panel_count},(_,i)=>evaluateSize(a,design,i+1))
+export function sizeSweep(a:Economics,design:Design,latitude?:number){
+ const points=Array.from({length:design.metrics.panel_count},(_,i)=>evaluateSize(a,design,i+1,design.metrics.peak_power_kwp,latitude))
  const valid=points.filter(p=>!p.missing.length)
  // Highest NPV; on near-ties (within 0,5%) prefer the smaller system, which risks less capital.
  const top=valid.reduce<SizePoint|null>((b,p)=>!b||p.npv>b.npv?p:b,null)

@@ -32,9 +32,10 @@ Bố trí điện mặt trời áp mái đòi hỏi xem xét đồng thời di�
 | Tiếp nhận dữ liệu | Nhập ảnh chụp mái, bản vẽ hoặc ảnh một phần mái; bổ sung vị trí địa lý và kích thước thực tế. |
 | Hiệu chỉnh bản vẽ | Chỉnh biên mái đa giác, vùng mái cao/thấp, khoảng trống, vật cản, hướng Bắc và công trình lân cận. |
 | Phân tích ảnh có hỗ trợ AI | Tích hợp tùy chọn dịch vụ nhận diện ảnh để gợi ý biên mái và vật cản; người dùng xác nhận trước khi sử dụng. |
-| Mô phỏng nắng và bóng che | Tính vị trí mặt trời theo địa điểm và thời gian; thể hiện bóng che và bức xạ theo mô hình trời quang. |
+| Mô phỏng nắng và bóng che | Tính vị trí mặt trời theo địa điểm và thời gian; bóng che từng tấm theo giờ. Sản lượng dùng năm khí tượng điển hình PVGIS (mây, mùa mưa, nhiệt độ theo giờ) và bảng tổn thất chi tiết; khi không có mạng dùng mô hình trời quang. |
 | Đề xuất bố trí tấm pin | Tạo ba phương án với mức ưu tiên khác nhau, có xét hình học, bóng che, khoảng cách an toàn và ngân sách. |
 | Thiết kế điện sơ bộ | Chia chuỗi theo từng hướng mái, chọn inverter từ danh mục (hoặc nhập theo datasheet), kiểm tra Voc lúc lạnh, Vmp lúc nóng, dòng MPPT, tỷ lệ DC/AC; vẽ sơ đồ chuỗi và lập bảng vật tư đưa thẳng vào dự toán. |
+| Hiệu quả kinh tế | Ba kịch bản thận trọng/cơ sở/thuận lợi; tự dùng tính theo từng giờ từ hóa đơn và kiểu dùng điện, tiền tiết kiệm theo biểu giá EVN QĐ 2892/QĐ-BCT (bậc thang hoặc khung giờ, cao điểm 17h30–22h30). |
 | Kiểm tra phương án | Kiểm tra các điều kiện hình học, thông số, ngân sách và thử tám tình huống sai số trên phương án hiện tại. |
 | Quản lý kết quả | Lưu lịch sử phiên bản, cập nhật thiết kế sau thay đổi và xuất dữ liệu JSON, bản vẽ SVG hoặc báo cáo PDF. |
 
@@ -62,7 +63,7 @@ SolarOpt sử dụng giao diện web kết nối đến máy chủ Python. Việ
 | Hình học và tối ưu | Shapely, Google OR-Tools | Kiểm tra hình học, tạo và lựa chọn vị trí bố trí tấm pin. |
 | Mô phỏng nắng | pvlib | Tính vị trí mặt trời và các đại lượng bức xạ sử dụng trong mô phỏng. |
 | Lưu trữ | SQLite | Lưu lịch sử phiên bản tại máy chủ. |
-| Dữ liệu bổ sung | PVGIS | Tùy chọn truy xuất dữ liệu nắng năm khi có mạng. |
+| Dữ liệu bổ sung | PVGIS | Năm khí tượng điển hình (TMY) của vị trí, gộp theo tháng × giờ và lưu trong dự án. |
 | Nhận diện ảnh | Groq, Ollama hoặc Gemini | Tích hợp tùy chọn theo cấu hình máy chủ. |
 
 Các phần xử lý được tách thành các mô-đun riêng cho hình học, vị trí mặt trời, bố trí, kiểm tra, thử sai số và xác định ảnh hưởng khi đầu vào thay đổi.

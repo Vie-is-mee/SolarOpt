@@ -1,12 +1,21 @@
 import type {Panel} from './studioTypes'
 
 // Built-in entries are reference values; engineers must check the datasheet of the batch they buy.
-// Prices are planning assumptions at the same VND/W as the default panel, not quotes.
+// Prices: retail list prices published by Vietnamese distributors in 11/2026 (VAT included, small orders).
+// 580–620 W modules were listed at about 2 700–4 600 đ/Wp; the defaults sit in the middle of that range.
+export const PANEL_PRICE_RANGE={low:2700,high:4600,date:'11/2026'}
+export const PANEL_PRICE_NOTE=`Giá bán lẻ tham khảo ${PANEL_PRICE_RANGE.date} từ bảng giá công khai của các nhà phân phối (DHC Solar, Solarsaigon, Kitawa, TC Energy): tấm 580–620 W khoảng ${PANEL_PRICE_RANGE.low.toLocaleString('vi-VN')}–${PANEL_PRICE_RANGE.high.toLocaleString('vi-VN')} đ/Wp, đã gồm VAT; đơn hàng dự án thường thấp hơn. Thay bằng báo giá thật.`
 export const BUILTIN_PANELS:Panel[]=[
- {manufacturer:'LONGi',model:'Hi-MO 6 · 580 W',width_m:1.134,height_m:2.278,power_w:580,price_vnd:4_200_000,voc_v:52.1,vmp_v:43.6,imp_a:13.3},
- {manufacturer:'JA Solar',model:'JAM72S30 · 550 W',width_m:1.134,height_m:2.279,power_w:550,price_vnd:3_980_000,voc_v:49.9,vmp_v:41.96,imp_a:13.11},
- {manufacturer:'Canadian Solar',model:'HiKu6 CS6R · 410 W',width_m:1.134,height_m:1.722,power_w:410,price_vnd:2_970_000,voc_v:37.4,vmp_v:31.4,imp_a:13.06},
+ {manufacturer:'LONGi',model:'Hi-MO 6 · 580 W',width_m:1.134,height_m:2.278,power_w:580,price_vnd:2_200_000,voc_v:52.1,vmp_v:43.6,imp_a:13.3},
+ {manufacturer:'JA Solar',model:'JAM72S30 · 550 W',width_m:1.134,height_m:2.279,power_w:550,price_vnd:2_000_000,voc_v:49.9,vmp_v:41.96,imp_a:13.11},
+ {manufacturer:'Canadian Solar',model:'HiKu6 CS6R · 410 W',width_m:1.134,height_m:1.722,power_w:410,price_vnd:1_500_000,voc_v:37.4,vmp_v:31.4,imp_a:13.06},
 ]
+/** VND per watt-peak, the unit quotes compare on; and a warning when a price sits far outside the market. */
+export const pricePerWp=(p:Panel)=>p.power_w>0?p.price_vnd/p.power_w:0
+export function priceWarning(p:Panel){const v=pricePerWp(p);if(!v)return ''
+ if(v>PANEL_PRICE_RANGE.high*1.15)return `Giá ${Math.round(v).toLocaleString('vi-VN')} đ/Wp cao hơn mặt bằng thị trường (${PANEL_PRICE_RANGE.low.toLocaleString('vi-VN')}–${PANEL_PRICE_RANGE.high.toLocaleString('vi-VN')} đ/Wp, ${PANEL_PRICE_RANGE.date}); kiểm tra lại báo giá.`
+ if(v<PANEL_PRICE_RANGE.low*.75)return `Giá ${Math.round(v).toLocaleString('vi-VN')} đ/Wp thấp bất thường so với thị trường; kiểm tra nguồn gốc và bảo hành.`
+ return ''}
 const STORAGE_KEY='solaropt-panel-library'
 export const panelKey=(p:Panel)=>`${p.manufacturer}|${p.model}`
 

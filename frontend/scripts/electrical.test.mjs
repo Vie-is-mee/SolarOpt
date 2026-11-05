@@ -2,8 +2,9 @@ import {test} from 'node:test'
 import assert from 'node:assert/strict'
 import {readFileSync} from 'node:fs'
 import ts from 'typescript'
+import {loadTs} from './tsload.mjs'
 const load=name=>'data:text/javascript;base64,'+Buffer.from(ts.transpileModule(readFileSync(new URL(`../src/${name}.ts`,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext}}).outputText).toString('base64')
-const {defaultEconomics}=await import(load('economics'))
+const {defaultEconomics}=await loadTs('economics')
 const {estimateFromBom,ESTIMATE_ITEMS}=await import(load('electricalTypes'))
 
 test('bill of materials maps onto existing estimate lines and leaves panels out',()=>{

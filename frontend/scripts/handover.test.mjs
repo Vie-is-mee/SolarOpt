@@ -2,7 +2,8 @@ import {test} from 'node:test'
 import assert from 'node:assert/strict'
 import {readFileSync} from 'node:fs'
 import ts from 'typescript'
-async function module(name){const source=readFileSync(new URL('../src/'+name,import.meta.url),'utf8');return import('data:text/javascript;base64,'+Buffer.from(ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext}}).outputText).toString('base64'))}
+import {loadTs} from './tsload.mjs'
+const module=name=>loadTs(name.replace(/\.ts$/,''))
 const {defaultEconomics,calculateEconomics,calculateScenarios}=await module('economics.ts')
 const {panelCorners}=await module('layoutMeasurements.ts')
 function assumptions(){const v=defaultEconomics();v.cost_mode='itemized';for(const k of Object.keys(v))if(v[k]===null)v[k]=0;v.costs=v.costs.map(c=>({...c,amount:0}));v.self_use_pct=100;v.buy_price=1000;v.years=10;v.source='Synthetic arithmetic test, not market prices';return v}

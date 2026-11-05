@@ -1,7 +1,7 @@
 import {useState} from 'react'
 import type {Panel} from '../studioTypes'
 import {MoneyInput} from './MoneyInput'
-import {BUILTIN_PANELS,panelErrors,panelKey,readCustomPanels,writeCustomPanels} from '../panelLibrary'
+import {BUILTIN_PANELS,PANEL_PRICE_NOTE,panelErrors,panelKey,pricePerWp,priceWarning,readCustomPanels,writeCustomPanels} from '../panelLibrary'
 
 const FIELDS:[keyof Panel,string,string,number][]=[['power_w','Công suất','W',1],['price_vnd','Giá một tấm','đ',100000],['width_m','Rộng','m',.001],['height_m','Dài','m',.001],['voc_v','Voc','V',.01],['vmp_v','Vmp','V',.01],['imp_a','Imp','A',.01]]
 const blank=():Panel=>({manufacturer:'',model:'',width_m:1.134,height_m:2.278,power_w:0,price_vnd:0,voc_v:0,vmp_v:0,imp_a:0})
@@ -25,7 +25,7 @@ export function PanelPicker({panel,onChange}:{panel:Panel;onChange:(p:Panel)=>vo
    </select>
    <button type="button" className="button secondary small" aria-label="Thêm loại tấm pin" title="Thêm loại tấm pin" onClick={()=>{setDraft(draft?null:blank());setTried(false)}}>{draft?'×':'+'}</button>
   </div>
-  <em>{edited?'Đã chỉnh thông số so với thư viện. ':''}Thông số thư viện là giá trị tham khảo, giá là giả định — đối chiếu datasheet và báo giá thực tế.{isCustom&&<> <button type="button" className="text-button danger" onClick={remove}>Xóa loại pin này</button></>}</em></div>
+  <em>{edited?'Đã chỉnh thông số so với thư viện. ':''}Đơn giá đang dùng ≈ {Math.round(pricePerWp(panel)).toLocaleString('vi-VN')} đ/Wp. {PANEL_PRICE_NOTE} Thông số kỹ thuật thư viện là giá trị tham khảo, đối chiếu datasheet.{priceWarning(panel)&&<> <b className="price-warning">{priceWarning(panel)}</b></>}{isCustom&&<> <button type="button" className="text-button danger" onClick={remove}>Xóa loại pin này</button></>}</em></div>
   {draft&&<div className="panel-form">
    <div className="field-grid">
     <label className="field"><span>Hãng</span><input value={draft.manufacturer} onChange={e=>setDraft({...draft,manufacturer:e.target.value})}/></label>

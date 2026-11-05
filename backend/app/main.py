@@ -248,6 +248,23 @@ def get_irradiance(
     return fetch_pvgis(lat, lon, tilt, azimuth)
 
 
+class WeatherRequest(BaseModel):
+    latitude: float = Field(ge=-89, le=89)
+    longitude: float = Field(ge=-180, le=180)
+    tilt_deg: float = Field(default=10, ge=0, le=60, description="Main roof plane, for the temperature loss")
+    azimuth_deg: float = Field(default=180, ge=0, le=360)
+    mounting: Literal["flush", "tilted_rack", "tracker"] = "flush"
+    temp_coeff_pct: float = Field(default=-0.32, ge=-1, le=0)
+
+
+@app.post("/api/solar/weather")
+def solar_weather(req: WeatherRequest):
+    """Typical-year weather (PVGIS TMY) on the month-hour grid and the temperature loss of the main plane."""
+    from app.services.weather import fetch_weather
+    weather, losses = fetch_weather(req.latitude, req.longitude, req.tilt_deg, req.azimuth_deg, req.mounting, req.temp_coeff_pct)
+    return {"weather": weather, "losses": losses, "performance_ratio": losses.performance_ratio()}
+
+
 @app.post("/api/design/generate", response_model=DesignResult)
 def design_generate(req: DesignRequest, request: Request, user=Depends(optional_user)):
     quota = ProjectQuota(request, user, req.config.project_name)

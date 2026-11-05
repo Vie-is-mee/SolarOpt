@@ -2,6 +2,8 @@ import {useId} from 'react'
 import type {CalibrationRecord,Config,Design,Obstacle,Objective,Panel,Point,Scene,Stress,Verification} from '../studioTypes'
 import {CAPEX_LABEL,calculateEconomics,type Economics} from '../economics'
 import {ScenarioTable,scenarioSummary} from './ScenarioTable'
+import {LOSS_ITEMS} from '../yieldLosses'
+import {LOAD_PROFILES} from '../loadProfiles'
 import {footprint,outerRoof} from '../editorGeometry'
 import {panelCorners,panelLabel} from '../layoutMeasurements'
 import {faceSummary,lossBreakdown,lossColor,niceStep,shadingHistogram} from '../reportData'
@@ -103,8 +105,9 @@ export function ProjectReport(p:ReportProps){
  const roof=outerRoof(config),area=Math.abs(ring(roof))-(config.roof_openings||[]).reduce((s,h)=>s+Math.abs(ring(h)),0)
  const faceLabels=Object.fromEntries([...(config.roof_faces||[]).map(f=>[f.id,f.label]),...(p.scene?.faces||[]).map(f=>[f.id,f.label])])
  const m=design?.metrics,specific=m&&m.peak_power_kwp?m.annual_energy_kwh/m.peak_power_kwp:0
- const econ=design?calculateEconomics(economics,m!.estimated_cost_vnd,m!.annual_energy_kwh,m!.peak_power_kwp):null,perKwp=economics.cost_mode==='per_kwp',econReady=!!econ&&!econ.missing.length
- const E=econ?.resolved??economics,range=design&&econReady?scenarioSummary(economics,m!.estimated_cost_vnd,m!.annual_energy_kwh,m!.peak_power_kwp):null
+ const site=design?{profile:design.month_hour_kwh,latitude:config.latitude}:null
+ const econ=design?calculateEconomics(economics,m!.estimated_cost_vnd,m!.annual_energy_kwh,m!.peak_power_kwp,site):null,perKwp=economics.cost_mode==='per_kwp',econReady=!!econ&&!econ.missing.length
+ const E=econ?.resolved??economics,range=design&&econReady?scenarioSummary(economics,m!.estimated_cost_vnd,m!.annual_energy_kwh,m!.peak_power_kwp,site):null
  const losses=design?lossBreakdown(design.panels,config.performance_ratio):null,faces=design?faceSummary(design.panels,panel.power_w,faceLabels):[]
  const efficiency=panel.power_w/(panel.width_m*panel.height_m*1000)*100
  const status=p.stale?'Kết quả cũ: đầu vào đã thay đổi sau lần tính':p.approved?`Kỹ sư đã duyệt · bản #${p.approved}`:p.confirmed?'Đầu vào đã xác nhận · chưa lưu bản duyệt':'Đầu vào chưa xác nhận'
@@ -151,8 +154,8 @@ export function ProjectReport(p:ReportProps){
      <tr><th>Cách lắp</th><td>{MOUNT[config.mounting??'flush']}{config.mounting==='tilted_rack'?` · nghiêng ${num(config.rack_tilt_deg??0)}°, hướng ${num(config.rack_azimuth_deg??180)}°`:''}</td></tr>
      <tr><th>Khoảng cách</th><td>Lùi mép {num(config.setback_m,2)} m · khe tấm {num(config.panel_gap_m,2)} m · cách vật cản {num(config.obstacle_clearance_m,2)} m</td></tr>
      <tr><th>Nguồn kích thước</th><td>{config.dimensions_source==='reference'?'Hiệu chuẩn theo đoạn tham chiếu':config.dimensions_source==='measured'?'Số đo thực tế do người dùng nhập':'Giả định, chưa đối chiếu'}{p.calibration?` · chênh khung ${num(p.calibration.frame_error_pct,1)}%`:''}{config.dimensions_verified?' · kỹ sư đã đối chiếu':''}</td></tr>
-     <tr><th>Dữ liệu nắng</th><td>{num(config.annual_irradiance_kwh_m2)} kWh/m²/năm · {p.irradianceSource}</td></tr>
-     <tr><th>Hệ số hiệu năng (PR)</th><td>{num(config.performance_ratio*100)}%</td></tr>
+     <tr><th>Dữ liệu nắng</th><td>{config.weather?`${config.weather.source} · ${num(config.weather.annual_ghi_kwh_m2)} kWh/m²/năm mặt ngang, mây và nhiệt độ theo từng giờ`:`${num(config.annual_irradiance_kwh_m2)} kWh/m²/năm · ${p.irradianceSource} · mô hình trời quang`}</td></tr>
+     <tr><th>Hệ số hiệu năng (PR)</th><td>{num(config.performance_ratio*100)}%{config.yield_losses?` = tích các tổn thất: ${LOSS_ITEMS.map(i=>`${i.label.toLowerCase()} ${num(config.yield_losses![i.key],1)}%`).join(', ')}`:' (một hệ số chung)'}</td></tr>
     </tbody></table>
     <table className="rp-table"><caption>Tấm pin</caption><tbody>
      <tr><th>Hãng / mẫu</th><td>{panel.manufacturer} {panel.model}</td></tr>
@@ -189,7 +192,7 @@ export function ProjectReport(p:ReportProps){
      <figcaption>Tổng năm chia theo tháng bằng bức xạ trời quang của từng mặt mái; tổn thất bóng tính theo năm. Cho thấy tính mùa vụ, không phải dự báo thời tiết từng tháng.</figcaption></figure>
      :<p className="rp-note">Tính lại phương án để có điện năng theo tháng.</p>}
     <figure className="rp-figure"><h3>Từ bức xạ đến điện năng</h3><Waterfall {...losses}/>
-     <figcaption>Hệ thống gồm nhiệt độ tấm, dây dẫn, bộ biến đổi điện và bụi bẩn, gộp trong hệ số PR {num(config.performance_ratio*100)}%.</figcaption></figure>
+     <figcaption>Hệ thống gồm nhiệt độ tấm, dây dẫn, bộ biến đổi điện và bụi bẩn, gộp trong hệ số PR {num(config.performance_ratio*100)}%{config.yield_losses?' (tách từng khoản ở bảng thông số)':''}.</figcaption></figure>
     <div className="rp-two">
      <table className="rp-table rp-data rp-hist"><caption>Phân bố tổn thất bóng theo tấm</caption><thead><tr><th>Tổn thất</th><th className="num">Số tấm</th><th></th></tr></thead>
       <tbody>{shadingHistogram(design.panels).map((b,i)=><tr key={b.label}><td>{b.label}</td><td className="num">{num(b.count)}</td><td><i style={{width:`${m.panel_count?b.count/m.panel_count*100:0}%`,background:lossColor([0,2,4,7.5,10][i])}}/></td></tr>)}</tbody></table>
@@ -205,6 +208,7 @@ export function ProjectReport(p:ReportProps){
 
    <Sheet title="Hiệu quả kinh tế" eyebrow="04 · Kinh tế" project={project}>
     {econReady&&econ?<>
+     {econ.hourly&&<p className="rp-note">Tự dùng tính theo từng giờ: nhu cầu {num(econ.hourly.loadKwh/12)} kWh/tháng kiểu “{LOAD_PROFILES.find(x=>x.id===(economics.load_profile??''))?.label??'mặc định theo loại khách'}”; dùng tại chỗ {num(econ.hourly.selfPct)}% sản lượng, đáp ứng {num(econ.hourly.coveragePct)}% nhu cầu, mỗi kWh tự dùng tiết kiệm {num(econ.hourly.buyPrice)} đ (theo biểu giá EVN QĐ 2892/QĐ-BCT, cao điểm 17h30–22h30).</p>}
      {range&&<><h3>Ba kịch bản: thận trọng · cơ sở · thuận lợi</h3><ScenarioTable scenarios={range.scenarios} years={economics.years} compact/><p className="rp-note">Thận trọng: vốn +15%, sản lượng −12%, tự dùng −15 điểm, không được trả tiền điện dư, giá điện không tăng thêm. Thuận lợi: vốn −10%, sản lượng +5%, tự dùng +10 điểm. Các số dưới đây theo kịch bản cơ sở.</p></>}
      <div className="rp-kpis small">
       <Kpi label="Tổng đầu tư" value={vnd(econ.total)} note={econ.costPerKwp!==null?`${num(econ.costPerKwp/1e6,1)} triệu đ/kWp · ≈ ${num(econ.costPerKwp/1e6,1)} tỷ đ/MWp`:undefined}/>
@@ -267,7 +271,8 @@ export function ProjectReport(p:ReportProps){
   <Sheet title="Giả định, giới hạn và xác nhận" eyebrow={p.electrical&&design?'07 · Phạm vi':'06 · Phạm vi'} project={project}>
    <ul className="rp-list">
     <li>Bức xạ năm quy đổi riêng cho từng mặt mái bằng pvlib với 12 ngày trời quang đại diện; bóng che tính cho mọi giờ có nắng của 12 ngày đó (khoảng 140 thời điểm), trên lưới khoảng 10 cm. Mỗi tấm được xét theo 3 chuỗi cell có diode bypass: chuỗi bị che 1/3 diện tích thì mất toàn bộ phần trực xạ; tổn thất được tính theo trực xạ từng giờ, ánh sáng tán xạ coi như không bị che. Chưa phải mô phỏng 8.760 giờ với thời tiết thực.</li>
-    <li>Tổn thất ngoài bóng che (nhiệt độ, dây dẫn, bộ biến đổi điện, bụi) gộp trong hệ số hiệu năng PR {num(config.performance_ratio*100)}%.</li>
+    <li>Tổn thất ngoài bóng che (nhiệt độ, dây dẫn, bộ biến đổi điện, bụi) gộp trong hệ số hiệu năng PR {num(config.performance_ratio*100)}%{config.yield_losses?'; tổn thất nhiệt tính từ thời tiết năm điển hình cho mặt mái chính':''}.</li>
+    <li>{config.weather?'Bức xạ, mây và nhiệt độ lấy từ năm khí tượng điển hình PVGIS, gộp thành ngày trung bình của từng tháng; năm thực tế có thể cao hoặc thấp hơn vài phần trăm.':'Bức xạ theo mô hình trời quang và giá trị năm nhập tay; chưa có mùa mưa, mây và nhiệt độ thật.'}</li>
     <li>Vật cản là khối đứng theo mặt bằng; chưa xét cây có tán, kính phản xạ, địa hình.</li>
     <li>{p.electrical?'Thiết kế điện là sơ bộ (chia chuỗi, chọn inverter, giới hạn điện áp và dòng); chưa tính sụt áp chi tiết, phối hợp bảo vệ và thủ tục đấu nối.':'Chưa thiết kế đấu chuỗi và chọn bộ biến đổi điện.'} Chưa kiểm tra tải trọng mái, tải gió và phòng cháy.</li>
     <li>Chi phí và giá điện do kỹ sư nhập; ô để trống dùng giá tham khảo SolarOpt có ghi nguồn ({E.source}). Ba kịch bản cho thấy khoảng dao động, không phải cam kết.</li>

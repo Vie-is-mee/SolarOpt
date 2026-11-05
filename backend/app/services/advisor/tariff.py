@@ -1,16 +1,22 @@
 """EVN retail tariff: monthly bill <-> kWh, so consumption comes from a formula, never from the LLM.
 
-Residential stepped tariff (Quyết định 1279/QĐ-BCT, effective 10/05/2025), VND/kWh before VAT.
-VAT is a parameter: bills show 8 % or 10 % depending on the reduction in force; check the customer's bill.
-Businesses pay one price per time band; the engineer enters the average price from the bill.
+Prices: Quyết định 2892/QĐ-BCT (effective 01/11/2026), VND/kWh before VAT. Residential has five stepped tiers;
+business and production pay by time band (Quyết định 963/QĐ-BCT, 22/04/2026): peak 17:30–22:30 Monday to
+Saturday, off-peak 0:00–6:00 every day, normal otherwise; Sunday has no peak. The frontend (src/tariff.ts)
+mirrors these numbers. VAT is a parameter: bills show 8 % while the VAT reduction is in force (through 2026).
 """
 from __future__ import annotations
 
 import math
 
-TARIFF_SOURCE = "Biểu giá điện sinh hoạt bậc thang EVN theo Quyết định 1279/QĐ-BCT (hiệu lực 10/05/2025), chưa gồm VAT"
+TARIFF_SOURCE = "Biểu giá điện EVN theo Quyết định 2892/QĐ-BCT (hiệu lực 01/11/2026), chưa gồm VAT"
 # (kWh in this tier, price); the last tier is open-ended.
-RESIDENTIAL_TIERS: tuple[tuple[float, float], ...] = ((50, 1984), (50, 2050), (100, 2380), (100, 2998), (100, 3350), (math.inf, 3460))
+RESIDENTIAL_TIERS: tuple[tuple[float, float], ...] = ((100, 1901), (100, 2289), (200, 2894), (300, 3456), (math.inf, 3844))
+# Low voltage (≤ 1 kV) and medium voltage (1–35 kV): (normal, off-peak, peak).
+TOU = {
+    "business": {"low": (3089, 1880, 5313), "medium": (2829, 1577, 4924)},
+    "industrial": {"low": (1966, 1274, 3586), "medium": (1814, 1166, 3348)},
+}
 
 
 def residential_bill(kwh: float, vat_pct: float = 8.0) -> float:
@@ -52,5 +58,6 @@ def monthly_saving(monthly_kwh: float, self_used_kwh: float, tariff: str, busine
     On the stepped tariff the top (most expensive) tiers disappear first."""
     self_used = min(max(0.0, self_used_kwh), max(0.0, monthly_kwh))
     if tariff == "business":
-        return self_used * (business_price or 0) * (1 + vat_pct / 100)
+        # Solar hours fall in the normal band now that the peak moved to the evening.
+        return self_used * (business_price or TOU["business"]["low"][0]) * (1 + vat_pct / 100)
     return residential_bill(monthly_kwh, vat_pct) - residential_bill(monthly_kwh - self_used, vat_pct)

@@ -42,7 +42,7 @@ def test_shaded_roof_objectives_really_filter_and_change_layout():
 def test_each_objective_fallback_matches_solver_and_budget(objective,monkeypatch):
     import app.services.optimizer as optimizer
     cfg=ProjectConfig(roof_width_m=12,roof_height_m=9,budget_vnd=12_600_000)
-    req=DesignRequest(config=cfg,panel=PanelSpec(),objective=objective,
+    req=DesignRequest(config=cfg,panel=PanelSpec(price_vnd=4_200_000),objective=objective,
         obstacles=[RectObstacle(id='tank',x=5,y=4,width_m=2,depth_m=2,height_m=3)])
     result=generate_design(req)
     monkeypatch.setattr(optimizer,'cp_model',None)

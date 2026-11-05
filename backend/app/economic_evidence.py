@@ -38,6 +38,11 @@ class EconomicAssumptions(BaseModel):
     # Pessimistic / optimistic changes from the base case, keyed like economics.ts Spread.
     spread_low:dict[str,float]|None=Field(default=None,max_length=12)
     spread_high:dict[str,float]|None=Field(default=None,max_length=12)
+    # Consumption for hour-by-hour self-use (frontend loadProfiles.ts): monthly kWh, or the bill it comes from.
+    monthly_use_kwh:float|None=Field(default=None,ge=0,le=1e8)
+    monthly_bill_vnd:float|None=Field(default=None,ge=0,le=1e12)
+    load_profile:Literal['home_day','away_day','shop','factory_1','factory_2','continuous']|None=None
+    voltage:Literal['low','medium']|None=None
     source:str=Field(default='',max_length=4000)
 
 

@@ -33,11 +33,11 @@ def test_three_goals_are_distinct_even_without_shadows():
 
 def test_unmet_target_is_reported_and_fails_verification():
     cfg=config(budget_vnd=8_400_000,target_energy_kwh_year=20_000)
-    result=generate_design(DesignRequest(config=cfg,panel=PanelSpec(),objective='min_cost'))
+    result=generate_design(DesignRequest(config=cfg,panel=PanelSpec(price_vnd=4_200_000),objective='min_cost'))
     assert result.metrics.panel_count==2
     assert result.target_met is False
     assert any('Chưa đáp ứng' in w for w in result.warnings)
-    verification=verify_design(VerifyRequest(config=cfg,panel=PanelSpec(),design=result))
+    verification=verify_design(VerifyRequest(config=cfg,panel=PanelSpec(price_vnd=4_200_000),design=result))
     assert not verification.valid
     assert next(c for c in verification.checks if c.id=='energy_target').status=='FAIL'
 
