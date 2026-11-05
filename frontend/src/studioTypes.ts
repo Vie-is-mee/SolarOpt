@@ -2,13 +2,15 @@ export type Point = { x:number; y:number }
 export type CalibrationRecord={captured_at:string;method:string;image_width_px:number;image_height_px:number;reference_points:Point[];reference_m:number|null;check_points:Point[];check_m:number|null;measured_width_m:number|null;measured_length_m:number|null;result_width_m:number;result_height_m:number;frame_error_pct:number;check_error_pct:number|null}
 import type {Economics} from './economics'
 import type {Datum} from './components/InstallationGuide'
-export type ProjectEvidence={economic_assumptions?:Economics|null;layout_datum?:Datum|null;source_name:string;input_kind:'drone'|'plan'|'partial';source_image:string|null;reference_image:string|null;calibration:CalibrationRecord|null}
+import type {SiteSurvey} from './siteSurvey'
+export type ProjectEvidence={economic_assumptions?:Economics|null;layout_datum?:Datum|null;site_survey?:SiteSurvey|null;source_name:string;input_kind:'drone'|'plan'|'partial';source_image:string|null;reference_image:string|null;calibration:CalibrationRecord|null}
 export type RoofFace = {id:string;label:string;polygon:Point[];elevation_m:number;tilt_deg:number;azimuth_deg:number;installable:boolean;group?:string|null}
 export type Obstacle = {
   id:string; label:string; x:number; y:number; width_m:number; depth_m:number; height_m:number;
   scope:'roof'|'neighbor'; source:'manual'|'groq'|'ollama'|'gemini'|'openai'|'demo'; confidence:number;
   confirmed:boolean; floors?:number|null;
   shape?:'rect'|'ellipse'|'polygon';rotation_deg?:number;points?:Point[];base_elevation_m?:number|null;top_installable?:boolean;kind?:string|null;
+  roof_exit?:boolean|null;
 }
 import type {WeatherYear,YieldLosses} from './yieldLosses'
 export type Config = {
@@ -17,6 +19,8 @@ export type Config = {
   target_energy_kwh_year?:number|null;
   layout_edge_reserve_m?:number;
   layout_angle_deg?:number|null;
+  // Fire Police guidance 3288/C07-P4: 3 m from roof exits, groups ≤ 40 × 40 m, 2,5 m from a parapet.
+  fire_code?:boolean;parapet?:boolean;
   mounting?:'flush'|'tilted_rack'|'tracker';rack_tilt_deg?:number;rack_azimuth_deg?:number;tracker_gcr?:number;tracker_max_angle_deg?:number;
   dimensions_source?: 'assumed'|'reference'|'measured'; dimensions_verified?: boolean; calibration_reference_m?: number|null;
   measurement_image_width_px?: number|null; measurement_image_height_px?: number|null;

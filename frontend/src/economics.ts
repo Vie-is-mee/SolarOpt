@@ -6,7 +6,9 @@ export type CustomerType='residential'|'business'|'industrial'
 export type Spread={capex_pct:number;yield_pct:number;self_use_pts:number;load_pct?:number;buy_price_pct:number;price_growth_pts:number;degradation_pts:number;sell_price_pct:number;om_pct:number;discount_pts:number}
 export type Economics={costs:CostItem[];contingency_pct:number|null;markup_pct:number|null;vat_pct:number|null;self_use_pct:number|null;buy_price:number|null;sell_price:number|null;maintenance_year:number|null;degradation_pct:number|null;price_growth_pct:number|null;discount_pct:number|null;years:number;replacement_year:number;replacement_cost:number|null;loan_amount:number|null;loan_rate_pct:number|null;loan_years:number;source:string;daytime_use_kwh_month?:number|null;cost_mode?:CostMode;capex_million_per_kwp?:number|null;customer_type?:CustomerType|null;spread_low?:Spread|null;spread_high?:Spread|null;
  // Consumption for the hour-by-hour self-use: average monthly kWh, or the monthly bill it is derived from.
- monthly_use_kwh?:number|null;monthly_bill_vnd?:number|null;load_profile?:LoadProfileId|null;voltage?:Voltage|null;extra_daytime_kwh_month?:number|null}
+ monthly_use_kwh?:number|null;monthly_bill_vnd?:number|null;load_profile?:LoadProfileId|null;voltage?:Voltage|null;extra_daytime_kwh_month?:number|null;
+ // false: the customer does not sell surplus (zero export: anti-reverse-power meter, no export revenue).
+ sell_surplus?:boolean|null}
 /** The layout's typical-day output (288 month-hour values, kWh) and the site latitude for the load seasons. */
 export type Site={profile?:number[]|null;latitude:number}
 // 'per_kwp': one all-in installed price (EPC, tax included) in million VND per kWp, for estimates before itemised quotes.
@@ -113,7 +115,7 @@ export function calculateEconomics(input:Economics,panelCost:number,annualEnergy
  for(let year=1;year<=years;year++){
   const energy=annualEnergy*(1-n(a.degradation_pct)/100)**(year-1),selfUse=energy*n(a.self_use_pct)/100,exportEnergy=energy-selfUse
   // Only part of the output may be sold; the rest of any surplus is curtailed or given away unpaid.
-  const paidExport=Math.min(exportEnergy,energy*EXPORT_CAP)
+  const paidExport=a.sell_surplus===false?0:Math.min(exportEnergy,energy*EXPORT_CAP)
   const growth=(1+n(a.price_growth_pct)/100)**(year-1),saving=selfUse*n(a.buy_price)*growth,exportRevenue=paidExport*n(a.sell_price)*growth
   const maintenance=n(a.maintenance_year),replacement=year===a.replacement_year?n(a.replacement_cost):0,payment=year<=loanYears?debt:0
   const net=saving+exportRevenue-maintenance-replacement-payment,previous=cumulative;cumulative+=net

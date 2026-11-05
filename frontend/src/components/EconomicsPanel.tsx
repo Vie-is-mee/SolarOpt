@@ -51,7 +51,8 @@ export function EconomicsPanel({value,onChange,design,latitude,print=false}:{val
      :<div className="field"><span>Vốn đầu tư</span><p className="muted-note">Theo từng hạng mục báo giá (mở phần chi tiết bên dưới).</p></div>}
     {input('buy_price','Giá điện tránh mua (gồm VAT)')}
     {input('self_use_pct','Tỷ lệ điện dùng tại chỗ')}
-    {input('sell_price','Giá điện dư được trả')}
+    <label className="field"><span>Điện dư</span><select aria-label="Điện dư" value={value.sell_surplus===false?'no':'yes'} onChange={e=>onChange?.({...value,sell_surplus:e.target.value==='no'?false:null})}><option value="yes">Bán lên lưới (tối đa 50% sản lượng)</option><option value="no">Không bán, lắp chống phát ngược</option></select><em>Quyết định thủ tục (NĐ 58/2025) và thiết bị trong bảng vật tư.</em></label>
+    {value.sell_surplus!==false&&input('sell_price','Giá điện dư được trả')}
     {input('years')}
    </div>
    <p className="muted-note">{hourly?<>Tự dùng tính theo từng giờ: sản lượng của phương án theo giờ trong ngày điển hình mỗi tháng so với nhu cầu {dec(consumption!.monthlyKwh,0)} kWh/tháng kiểu “{LOAD_PROFILES.find(p=>p.id===consumption!.profile)?.label}”. Tiền tiết kiệm tính theo {type==='residential'?'đúng bậc thang mà điện mặt trời cắt bớt':'giá từng khung giờ'} ({TARIFF_SOURCE}).</>:<>Chưa có điện tiêu thụ nên tỷ lệ tự dùng {dec(R.self_use_pct??0,0)}% và giá điện {dec(R.buy_price??0,0)} đ/kWh là giá trị tham khảo ({CUSTOMER[type].note}). Nhập số kWh hoặc tiền điện trên hóa đơn để tính theo giờ.</>} Điện dư chỉ được trả tối đa 50% sản lượng.</p>

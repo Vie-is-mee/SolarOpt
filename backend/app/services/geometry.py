@@ -214,6 +214,43 @@ def with_obstacle_tops(config:ProjectConfig,obstacles:list[RectObstacle])->Proje
     return config.model_copy(update={'roof_faces':faces})
 
 
+# Fire Police guidance 3288/C07-P4 (Cục Cảnh sát PCCC & CNCH, 08/9/2020) for rooftop solar.
+FIRE_EXIT_M=3.0       # no panels within 3 m of roof exits (stair housings, fire ladders, hatches)
+FIRE_BLOCK_M=40.0     # panel groups at most 40 × 40 m ...
+FIRE_BREAK_M=1.5      # ... at least 1,5 m apart
+FIRE_PARAPET_M=2.5    # 2,5 m from a railing around the roof perimeter
+_EXIT_WORDS=('thang','cửa sập','lối lên','lối ra mái','hatch')
+
+
+def is_roof_exit(o:RectObstacle)->bool:
+    if o.scope!='roof':return False
+    if o.roof_exit is not None:return o.roof_exit
+    text=(o.label or '').lower()
+    return o.kind=='stair' or any(w in text for w in _EXIT_WORDS)
+
+
+def fire_breaks(roof:Polygon)->list[Polygon]:
+    """1,5 m strips splitting the roof into groups of at most 40 m along each drawing axis."""
+    minx,miny,maxx,maxy=roof.bounds;strips=[]
+    for lo,hi,vertical in ((minx,maxx,True),(miny,maxy,False)):
+        span=hi-lo
+        if span<=FIRE_BLOCK_M:continue
+        n=math.ceil((span+FIRE_BREAK_M)/(FIRE_BLOCK_M+FIRE_BREAK_M));block=(span-(n-1)*FIRE_BREAK_M)/n
+        for i in range(1,n):
+            a=lo+i*block+(i-1)*FIRE_BREAK_M
+            strips.append(box(a,miny-1,a+FIRE_BREAK_M,maxy+1) if vertical else box(minx-1,a,maxx+1,a+FIRE_BREAK_M))
+    return strips
+
+
+def fire_keepout(config:ProjectConfig,obstacles:list[RectObstacle],roof:Polygon|None=None):
+    """Area the fire rules keep free of panels, or None when there is none."""
+    roof=roof if roof is not None else roof_polygon(config)
+    parts=[obstacle_polygon(o).buffer(FIRE_EXIT_M) for o in obstacles if is_roof_exit(o)]
+    if config.parapet:parts.append(roof.difference(roof.buffer(-FIRE_PARAPET_M,join_style=2)))
+    parts+=fire_breaks(roof)
+    return unary_union(parts) if parts else None
+
+
 def installable_regions(planes,margin):
     """Usable part of each installable face. Grouped faces (one continuous surface split into strips)
     are set back only from the group's outer edge, never along their shared seams."""
@@ -235,6 +272,9 @@ def build_context(config:ProjectConfig,obstacles:list[RectObstacle],sun:SunPosit
                 s.mount_tilt,s.mount_azimuth=(config.rack_tilt_deg,config.rack_azimuth_deg) if config.mounting=='tilted_rack' else (0.0,90.0)
     usable_parts=[region for _,region in installable_regions(planes,config.setback_m)]
     usable=unary_union(usable_parts) if usable_parts else Polygon()
+    if config.fire_code:
+        keep=fire_keepout(config,obstacles,roof)
+        if keep is not None:usable=usable.difference(keep)
     def blocked(o):
         shape=obstacle_polygon(o).buffer(config.obstacle_clearance_m,join_style=2)
         # Installable top: only the clearance ring and the top's own edge setback stay blocked.

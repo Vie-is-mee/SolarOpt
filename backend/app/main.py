@@ -31,6 +31,7 @@ from app.services.advisor.models import AdvisorRequest, Proposal
 from app import demo
 from app.services.dependency import trace_impact
 from app.services.electrical import CATALOG, ElectricalRequest, ElectricalResult, design_electrical
+from app.services.site import SiteReview, SiteReviewRequest, review_site
 from app.services.vision import analyze_images, provider_status, VisionError
 from app.services.scene import simulate_scene
 from app.services.optimizer import generate_design
@@ -308,6 +309,11 @@ def electrical_inverters():
 @app.post("/api/design/electrical", response_model=ElectricalResult)
 def design_electrical_route(req: ElectricalRequest):
     return design_electrical(req)
+
+
+@app.post("/api/site/review", response_model=SiteReview)
+def site_review_route(req: SiteReviewRequest):
+    return review_site(req)
 
 
 @app.post("/api/design/stress-test", response_model=StressResult)

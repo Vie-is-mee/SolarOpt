@@ -11,17 +11,18 @@ import {vnd} from '../format'
 import {OBJECTIVES} from './DesignOptions'
 import {InstallationGuide,type Datum} from './InstallationGuide'
 import type {Electrical} from '../electricalTypes'
+import {datasheetOf,warrantedEnd,type SiteReview,type SiteSurvey} from '../siteSurvey'
 import '../report.css'
 
 export type ReportProps={config:Config;panel:Panel;obstacles:Obstacle[];design:Design|null;options:Partial<Record<Objective,Design>>;objective:Objective;
  verification:Verification|null;stress:Stress|null;economics:Economics;datum:Datum;scene:Scene|null;approved:number|null;sample:boolean;stale:boolean;confirmed:boolean;
- irradianceSource:string;aiNote:string;calibration:CalibrationRecord|null;electrical?:Electrical|null}
+ irradianceSource:string;aiNote:string;calibration:CalibrationRecord|null;electrical?:Electrical|null;siteReview?:SiteReview|null;siteSurvey?:SiteSurvey|null}
 
 const num=(n:number,d=0)=>n.toLocaleString('vi-VN',{minimumFractionDigits:d,maximumFractionDigits:d})
 const kwhText=(n:number)=>n>=10000?`${num(n/1000,1)} MWh`:`${num(n)} kWh`
 const MONTHS=['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12']
 const MOUNT:Record<string,string>={flush:'Áp sát mặt mái',tilted_rack:'Giá nghiêng trên mái bằng',tracker:'Giá xoay một trục'}
-const STATUS:Record<string,[string,string]>={PASS:['Đạt','pass'],WARN:['Cảnh báo','warn'],FAIL:['Không đạt','fail']}
+const STATUS:Record<string,[string,string]>={PASS:['Đạt','pass'],WARN:['Cảnh báo','warn'],FAIL:['Không đạt','fail'],INFO:['Việc cần làm','pass']}
 const ring=(points:Point[])=>points.reduce((s,p,i)=>{const q=points[(i+1)%points.length];return s+p.x*q.y-q.x*p.y},0)/2
 const objectiveName=(id:Objective)=>OBJECTIVES.find(o=>o.id===id)?.name??id
 
@@ -257,6 +258,14 @@ export function ProjectReport(p:ReportProps){
     <ul className="rp-list">{p.electrical.assumptions.map((a,i)=><li key={i}>{a}</li>)}</ul>
    </Sheet>}
 
+   {p.siteReview&&<Sheet title="Hiện trường, an toàn và pháp lý" eyebrow="Sàng lọc trước khảo sát chi tiết" project={project}>
+    <div className="rp-kpis"><Kpi label="Tải thêm lên mái" value={num(p.siteReview.dead_load_kg_m2,1)} unit="kg/m²" note={`tổng ${num(p.siteReview.array_mass_kg)} kg`}/><Kpi label="Vùng gió" value={p.siteReview.mounting.wind_zone+(p.siteReview.mounting.zone_assumed?' (tạm)':'')} note={`chân đỡ ${num(p.siteReview.mounting.foot_spacing_center_m,1)} / ${num(p.siteReview.mounting.foot_spacing_edge_m,1)} m`}/><Kpi label="Ăn mòn" value={p.siteReview.mounting.corrosion_class} note={p.siteReview.mounting.rail_spec}/></div>
+    <p className="rp-note"><strong>Thủ tục:</strong> {p.siteReview.legal_path}.{p.siteSurvey?'':' Chưa nhập khảo sát hiện trường: các mục dưới coi câu trả lời là chưa biết.'}</p>
+    {p.siteReview.sections.map(sec=><table key={sec.id} className="rp-table rp-data"><caption>{sec.title}</caption><thead><tr><th>Hạng mục</th><th>Kết quả</th><th>Chi tiết và căn cứ</th></tr></thead>
+     <tbody>{sec.items.map(i=><tr key={i.id}><td>{i.label}</td><td><Chip status={i.status}/></td><td>{i.detail}{i.source&&<em className="rp-source"> Căn cứ: {i.source}.</em>}</td></tr>)}</tbody></table>)}
+    {(()=>{const d=datasheetOf(p.panel);return <ul className="rp-list"><li>Bảo hành tấm {p.panel.manufacturer} {p.panel.model}: {d?`sản phẩm ${d.product_years} năm; công suất ${d.power_years} năm, còn ≥ ${num(warrantedEnd(d),1)}% (${d.source})`:'chưa có datasheet trong thư viện, ghi theo phiếu bảo hành'}.</li><li>Inverter: bảo hành tiêu chuẩn thường 5–10 năm; dòng tiền đã tính thay inverter năm {economics.replacement_year}.</li></ul>})()}
+   </Sheet>}
+
    <Sheet title="Kiểm tra và độ tin cậy" eyebrow={p.electrical?'06 · Kiểm chứng':'05 · Kiểm chứng'} project={project}>
     {checks.length?<table className="rp-table rp-data"><caption>Điều kiện kiểm tra tự động ({passed}/{checks.length} đạt)</caption>
      <thead><tr><th>Điều kiện</th><th>Kết quả</th><th>Chi tiết</th></tr></thead>
@@ -274,7 +283,7 @@ export function ProjectReport(p:ReportProps){
     <li>Tổn thất ngoài bóng che (nhiệt độ, dây dẫn, bộ biến đổi điện, bụi) gộp trong hệ số hiệu năng PR {num(config.performance_ratio*100)}%{config.yield_losses?'; tổn thất nhiệt tính từ thời tiết năm điển hình cho mặt mái chính':''}.</li>
     <li>{config.weather?'Bức xạ, mây và nhiệt độ lấy từ năm khí tượng điển hình PVGIS, gộp thành ngày trung bình của từng tháng; năm thực tế có thể cao hoặc thấp hơn vài phần trăm.':'Bức xạ theo mô hình trời quang và giá trị năm nhập tay; chưa có mùa mưa, mây và nhiệt độ thật.'}</li>
     <li>Vật cản là khối đứng theo mặt bằng; chưa xét cây có tán, kính phản xạ, địa hình.</li>
-    <li>{p.electrical?'Thiết kế điện là sơ bộ (chia chuỗi, chọn inverter, giới hạn điện áp và dòng); chưa tính sụt áp chi tiết, phối hợp bảo vệ và thủ tục đấu nối.':'Chưa thiết kế đấu chuỗi và chọn bộ biến đổi điện.'} Chưa kiểm tra tải trọng mái, tải gió và phòng cháy.</li>
+    <li>{p.electrical?'Thiết kế điện là sơ bộ (chia chuỗi, chọn inverter, giới hạn điện áp, dòng và sụt áp cáp); chưa tính phối hợp bảo vệ.':'Chưa thiết kế đấu chuỗi và chọn bộ biến đổi điện.'} {p.siteReview?'Tải trọng mái, gió bão, ăn mòn, phòng cháy và thủ tục mới ở mức sàng lọc theo câu trả lời khảo sát; kỹ sư kết cấu và kỹ sư điện xác nhận tại hiện trường.':'Chưa kiểm tra tải trọng mái, tải gió và phòng cháy.'}</li>
     <li>Chi phí và giá điện do kỹ sư nhập; ô để trống dùng giá tham khảo SolarOpt có ghi nguồn ({E.source}). Ba kịch bản cho thấy khoảng dao động, không phải cam kết.</li>
     <li>{p.aiNote}</li>
    </ul>
