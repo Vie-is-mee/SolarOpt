@@ -1,6 +1,7 @@
 import {useId} from 'react'
 import type {CalibrationRecord,Config,Design,Obstacle,Objective,Panel,Point,Scene,Stress,Verification} from '../studioTypes'
 import {CAPEX_LABEL,calculateEconomics,type Economics} from '../economics'
+import {ScenarioTable,scenarioSummary} from './ScenarioTable'
 import {footprint,outerRoof} from '../editorGeometry'
 import {panelCorners,panelLabel} from '../layoutMeasurements'
 import {faceSummary,lossBreakdown,lossColor,niceStep,shadingHistogram} from '../reportData'
@@ -103,6 +104,7 @@ export function ProjectReport(p:ReportProps){
  const faceLabels=Object.fromEntries([...(config.roof_faces||[]).map(f=>[f.id,f.label]),...(p.scene?.faces||[]).map(f=>[f.id,f.label])])
  const m=design?.metrics,specific=m&&m.peak_power_kwp?m.annual_energy_kwh/m.peak_power_kwp:0
  const econ=design?calculateEconomics(economics,m!.estimated_cost_vnd,m!.annual_energy_kwh,m!.peak_power_kwp):null,perKwp=economics.cost_mode==='per_kwp',econReady=!!econ&&!econ.missing.length
+ const E=econ?.resolved??economics,range=design&&econReady?scenarioSummary(economics,m!.estimated_cost_vnd,m!.annual_energy_kwh,m!.peak_power_kwp):null
  const losses=design?lossBreakdown(design.panels,config.performance_ratio):null,faces=design?faceSummary(design.panels,panel.power_w,faceLabels):[]
  const efficiency=panel.power_w/(panel.width_m*panel.height_m*1000)*100
  const status=p.stale?'Kết quả cũ: đầu vào đã thay đổi sau lần tính':p.approved?`Kỹ sư đã duyệt · bản #${p.approved}`:p.confirmed?'Đầu vào đã xác nhận · chưa lưu bản duyệt':'Đầu vào chưa xác nhận'
@@ -111,7 +113,7 @@ export function ProjectReport(p:ReportProps){
   `Phương án “${objectiveName(design.objective??p.objective)}” đặt ${num(m.panel_count)} tấm ${panel.manufacturer} ${panel.model} (${num(m.peak_power_kwp,2)} kWp) trên mái khoảng ${num(area,1)} m².`,
   `Điện năng sơ bộ ${num(m.annual_energy_kwh)} kWh/năm, tương đương ${num(specific)} kWh cho mỗi kWp.`,
   `Bóng che làm giảm trung bình ${num(m.average_shading_loss_pct,1)}% sản lượng mỗi tấm; tấm bị che nhiều nhất mất ${num(m.maximum_shading_loss_pct??0,1)}%.`,
-  econReady&&econ?`Với tổng đầu tư ${vnd(econ.total)}, ${econ.payback!==null?`thời gian hoàn vốn khoảng ${num(econ.payback,1)} năm`:'dự án chưa hoàn vốn trong kỳ phân tích'}, NPV ${vnd(econ.npv)}.`:'Phần kinh tế chưa đủ số liệu đầu vào nên chưa tính hoàn vốn.',
+  econReady&&range?`Kinh tế theo ba kịch bản (thuận lợi – thận trọng): ${range.text}`:'Phần kinh tế chưa đủ số liệu đầu vào nên chưa tính hoàn vốn.',
   checks.length?`Kiểm tra tự động: ${passed}/${checks.length} điều kiện đạt.`:'Chưa chạy kiểm tra tự động.',
  ].join(' '):'Chưa có phương án bố trí. Báo cáo chỉ gồm dữ liệu đầu vào.'
  const rows=econ?econ.rows.filter(r=>r.year<=3||r.year%5===0||r.year===economics.replacement_year||r.year===econ.rows.length-1):[]
@@ -130,7 +132,7 @@ export function ProjectReport(p:ReportProps){
      <Kpi label="Sản lượng riêng" value={num(specific)} unit="kWh/kWp"/>
      <Kpi label="Tổn thất bóng TB" value={num(m.average_shading_loss_pct,1)} unit="%" note={`cao nhất ${num(m.maximum_shading_loss_pct??0,1)}%`}/>
      <Kpi label="Tổng đầu tư" value={econReady?vnd(econ!.total):'—'} note={econReady&&econ!.costPerKwp!==null?`${num(econ!.costPerKwp/1e6,1)} triệu đ/kWp`:'chưa nhập đủ chi phí'}/>
-     <Kpi label="Hoàn vốn" value={econReady&&econ!.payback!==null?num(econ!.payback,1):'—'} unit={econReady&&econ!.payback!==null?'năm':undefined} note={econReady?`NPV ${vnd(econ!.npv)}`:undefined}/>
+     <Kpi label="Hoàn vốn (cơ sở)" value={econReady&&econ!.payback!==null?num(econ!.payback,1):'—'} unit={econReady&&econ!.payback!==null?'năm':undefined} note={econReady&&range?`khoảng ${range.scenarios[2].result.payback!=null?num(range.scenarios[2].result.payback!,1):'—'}–${range.scenarios[0].result.payback!=null?num(range.scenarios[0].result.payback!,1):`>${economics.years}`} năm`:undefined}/>
     </div>
     <figure className="rp-cover-map"><PanelMap config={config} obstacles={p.obstacles} design={design} labels={false}/><LossLegend/></figure>
    </>:null}
@@ -203,34 +205,35 @@ export function ProjectReport(p:ReportProps){
 
    <Sheet title="Hiệu quả kinh tế" eyebrow="04 · Kinh tế" project={project}>
     {econReady&&econ?<>
+     {range&&<><h3>Ba kịch bản: thận trọng · cơ sở · thuận lợi</h3><ScenarioTable scenarios={range.scenarios} years={economics.years} compact/><p className="rp-note">Thận trọng: vốn +15%, sản lượng −12%, tự dùng −15 điểm, không được trả tiền điện dư, giá điện không tăng thêm. Thuận lợi: vốn −10%, sản lượng +5%, tự dùng +10 điểm. Các số dưới đây theo kịch bản cơ sở.</p></>}
      <div className="rp-kpis small">
       <Kpi label="Tổng đầu tư" value={vnd(econ.total)} note={econ.costPerKwp!==null?`${num(econ.costPerKwp/1e6,1)} triệu đ/kWp · ≈ ${num(econ.costPerKwp/1e6,1)} tỷ đ/MWp`:undefined}/>
       <Kpi label="Hoàn vốn" value={econ.payback!==null?num(econ.payback,1)+' năm':'Chưa hoàn vốn'}/>
-      <Kpi label={`NPV (${num(economics.discount_pct??0,1)}%)`} value={vnd(econ.npv)}/>
+      <Kpi label={`NPV (${num(E.discount_pct??0,1)}%)`} value={vnd(econ.npv)}/>
       <Kpi label={`Lợi ích ròng ${economics.years} năm`} value={vnd(econ.netBenefit)}/>
      </div>
      <figure className="rp-figure"><h3>Dòng tiền {economics.years} năm</h3><CashflowChart rows={econ.rows} payback={econ.payback}/><figcaption>Cột: dòng tiền ròng từng năm (đỏ là năm âm). Đường cam: lũy kế từ năm 0.</figcaption></figure>
      <div className="rp-two">
       <table className="rp-table rp-data"><caption>Chi phí đầu tư</caption><tbody>{perKwp?<>
-       <tr><td>{CAPEX_LABEL} (EPC, đã gồm thuế)</td><td className="num">{num(economics.capex_million_per_kwp??0,1)} triệu đ/kWp</td></tr>
+       <tr><td>{CAPEX_LABEL} (EPC, đã gồm thuế)</td><td className="num">{num(E.capex_million_per_kwp??0,1)} triệu đ/kWp</td></tr>
        <tr><td>Công suất hệ</td><td className="num">{num(m.peak_power_kwp,2)} kWp</td></tr>
        <tr className="sub"><td colSpan={2}>Ước tính theo suất đầu tư trọn gói; chưa tách thiết bị, thi công, lãi nhà thầu và thuế.</td></tr>
       </>:<>
        <tr><td>Tấm pin ({num(m.panel_count)} tấm)</td><td className="num">{vnd(m.estimated_cost_vnd)}</td></tr>
        {economics.costs.map(c=><tr key={c.name}><td>{c.name}</td><td className="num">{vnd(c.amount??0)}</td></tr>)}
-       <tr className="sub"><td>Dự phòng {num(economics.contingency_pct??0,1)}%</td><td className="num">{vnd(econ.contingency)}</td></tr>
-       <tr className="sub"><td>Lãi đơn vị lắp đặt {num(economics.markup_pct??0,1)}%</td><td className="num">{vnd(econ.profit)}</td></tr>
-       <tr className="sub"><td>Thuế {num(economics.vat_pct??0,1)}%</td><td className="num">{vnd(econ.tax)}</td></tr>
+       <tr className="sub"><td>Dự phòng {num(E.contingency_pct??0,1)}%</td><td className="num">{vnd(econ.contingency)}</td></tr>
+       <tr className="sub"><td>Lãi đơn vị lắp đặt {num(E.markup_pct??0,1)}%</td><td className="num">{vnd(econ.profit)}</td></tr>
+       <tr className="sub"><td>Thuế {num(E.vat_pct??0,1)}%</td><td className="num">{vnd(econ.tax)}</td></tr>
       </>}</tbody><tfoot><tr><td>Tổng đầu tư</td><td className="num">{vnd(econ.total)}</td></tr></tfoot></table>
       <table className="rp-table"><caption>Giả định kinh tế</caption><tbody>
-       <tr><th>Giá điện tránh mua</th><td>{num(economics.buy_price??0)} đ/kWh · tăng {num(economics.price_growth_pct??0,1)}%/năm</td></tr>
-       <tr><th>Dùng tại chỗ</th><td>{num(economics.self_use_pct??0)}% · điện dư {num(economics.sell_price??0)} đ/kWh</td></tr>
-       <tr><th>Suy giảm sản lượng</th><td>{num(economics.degradation_pct??0,1)}%/năm</td></tr>
-       <tr><th>Vận hành, bảo trì</th><td>{vnd(economics.maintenance_year??0)}/năm</td></tr>
-       <tr><th>Thay thiết bị</th><td>{vnd(economics.replacement_cost??0)} ở năm {economics.replacement_year}</td></tr>
-       <tr><th>Vay</th><td>{(economics.loan_amount??0)>0?`${vnd(economics.loan_amount!)} · ${num(economics.loan_rate_pct??0,1)}%/năm · ${economics.loan_years} năm`:'Không vay'}</td></tr>
-       <tr><th>Chiết khấu</th><td>{num(economics.discount_pct??0,1)}%/năm · {economics.years} năm</td></tr>
-       <tr><th>Nguồn giá</th><td>{economics.source}</td></tr>
+       <tr><th>Giá điện tránh mua</th><td>{num(E.buy_price??0)} đ/kWh · tăng {num(E.price_growth_pct??0,1)}%/năm</td></tr>
+       <tr><th>Dùng tại chỗ</th><td>{num(E.self_use_pct??0)}% · điện dư {num(E.sell_price??0)} đ/kWh</td></tr>
+       <tr><th>Suy giảm sản lượng</th><td>{num(E.degradation_pct??0,1)}%/năm</td></tr>
+       <tr><th>Vận hành, bảo trì</th><td>{vnd(E.maintenance_year??0)}/năm</td></tr>
+       <tr><th>Thay thiết bị</th><td>{vnd(E.replacement_cost??0)} ở năm {economics.replacement_year}</td></tr>
+       <tr><th>Vay</th><td>{(E.loan_amount??0)>0?`${vnd(E.loan_amount!)} · ${num(E.loan_rate_pct??0,1)}%/năm · ${economics.loan_years} năm`:'Không vay'}</td></tr>
+       <tr><th>Chiết khấu</th><td>{num(E.discount_pct??0,1)}%/năm · {economics.years} năm</td></tr>
+       <tr><th>Nguồn giá</th><td>{E.source}</td></tr>
       </tbody></table>
      </div>
      <table className="rp-table rp-data rp-keep"><caption>Dòng tiền rút gọn (triệu đồng)</caption>
@@ -267,7 +270,7 @@ export function ProjectReport(p:ReportProps){
     <li>Tổn thất ngoài bóng che (nhiệt độ, dây dẫn, bộ biến đổi điện, bụi) gộp trong hệ số hiệu năng PR {num(config.performance_ratio*100)}%.</li>
     <li>Vật cản là khối đứng theo mặt bằng; chưa xét cây có tán, kính phản xạ, địa hình.</li>
     <li>{p.electrical?'Thiết kế điện là sơ bộ (chia chuỗi, chọn inverter, giới hạn điện áp và dòng); chưa tính sụt áp chi tiết, phối hợp bảo vệ và thủ tục đấu nối.':'Chưa thiết kế đấu chuỗi và chọn bộ biến đổi điện.'} Chưa kiểm tra tải trọng mái, tải gió và phòng cháy.</li>
-    <li>Chi phí và giá điện do người dùng nhập{economics.source?` (${economics.source})`:''}; SolarOpt không tự giả định.</li>
+    <li>Chi phí và giá điện do kỹ sư nhập; ô để trống dùng giá tham khảo SolarOpt có ghi nguồn ({E.source}). Ba kịch bản cho thấy khoảng dao động, không phải cam kết.</li>
     <li>{p.aiNote}</li>
    </ul>
    <div className="rp-signatures">{['Người lập','Kỹ sư kiểm tra','Đại diện chủ đầu tư'].map(r=><div key={r}><strong>{r}</strong><span>Ký, ghi rõ họ tên</span><i/><small>Ngày ……/……/…………</small></div>)}</div>

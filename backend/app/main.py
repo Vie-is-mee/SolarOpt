@@ -276,6 +276,13 @@ def design_verify(req: VerifyRequest):
     return verify_design(req)
 
 
+@app.post("/api/design/evaluate")
+def design_evaluate(req: VerifyRequest):
+    """Numbers and checks for a layout the engineer edited by hand (moved or removed panels)."""
+    from app.services.manual_layout import evaluate_layout
+    return evaluate_layout(req)
+
+
 @app.get("/api/electrical/inverters")
 def electrical_inverters():
     return CATALOG

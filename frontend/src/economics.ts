@@ -1,8 +1,53 @@
 export type CostItem={name:string;amount:number|null}
-export type Economics={costs:CostItem[];contingency_pct:number|null;markup_pct:number|null;vat_pct:number|null;self_use_pct:number|null;buy_price:number|null;sell_price:number|null;maintenance_year:number|null;degradation_pct:number|null;price_growth_pct:number|null;discount_pct:number|null;years:number;replacement_year:number;replacement_cost:number|null;loan_amount:number|null;loan_rate_pct:number|null;loan_years:number;source:string;daytime_use_kwh_month?:number|null;cost_mode?:CostMode;capex_million_per_kwp?:number|null}
+export type CustomerType='residential'|'business'|'industrial'
+/** Changes from the base case to the pessimistic ('low') or optimistic ('high') case. */
+export type Spread={capex_pct:number;yield_pct:number;self_use_pts:number;buy_price_pct:number;price_growth_pts:number;degradation_pts:number;sell_price_pct:number;om_pct:number;discount_pts:number}
+export type Economics={costs:CostItem[];contingency_pct:number|null;markup_pct:number|null;vat_pct:number|null;self_use_pct:number|null;buy_price:number|null;sell_price:number|null;maintenance_year:number|null;degradation_pct:number|null;price_growth_pct:number|null;discount_pct:number|null;years:number;replacement_year:number;replacement_cost:number|null;loan_amount:number|null;loan_rate_pct:number|null;loan_years:number;source:string;daytime_use_kwh_month?:number|null;cost_mode?:CostMode;capex_million_per_kwp?:number|null;customer_type?:CustomerType|null;spread_low?:Spread|null;spread_high?:Spread|null}
 // 'per_kwp': one all-in installed price (EPC, tax included) in million VND per kWp, for estimates before itemised quotes.
 export type CostMode='itemized'|'per_kwp'
-export const defaultEconomics=():Economics=>({costs:['Bộ biến đổi điện (inverter)','Khung, ray và phụ kiện','Dây điện, bảo vệ và tiếp địa','Nhân công và an toàn thi công','Khảo sát, đo đạc / drone','Vận chuyển, hồ sơ và đấu nối','Thiết kế, phần mềm và quản lý dự án','Chi phí khác'].map(name=>({name,amount:null})),contingency_pct:null,markup_pct:null,vat_pct:null,self_use_pct:null,buy_price:null,sell_price:null,maintenance_year:null,degradation_pct:null,price_growth_pct:null,discount_pct:null,years:25,replacement_year:12,replacement_cost:null,loan_amount:null,loan_rate_pct:null,loan_years:5,source:''})
+
+/* ---- Market reference (Việt Nam, 11/2026) -------------------------------------------------------
+ * An empty field means "use the reference": the engineer only types what they actually know.
+ * Sources: EVN tariff (QĐ 1279/QĐ-BCT, 05/2025); rooftop surplus sale ≤ 50 % of output at the previous
+ * year's average market price (NĐ 58/2025/NĐ-CP, amended by NĐ 243/2026/NĐ-CP); press quotes 2026:
+ * households about 12–15 million VND/kWp all-in, businesses about 7.5–13. Planning values, not quotes. */
+export const CUSTOMER:Record<CustomerType,{label:string;buy:number;self:number;note:string}>={
+ residential:{label:'Hộ gia đình',buy:3300,self:60,note:'giá bậc 4–5 sinh hoạt (2.998–3.350 đ) + VAT 8%: điện mặt trời thay phần đắt nhất của hóa đơn'},
+ business:{label:'Kinh doanh, văn phòng',buy:3200,self:80,note:'giá kinh doanh giờ bình thường/cao điểm ban ngày, gồm VAT'},
+ industrial:{label:'Sản xuất',buy:2100,self:90,note:'giá sản xuất giờ bình thường/cao điểm ban ngày, gồm VAT'},
+}
+/** All-in EPC price (million VND per kWp, tax included); small systems carry more fixed cost per kWp. */
+export function marketCapex(type:CustomerType,kwp:number){
+ if(type==='residential')return kwp<=5?13.5:kwp<=15?12:11
+ if(type==='business')return kwp<=50?10:kwp<=200?8.5:7.5
+ return kwp<=200?8:7
+}
+/** Share of yearly output that may be sold to the grid (NĐ 243/2026 amending NĐ 58/2025). */
+export const EXPORT_CAP=.5
+export const SURPLUS_PRICE=670
+export const MARKET_NOTE='Giá trị tham khảo SolarOpt (thị trường Việt Nam 11/2026, chưa phải báo giá): suất đầu tư trọn gói theo quy mô; giá điện EVN QĐ 1279/QĐ-BCT; bán điện dư tối đa 50% sản lượng theo giá thị trường bình quân năm trước (NĐ 58/2025, sửa bởi NĐ 243/2026) — kiểm tra giá công bố trước khi ký; bảo trì 150.000 đ/kWp/năm; thay inverter năm 12 khoảng 1,5 triệu đ/kWp. Thay bằng số liệu thật khi có.'
+export function marketDefaults(type:CustomerType,kwp:number):Partial<Economics>{
+ const k=Math.max(0,kwp)
+ return {capex_million_per_kwp:marketCapex(type,k),contingency_pct:3,markup_pct:15,vat_pct:8,self_use_pct:CUSTOMER[type].self,buy_price:CUSTOMER[type].buy,sell_price:SURPLUS_PRICE,maintenance_year:Math.round(150_000*k),degradation_pct:.55,price_growth_pct:3,discount_pct:8,replacement_cost:Math.round(1_500_000*k),loan_amount:0,loan_rate_pct:0}
+}
+export const AUTO_KEYS=['capex_million_per_kwp','contingency_pct','markup_pct','vat_pct','self_use_pct','buy_price','sell_price','maintenance_year','degradation_pct','price_growth_pct','discount_pct','replacement_cost','loan_amount','loan_rate_pct'] as const
+/** Empty fields take the market reference for this customer type and size; returns which ones did. */
+export function resolveEconomics(a:Economics,kwp:number){
+ const type=a.customer_type??'residential',d=marketDefaults(type,kwp),value:Economics={...a,customer_type:type},auto:(keyof Economics)[]=[]
+ for(const k of AUTO_KEYS){if(value[k]==null){(value as Record<string,unknown>)[k]=d[k];auto.push(k)}}
+ if(!value.source.trim())value.source=MARKET_NOTE
+ return {value,auto}
+}
+
+export const DEFAULT_SPREAD:{low:Spread;high:Spread}={
+ // Thận trọng: dearer build, a cloudier or dirtier year, less self-use, no surplus payment, flat tariff.
+ low:{capex_pct:15,yield_pct:-12,self_use_pts:-15,buy_price_pct:-5,price_growth_pts:-3,degradation_pts:.25,sell_price_pct:-100,om_pct:50,discount_pts:2},
+ // Thuận lợi: competitive quote, good year, more daytime use, tariff rising faster.
+ high:{capex_pct:-10,yield_pct:5,self_use_pts:10,buy_price_pct:5,price_growth_pts:2,degradation_pts:-.15,sell_price_pct:50,om_pct:-30,discount_pts:-2},
+}
+export const SPREAD_FIELDS:[keyof Spread,string,string][]=[['capex_pct','Vốn đầu tư','%'],['yield_pct','Sản lượng','%'],['self_use_pts','Tỷ lệ tự dùng','điểm %'],['buy_price_pct','Giá điện tránh mua','%'],['price_growth_pts','Tăng giá điện/năm','điểm %'],['degradation_pts','Suy giảm/năm','điểm %'],['sell_price_pct','Giá bán điện dư','%'],['om_pct','Bảo trì','%'],['discount_pts','Chiết khấu','điểm %']]
+
+export const defaultEconomics=():Economics=>({costs:['Bộ biến đổi điện (inverter)','Khung, ray và phụ kiện','Dây điện, bảo vệ và tiếp địa','Nhân công và an toàn thi công','Khảo sát, đo đạc / drone','Vận chuyển, hồ sơ và đấu nối','Thiết kế, phần mềm và quản lý dự án','Chi phí khác'].map(name=>({name,amount:null})),contingency_pct:null,markup_pct:null,vat_pct:null,self_use_pct:null,buy_price:null,sell_price:null,maintenance_year:null,degradation_pct:null,price_growth_pct:null,discount_pct:null,years:25,replacement_year:12,replacement_cost:null,loan_amount:null,loan_rate_pct:null,loan_years:5,source:'',cost_mode:'per_kwp',capex_million_per_kwp:null,customer_type:'residential'})
 export const economicFields:[keyof Economics,string,string][]=[['contingency_pct','Dự phòng chi phí','%'],['markup_pct','Lãi cộng trên giá vốn đơn vị lắp đặt','%'],['vat_pct','Thuế trên giá bán trước thuế','%'],['self_use_pct','Tỷ lệ điện dùng tại chỗ','%'],['buy_price','Giá điện tránh mua','đ/kWh'],['sell_price','Giá điện dư được thanh toán','đ/kWh'],['maintenance_year','Vệ sinh, bảo trì, bảo hiểm mỗi năm','đ/năm'],['degradation_pct','Suy giảm sản lượng mỗi năm','%'],['price_growth_pct','Tăng giá điện mỗi năm','%'],['discount_pct','Tỷ lệ chiết khấu dòng tiền','%'],['replacement_cost','Chi phí thay thiết bị dự kiến','đ'],['loan_amount','Khoản vay ban đầu','đ'],['loan_rate_pct','Lãi vay mỗi năm','%']]
 // Quote build-up fields that an all-in price per kWp already contains.
 const QUOTE_KEYS=new Set<keyof Economics>(['contingency_pct','markup_pct','vat_pct'])
@@ -19,8 +64,12 @@ export function economicsErrors(a:Economics){
  if(!a.source.trim())errors.push('Nguồn báo giá và phạm vi chi phí')
  return errors
 }
-/** kwp is the installed peak power: it prices the per-kWp mode and gives the all-in cost per kWp in both modes. */
-export function calculateEconomics(a:Economics,panelCost:number,annualEnergy:number,kwp=0){
+/** kwp is the installed peak power: it prices the per-kWp mode and gives the all-in cost per kWp in both modes.
+ * Empty assumptions take the market reference (resolveEconomics); only unpriced itemised quote lines stay missing. */
+export function calculateEconomics(input:Economics,panelCost:number,annualEnergy:number,kwp=0){
+ // A known daytime demand from the bill caps self-use: a big system on a small household mostly exports.
+ const daytime=input.daytime_use_kwh_month
+ const a=resolveEconomics(input.self_use_pct==null&&daytime!=null&&daytime>0&&annualEnergy>0?{...input,self_use_pct:Math.min(100,daytime*12/annualEnergy*100)}:input,kwp).value
  const missing=economicsErrors(a),n=(v:number|null|undefined)=>v!=null&&Number.isFinite(v)?Math.min(1e12,Math.max(0,v)):0
  const years=Math.min(40,Math.max(1,Math.trunc(a.years)||1)),loanYears=Math.min(40,Math.max(1,Math.trunc(a.loan_years)||1))
  const perKwp=a.cost_mode==='per_kwp'
@@ -36,12 +85,50 @@ export function calculateEconomics(a:Economics,panelCost:number,annualEnergy:num
  let cumulative=-total+loan,npv=cumulative,payback:number|null=null
  for(let year=1;year<=years;year++){
   const energy=annualEnergy*(1-n(a.degradation_pct)/100)**(year-1),selfUse=energy*n(a.self_use_pct)/100,exportEnergy=energy-selfUse
-  const growth=(1+n(a.price_growth_pct)/100)**(year-1),saving=selfUse*n(a.buy_price)*growth,exportRevenue=exportEnergy*n(a.sell_price)*growth
+  // Only part of the output may be sold; the rest of any surplus is curtailed or given away unpaid.
+  const paidExport=Math.min(exportEnergy,energy*EXPORT_CAP)
+  const growth=(1+n(a.price_growth_pct)/100)**(year-1),saving=selfUse*n(a.buy_price)*growth,exportRevenue=paidExport*n(a.sell_price)*growth
   const maintenance=n(a.maintenance_year),replacement=year===a.replacement_year?n(a.replacement_cost):0,payment=year<=loanYears?debt:0
   const net=saving+exportRevenue-maintenance-replacement-payment,previous=cumulative;cumulative+=net
   if(total>loan&&payback===null&&cumulative>=0&&net>0)payback=year-1+Math.max(0,-previous)/net
   const discounted=net/(1+n(a.discount_pct)/100)**year;npv+=discounted
   rows.push({year,energy,selfUse,exportEnergy,saving,exportRevenue,maintenance,replacement,debt:payment,net,cumulative,discounted})
  }
- return {missing,costPerKwp:kwp>0?total/kwp:null,direct,contingency,cost,profit,preTax,tax,total,rows,npv,payback,netBenefit:cumulative,annualDebt:debt,totalLoanInterest:debt*loanYears-loan}
+ // Levelised cost: lifetime cost over lifetime output, both discounted (what each kWh really costs the owner).
+ const d=n(a.discount_pct)/100
+ const pvEnergy=rows.slice(1).reduce((s,r)=>s+r.energy/(1+d)**r.year,0),pvCost=total+rows.slice(1).reduce((s,r)=>s+(r.maintenance+r.replacement)/(1+d)**r.year,0)
+ return {missing,costPerKwp:kwp>0?total/kwp:null,direct,contingency,cost,profit,preTax,tax,total,rows,npv,payback,netBenefit:cumulative,annualDebt:debt,totalLoanInterest:debt*loanYears-loan,irr:irr(rows.map(r=>r.net)),lcoe:pvEnergy>0?pvCost/pvEnergy:null,resolved:a}
+}
+/** Internal rate of return of yearly cash flows (year 0 first); null when the flows never change sign. */
+export function irr(flows:number[]){
+ const npv=(r:number)=>flows.reduce((s,f,i)=>s+f/(1+r)**i,0)
+ let lo=-.99,hi=1
+ if(npv(lo)*npv(hi)>0)return null
+ for(let i=0;i<100;i++){const mid=(lo+hi)/2;if(npv(lo)*npv(mid)<=0)hi=mid;else lo=mid}
+ return (lo+hi)/2
+}
+
+export type ScenarioId='low'|'base'|'high'
+export const SCENARIOS:{id:ScenarioId;name:string;hint:string}[]=[{id:'low',name:'Thận trọng',hint:'chi phí cao, năm nắng kém, ít tự dùng, không bán điện dư'},{id:'base',name:'Cơ sở',hint:'giả định đang nhập hoặc giá trị tham khảo'},{id:'high',name:'Thuận lợi',hint:'báo giá tốt, nắng tốt, dùng điện ban ngày nhiều'}]
+/** One scenario's assumptions: the base, moved by the spread. Yield changes the energy, capex the price. */
+export function scenarioInputs(input:Economics,kwp:number,id:ScenarioId){
+ const base=resolveEconomics(input,kwp).value
+ if(id==='base')return {econ:base,yieldFactor:1,capexFactor:1}
+ const s=(id==='low'?input.spread_low:input.spread_high)??DEFAULT_SPREAD[id],clamp=(v:number,lo:number,hi:number)=>Math.min(hi,Math.max(lo,v))
+ const capexFactor=Math.max(.1,1+s.capex_pct/100),om=Math.max(0,1+s.om_pct/100)
+ const econ:Economics={...base,
+  capex_million_per_kwp:base.capex_million_per_kwp!=null?base.capex_million_per_kwp*capexFactor:null,
+  costs:base.costs.map(c=>c.amount==null?c:{...c,amount:c.amount*capexFactor}),
+  self_use_pct:clamp((base.self_use_pct??0)+s.self_use_pts,0,100),
+  buy_price:Math.max(0,(base.buy_price??0)*(1+s.buy_price_pct/100)),
+  price_growth_pct:clamp((base.price_growth_pct??0)+s.price_growth_pts,0,100),
+  degradation_pct:clamp((base.degradation_pct??0)+s.degradation_pts,0,100),
+  sell_price:Math.max(0,(base.sell_price??0)*(1+s.sell_price_pct/100)),
+  maintenance_year:(base.maintenance_year??0)*om,
+  replacement_cost:(base.replacement_cost??0)*capexFactor,
+  discount_pct:clamp((base.discount_pct??0)+s.discount_pts,0,100)}
+ return {econ,yieldFactor:Math.max(0,1+s.yield_pct/100),capexFactor}
+}
+export function calculateScenarios(a:Economics,panelCost:number,annualEnergy:number,kwp:number){
+ return SCENARIOS.map(sc=>{const {econ,yieldFactor,capexFactor}=scenarioInputs(a,kwp,sc.id);return {...sc,econ,yieldFactor,energy:annualEnergy*yieldFactor,result:calculateEconomics(econ,panelCost*capexFactor,annualEnergy*yieldFactor,kwp)}})
 }

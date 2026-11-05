@@ -15,6 +15,24 @@ SHAPES = ("flat", "shed", "gable", "hip", "barrel", "parabolic")
 MAX_TILT = 60.0
 
 
+def _clean_ring(part):
+    """Outer ring of a face, rounded to 0,1 mm, at most 80 vertices and still a valid polygon.
+    Rounding a sliver can make it cross itself; such a ring is repaired or dropped instead of failing the roof."""
+    shape = Polygon(part.exterior)
+    for tolerance in (0, .002, .01, .03):
+        simple = shape.simplify(tolerance, preserve_topology=True) if tolerance else shape
+        coords = list(simple.exterior.coords)[:-1]
+        if len(coords) > 80:
+            continue
+        ring = [(round(x, 4), round(y, 4)) for x, y in coords]
+        ring = [p for i, p in enumerate(ring) if p != ring[i - 1]]
+        if len(ring) >= 3:
+            candidate = Polygon(ring)
+            if candidate.is_valid and candidate.area >= .05:
+                return ring
+    return None
+
+
 def _profile(shape, span, rise):
     if shape == "parabolic":
         return lambda u: 4 * rise * u * (span - u) / span ** 2
@@ -102,16 +120,20 @@ def generate_faces(config: ProjectConfig, shape: str, ridge_axis: str = "x", ris
             planes.append((rect(a, b), z, tilt, az, f"Dải vòm {i + 1}", "vault"))
         notes.append(f"Chia {len(cuts) - 1} dải phẳng; lệch lớn nhất so với đường cong {worst * 100:.1f} cm" + (f" (vượt dung sai {tolerance_m * 100:.0f} cm: cần ray uốn hoặc tấm dẻo)." if worst > tolerance_m + 1e-9 else "."))
 
-    outline = roof_polygon(config)
+    # Faces follow the outer outline; courtyards are cut later from the roof itself, so a face never needs holes.
+    outline = Polygon(roof_polygon(config).exterior) if roof_polygon(config).geom_type == "Polygon" else roof_polygon(config)
     faces = []
     for index, (poly, z, tilt, az, label, group) in enumerate(planes):
         for part_index, part in enumerate(_parts(poly.intersection(outline))):
             if part.area < .05:
                 continue
+            ring = _clean_ring(part)
+            if ring is None:
+                continue
             c = part.centroid
             installable = tilt <= MAX_TILT
             faces.append(RoofFace(id=f"{shape}-{index}" + (f"-{part_index}" if part_index else ""), label=label,
-                                  polygon=[{"x": round(x, 4), "y": round(y, 4)} for x, y in list(part.exterior.coords)[:-1]][:80],
+                                  polygon=[{"x": x, "y": y} for x, y in ring],
                                   elevation_m=round(min(300, z(c.x, c.y)), 4), tilt_deg=round(min(MAX_TILT, tilt), 3),
                                   azimuth_deg=round(az % 360, 3), installable=installable, group=group))
     if any(not f.installable for f in faces):

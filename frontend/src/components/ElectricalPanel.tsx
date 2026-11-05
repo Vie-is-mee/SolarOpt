@@ -4,6 +4,7 @@ import type {Economics} from '../economics'
 import type {Config, Design, Obstacle, Panel} from '../studioTypes'
 import {footprint} from '../editorGeometry'
 import {studioApi as api} from '../services/studioApi'
+import {withReferenceCosts} from '../sizing'
 import {CardHead} from './CardHead'
 import {Icon} from './Icon'
 
@@ -37,7 +38,7 @@ function StringMap({config,design,obstacles,result}:{config:Config;design:Design
 }
 
 export function ElectricalPanel({config,panel,design,obstacles,stale,result,onResult,settings,onSettings,economics,onEconomics,disabled}:{config:Config;panel:Panel;design:Design;obstacles:Obstacle[];stale:boolean;result:Electrical|null;onResult:(r:Electrical|null)=>void;settings:ElectricalSettings;onSettings:(s:ElectricalSettings)=>void;economics:Economics;onEconomics:(e:Economics)=>void;disabled:boolean}){
- const [catalog,setCatalog]=useState<Inverter[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState(''),[pushed,setPushed]=useState('')
+ const [catalog,setCatalog]=useState<Inverter[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState(''),[pushed,setPushed]=useState(''),[rerun,setRerun]=useState(false)
  useEffect(()=>{api.inverters().then(setCatalog).catch(()=>setCatalog([]))},[])
  const set=(patch:Partial<ElectricalSettings>)=>onSettings({...settings,...patch})
  async function run(){
@@ -45,6 +46,9 @@ export function ElectricalPanel({config,panel,design,obstacles,stale,result,onRe
   setBusy(true);setError('');setPushed('')
   try{onResult(await api.electrical(config,panel,design,settings))}catch(e){setError(e instanceof Error?e.message:'Chưa thiết kế được phần điện.')}finally{setBusy(false)}
  }
+ useEffect(()=>{if(rerun){setRerun(false);void run()}},[settings,rerun])
+ function pick(id:string){set({inverter_id:id,custom_inverter:null});setRerun(true)}
+ const dcKwp=design.metrics.peak_power_kwp
  // First visit with a fresh layout: design once with the current settings; later changes wait for the button.
  useEffect(()=>{if(!result&&!stale&&!disabled&&design.panels.length)void run()},[design,stale,disabled])
  const choice=settings.custom_inverter?'custom':settings.inverter_id||''
@@ -57,7 +61,9 @@ export function ElectricalPanel({config,panel,design,obstacles,stale,result,onRe
  function push(){
   if(!result)return
   const items=estimateFromBom(result),inverterCost=result.cost_by_group.inverter||0
-  onEconomics({...economics,costs:economics.costs.map(c=>items.find(i=>i.name===c.name)??c),replacement_cost:economics.replacement_cost??Math.round(inverterCost),source:economics.source||'Vật tư điện theo thiết kế điện SolarOpt (đơn giá tham khảo)'})
+  // The bill of materials prices equipment line by line, so the estimate switches to itemised; lines it cannot
+  // price (labour, survey, paperwork) take the reference unit prices and are labelled as such.
+  onEconomics(withReferenceCosts({...economics,cost_mode:'itemized',costs:economics.costs.map(c=>items.find(i=>i.name===c.name)??c),replacement_cost:economics.replacement_cost??Math.round(inverterCost),source:economics.source||'Vật tư điện theo thiết kế điện SolarOpt (đơn giá tham khảo)'},design.metrics.peak_power_kwp))
   setPushed(`Đã đưa ${items.map(i=>`${i.name.toLowerCase()} ${million(i.amount)}`).join(', ')} vào dự toán`+(economics.replacement_cost==null?`; chi phí thay inverter năm ${economics.replacement_year} lấy bằng giá inverter.`:'.'))
  }
  const counted=result?result.bom.filter(b=>b.group!=='panel').reduce((s,b)=>s+b.amount_vnd,0):0
@@ -65,8 +71,9 @@ export function ElectricalPanel({config,panel,design,obstacles,stale,result,onRe
   <CardHead icon="bolt" title="Thiết kế điện" sub="Chia chuỗi, chọn inverter và kiểm tra giới hạn điện áp, dòng điện theo nhiệt độ" action={<button type="button" className="button secondary small" disabled={busy||stale||disabled} onClick={run}>{busy?'Đang tính…':result?'Tính lại':'Thiết kế điện'}</button>}/>
   {stale&&<p className="tracer-error">Bố trí đã thay đổi; tính lại phương án trước khi thiết kế điện.</p>}
   <div className="field-grid three electrical-settings">
-   <label className="field"><span>Inverter</span><select aria-label="Inverter" value={choice} onChange={e=>choose(e.target.value)}><option value="">Tự chọn phù hợp nhất</option>{catalog.map(i=><option key={i.id} value={i.id}>{i.manufacturer} {i.model} · {n(i.ac_rated_w/1000)} kW {i.phase==='single'?'1 pha':'3 pha'}</option>)}<option value="custom">Nhập inverter khác…</option></select></label>
+   <label className="field"><span>Inverter</span><select aria-label="Inverter" value={choice} onChange={e=>choose(e.target.value)}><option value="">Tự chọn phù hợp nhất</option>{(['single','three'] as const).map(ph=><optgroup key={ph} label={ph==='single'?'1 pha':'3 pha'}>{catalog.filter(i=>i.phase===ph).map(i=><option key={i.id} value={i.id}>{i.manufacturer} {i.model} · {n(i.ac_rated_w/1000)} kW</option>)}</optgroup>)}<option value="custom">Nhập inverter khác…</option></select></label>
    <label className="field"><span>Lưới điện</span><select aria-label="Lưới điện" value={settings.grid_phase} onChange={e=>set({grid_phase:e.target.value as ElectricalSettings['grid_phase']})}><option value="auto">Tự động theo quy mô</option><option value="single">1 pha</option><option value="three">3 pha</option></select></label>
+   <label className="field"><span>Giới hạn công suất AC đấu nối</span><div className="input-wrap"><input aria-label="Giới hạn công suất AC" type="number" min="0" step="1" value={settings.max_ac_kw??''} placeholder="Không giới hạn" onChange={e=>set({max_ac_kw:e.target.value===''?null:Number(e.target.value)})}/><small>kW</small></div><em>Theo công suất đăng ký/thỏa thuận đấu nối với điện lực hoặc công suất máy biến áp.</em></label>
    <label className="field"><span>Nhiệt độ thấp nhất tại công trình</span><div className="input-wrap"><input aria-label="Nhiệt độ thấp nhất" type="number" min="-40" max="40" step="1" value={settings.min_ambient_c??''} placeholder={Math.abs(config.latitude)>=20?'Mặc định 2':Math.abs(config.latitude)>=16?'Mặc định 8':'Mặc định 15'} onChange={e=>set({min_ambient_c:e.target.value===''?null:Number(e.target.value)})}/><small>°C</small></div></label>
   </div>
   <details className="electrical-assumptions"><summary>Thông số nhiệt, dòng ngắn mạch và chiều dài cáp</summary><div className="field-grid three">
@@ -100,11 +107,12 @@ export function ElectricalPanel({config,panel,design,obstacles,stale,result,onRe
    <div className="table-scroll"><table className="data-table bom-table"><thead><tr><th>Hạng mục</th><th>Quy cách</th><th className="num">SL</th><th className="num">Đơn giá</th><th className="num">Thành tiền</th></tr></thead>
     <tbody>{(Object.keys(BOM_GROUPS) as BomGroup[]).filter(g=>groups[g]).map(g=><Fragment key={g}><tr className="bom-group"><td colSpan={4}>{BOM_GROUPS[g]}</td><td className="num">{money(result.cost_by_group[g]||0)}</td></tr>{groups[g]!.map(b=><tr key={g+b.name}><td>{b.name}</td><td>{b.spec}</td><td className="num">{n(b.quantity)} {b.unit}</td><td className="num">{money(b.unit_price_vnd)}</td><td className="num">{money(b.amount_vnd)}</td></tr>)}</Fragment>)}</tbody></table></div>
    <div className="electrical-push">
-    <button type="button" className="button primary small" disabled={perKwp||!result.strings.length} onClick={push}><Icon name="check" size={15}/>Đưa vật tư vào dự toán</button>
-    <p className="muted-note">{perKwp?'Dự toán đang theo suất đầu tư trọn gói; chuyển sang “Theo từng hạng mục” để dùng giá vật tư này.':pushed||'Điền giá inverter, dây và bảo vệ, khung ray vào các hạng mục tương ứng của dự toán. Giá là đơn giá tham khảo, thay bằng báo giá thật khi có.'}</p>
+    <button type="button" className="button primary small" disabled={!result.strings.length} onClick={push}><Icon name="check" size={15}/>Đưa vật tư vào dự toán</button>
+    <p className="muted-note">{pushed||(perKwp?'Dự toán đang theo suất đầu tư trọn gói; bấm để chuyển sang dự toán theo hạng mục với giá vật tư này.':'')||'Điền giá inverter, dây và bảo vệ, khung ray vào các hạng mục tương ứng của dự toán. Giá là đơn giá tham khảo, thay bằng báo giá thật khi có.'}</p>
    </div>
-   {result.options.length>1&&<details className="advisor-more"><summary>So sánh inverter đã thử</summary><div className="table-scroll"><table className="data-table"><thead><tr><th>Inverter</th><th className="num">Số bộ</th><th className="num">DC/AC</th><th className="num">Giá</th><th>Kết quả</th></tr></thead>
-    <tbody>{result.options.map(o=><tr key={o.inverter_id} className={o.inverter_id===result.inverter.id?'picked':''}><td>{o.label}</td><td className="num">{o.count}</td><td className="num">{n(o.dc_ac_ratio,2)}</td><td className="num">{million(o.price_vnd)}</td><td>{o.note}</td></tr>)}</tbody></table></div></details>}
+   {result.options.length>0&&<><h4 className="form-group-title">Chọn inverter theo công suất dự án ({n(dcKwp,2)} kWp DC → nên {n(dcKwp/1.35,1)}–{n(dcKwp/0.9,1)} kW AC)</h4>
+   <div className="table-scroll"><table className="data-table inverter-options"><caption>Mỗi model đã được chia chuỗi và kiểm tra giới hạn cho đúng hệ này; xếp theo mức phù hợp</caption><thead><tr><th>Inverter</th><th>Lưới</th><th className="num">Số bộ</th><th className="num">Tổng AC</th><th className="num">DC/AC</th><th className="num">Giá tham khảo</th><th>Kết quả</th><th/></tr></thead>
+    <tbody>{result.options.map(o=><tr key={o.inverter_id} className={o.inverter_id===result.inverter.id?'picked':''}><td>{o.label}</td><td>{o.phase==='single'?'1 pha':'3 pha'}</td><td className="num">{o.count}</td><td className="num">{n(o.ac_kw,1)} kW</td><td className="num">{n(o.dc_ac_ratio,2)}</td><td className="num">{million(o.price_vnd)}</td><td>{o.feasible?<span className="badge green">Đạt</span>:<span className="badge red">Chưa đạt</span>} <small>{o.note}</small></td><td>{o.inverter_id===result.inverter.id?<span className="badge">Đang dùng</span>:<button type="button" className="text-button" disabled={busy||stale||disabled} onClick={()=>pick(o.inverter_id)}>Chọn</button>}</td></tr>)}</tbody></table></div></>}
    <details className="advisor-more"><summary>Giả định và nguồn thông số</summary><ul>{result.assumptions.map((a,i)=><li key={i}>{a}</li>)}<li>Nguồn inverter: {result.inverter.source}.</li></ul></details>
   </div>}
  </section>
