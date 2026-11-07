@@ -10,12 +10,29 @@ import math
 from collections import OrderedDict
 from threading import Lock
 from time import perf_counter
+from typing import NamedTuple
 from shapely import prepare
 from shapely.affinity import rotate
 from app.schemas import CandidatePanel
 from app.services.geometry import panel_shape, panel_shapes, overlap_ratio, overlap_ratios, _parts, TOP_PREFIX, installable_regions, contour_angle, footprint_dims, row_spacing, own_grid
 from app.services.energy import EnergyContext
-from app.services.design_policy import capacity, select_for_target, robust_contexts, robust_position
+from app.services.design_policy import capacity, select_for_target, robust_contexts, robust_position, robust_positions
+
+
+class Grid(NamedTuple):
+    """One evaluated grid, kept as arrays: a Python tuple per position costs ten times the memory on a large roof."""
+    total: int          # positions tried, fitting or not
+    row: object
+    col: object
+    px: object
+    py: object
+    cx: object
+    cy: object
+    face: object        # index into the surfaces of the search
+    annual: object
+    loss: object
+    mean: object
+    worst: object
 
 
 def same_position(a, b, tol=.02):
@@ -113,20 +130,20 @@ def search_layouts(req, ctx, shade_contexts, *, budget_seconds=25., diagnostics=
                 if grid is None:
                     grid=_evaluate_grid(spec,ctx,surfaces,energy_context,angle,co,si,anchorx+fx*sx,anchory+fy*sy,sx,sy,maxx-margin,maxy-margin)
                     cache[key]=grid
-                visited+=len(grid)
+                visited+=grid.total
                 if visited>200000:raise SearchBudgetReached()
                 limit=SHADING_LIMITS[req.objective]
-                for row,col,px,py,cx,cy,surface,value in grid:
-                    if surface is None:continue
+                allowed=robust_positions(grid.px,grid.py,angle,req,robust) if robust else None
+                for i,(row,col,px,py,cx,cy,face,annual,loss,mean,worst) in enumerate(zip(*(a.tolist() for a in grid[1:]))):
+                    surface=surfaces[face][0]
                     geometry_count+=1
-                    if robust and not robust_position(px,py,angle,req,robust):
+                    if robust and not allowed[i]:
                         robust_rejected+=1
                         continue
-                    mean,worst,loss=value.mean_cover,value.worst_cover,value.loss_pct
                     if mean<.55 and worst<.50 and loss<=limit:
                         candidate=CandidatePanel(id=f'g{index}r{row}c{col}',x=px,y=py,width_m=spec.width_m,height_m=spec.height_m,
                             rotation_deg=angle,face_id=surface.id,shading_loss_pct=round(loss,2),
-                            annual_energy_kwh=value.annual_kwh)
+                            annual_energy_kwh=annual)
                         candidate.preserved=any(same_position(candidate,p) for p in req.previous_panels)
                         candidate.placement=_placement(centres[surface.id],cx*co-cy*si,cx*si+cy*co)
                         candidates.append(candidate)
@@ -167,9 +184,8 @@ def search_layouts(req, ctx, shade_contexts, *, budget_seconds=25., diagnostics=
 
 
 def _evaluate_grid(spec,ctx,surfaces,energy_context,angle,co,si,startx,starty,sx,sy,limitx,limity):
-    """Every position of one grid, in row order: (row, col, x, y, cx, cy, surface, energy).
-    surface is None where the panel does not fit. Geometry and shading run as array operations;
-    positions and results are identical to checking each panel on its own."""
+    """The positions of one grid where a panel fits, in row order. Geometry and shading run as array
+    operations; positions and results are identical to checking each panel on its own."""
     import numpy as np
     import shapely
     w,h=spec.width_m,spec.height_m;positions=[]
@@ -181,7 +197,9 @@ def _evaluate_grid(spec,ctx,surfaces,energy_context,angle,co,si,startx,starty,sx
             positions.append((row,col,round(cx*co-cy*si-w/2,6),round(cx*si+cy*co-h/2,6),cx,cy))
             col+=1;x=startx+col*sx
         row+=1;y=starty+row*sy
-    if not positions:return []
+    if not positions:
+        empty=np.empty(0)
+        return Grid(0,*[empty]*11)
     shapes=panel_shapes([p[2] for p in positions],[p[3] for p in positions],w,h,angle)
     owner=np.full(len(shapes),-1)
     for i,(_,region) in enumerate(surfaces):
@@ -190,19 +208,22 @@ def _evaluate_grid(spec,ctx,surfaces,energy_context,angle,co,si,startx,starty,sx
     fits=(owner>=0)&shapely.covers(ctx.usable_roof,shapes)&(overlap_ratios(shapes,ctx.obstacle_union)<=1e-9)
     index=np.flatnonzero(fits)
     values=energy_context.evaluate_many(shapes[index],spec.power_w,[surfaces[owner[i]][0] for i in index])
-    result=[(*p,None,None) for p in positions]
-    for i,value in zip(index,values):result[i]=(*positions[i],surfaces[owner[i]][0],value)
-    return result
+    fitted=np.array([positions[i] for i in index],dtype=float).reshape(-1,6)
+    return Grid(len(positions),fitted[:,0].astype(np.int32),fitted[:,1].astype(np.int32),fitted[:,2],fitted[:,3],fitted[:,4],fitted[:,5],owner[index].astype(np.int16),
+                np.array([v.annual_kwh for v in values],dtype=float),np.array([v.loss_pct for v in values],dtype=float),
+                np.array([v.mean_cover for v in values],dtype=float),np.array([v.worst_cover for v in values],dtype=float))
 
 
 # Grid evaluations depend only on geometry, panel and shading, not on the objective, so the three
 # options of one "Tính phương án" (three requests) share them. Two recent projects are kept.
 _GRID_CACHE=OrderedDict();_GRID_LOCK=Lock()
+NOT_IN_GRID={'project_name','budget_vnd','target_energy_kwh_year','geometry_confirmed','dimensions_source','dimensions_verified','calibration_reference_m'}
 
 
 def _grid_cache(req,ctx,shade_contexts,surfaces):
     digest=hashlib.sha256()
-    digest.update(json.dumps([req.config.model_dump(mode='json'),req.panel.model_dump(mode='json'),
+    # Budget and target pick among the positions; they never change what a position yields.
+    digest.update(json.dumps([req.config.model_dump(mode='json',exclude=NOT_IN_GRID),req.panel.model_dump(mode='json'),
                               [o.model_dump(mode='json') for o in req.obstacles]],sort_keys=True).encode())
     for geometry in [ctx.usable_roof,ctx.obstacle_union,*(region for _,region in surfaces),*(c.shadow_union for c in shade_contexts or [])]:
         digest.update(b'|'+(geometry.wkb if geometry is not None else b''))

@@ -42,6 +42,9 @@ SCENARIOS = {
 }
 
 
+NEW_SHADOWS = {'obs20','obs30','roof2'}
+
+
 def scenario_inputs(req, sid):
     if sid not in SCENARIOS:raise ValueError('Tình huống không hợp lệ.')
     cfg, obstacles, panel=deepcopy(req.config),deepcopy(req.obstacles),deepcopy(req.panel)
@@ -62,7 +65,10 @@ def scenario_inputs(req, sid):
 
 
 def run_stress_tests(req: StressRequest) -> StressResult:
-    scenarios=[_run(name,sid,req,*scenario_inputs(req,sid),name) for sid,name in SCENARIOS.items()]
+    # Scenarios that leave the shadows alone run first and share one raster; the order of the report does not change.
+    order=sorted(SCENARIOS,key=lambda sid:sid in NEW_SHADOWS)
+    done={sid:_run(SCENARIOS[sid],sid,req,*scenario_inputs(req,sid),SCENARIOS[sid]) for sid in order}
+    scenarios=[done[sid] for sid in SCENARIOS]
     return StressResult(passed=sum(s.status=='PASS' for s in scenarios),
         warned=sum(s.status=='WARN' for s in scenarios),failed=sum(s.status=='FAIL' for s in scenarios),
         total=len(scenarios),scenarios=scenarios)

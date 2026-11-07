@@ -266,6 +266,20 @@ class ShadeSeries:
 
 _SERIES = OrderedDict()
 _SERIES_LOCK = Lock()
+# Inputs that cannot move a shadow. Sun positions come from the site alone and shadows from roof, faces and
+# objects, so a budget or weather change, or a stress scenario on them, reuses the raster instead of rebuilding it.
+NOT_IN_SHADOW_CONFIG = {"project_name", "budget_vnd", "target_energy_kwh_year", "annual_irradiance_kwh_m2", "performance_ratio",
+                        "irradiance_reference_tilt_deg", "irradiance_reference_azimuth_deg", "weather", "yield_losses",
+                        "geometry_confirmed", "dimensions_source", "dimensions_verified", "calibration_reference_m",
+                        "measurement_image_width_px", "measurement_image_height_px", "setback_m", "panel_gap_m",
+                        "obstacle_clearance_m", "layout_edge_reserve_m", "layout_angle_deg", "fire_code", "parapet"}
+NOT_IN_SHADOW_OBJECT = {"label", "confidence", "source", "confirmed", "ai_ref", "ai_edited", "height_assumed", "position_assumed", "roof_exit"}
+
+
+def shadow_key(cfg, obstacles):
+    return hashlib.sha256(json.dumps([cfg.model_dump(mode="json", exclude=NOT_IN_SHADOW_CONFIG),
+                                      [o.model_dump(mode="json", exclude=NOT_IN_SHADOW_OBJECT) for o in obstacles]],
+                                     sort_keys=True).encode()).hexdigest()
 
 
 def shade_series(cfg, obstacles, geometry):
@@ -273,8 +287,7 @@ def shade_series(cfg, obstacles, geometry):
     so the three options of one calculation, verification and stress tests share it."""
     import numpy as np
     import shapely
-    key = hashlib.sha256(json.dumps([cfg.model_dump(mode="json"), [o.model_dump(mode="json") for o in obstacles]],
-                                    sort_keys=True).encode()).hexdigest()
+    key = shadow_key(cfg, obstacles)
     with _SERIES_LOCK:
         if key in _SERIES:
             _SERIES.move_to_end(key)
