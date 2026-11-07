@@ -34,6 +34,9 @@ def area_upper_bound(cfg, spec, ctx):
     return round(area, 2), int(area // footprint)
 
 
+EXACT_TARGET_ABOVE = 300
+
+
 def describe_goal(req, result):
     result.objective=req.objective
     result.monthly_energy_kwh=monthly_energy(req.config,req.obstacles,result.panels)
@@ -77,7 +80,12 @@ def generate_design(req: DesignRequest) -> DesignResult:
 
     # Ưu tiên CP-SAT. Nếu máy chưa cài OR-Tools, dùng greedy fallback để giao diện vẫn chạy;
     # README hướng dẫn cài OR-Tools trước khi quay/nộp demo chính thức.
-    if cp_model is not None:
+    # Equal unit prices: when the target can be met, the highest-energy prefix is already the optimum. CP-SAT only
+    # confirms it, and on a large roof the huge objective costs it 3 s and about 100 MB to give up and reach the same list.
+    direct, reached = select_for_target(req, candidates) if req.objective == 'min_cost' and len(candidates) > EXACT_TARGET_ABOVE else (None, False)
+    if reached:
+        selected, status_name = direct, "OPTIMAL"
+    elif cp_model is not None:
         model = cp_model.CpModel()
         xs = [model.NewBoolVar(c.id) for c in candidates]
         if spec.price_vnd > 0:
@@ -101,7 +109,7 @@ def generate_design(req: DesignRequest) -> DesignResult:
         status = solver.Solve(model)
         status_name = solver.StatusName(status)
         selected = [c for var, c in zip(xs, candidates) if solver.Value(var) == 1] if status in (cp_model.OPTIMAL, cp_model.FEASIBLE) else []
-    if cp_model is None or status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+    if not reached and (cp_model is None or status not in (cp_model.OPTIMAL, cp_model.FEASIBLE)):
         max_count = min(len(candidates),capacity(req))
         selected = sorted((c for c in candidates if score(req,c)>0), key=lambda c:score(req,c), reverse=True)[:max_count]
         if req.objective=='min_cost':selected,_=select_for_target(req,candidates)

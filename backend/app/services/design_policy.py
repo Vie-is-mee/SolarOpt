@@ -1,6 +1,6 @@
 """Explicit design goals. Legacy shading objectives remain API compatible."""
 import math
-from app.services.geometry import build_context, panel_shape, overlap_ratio, installable_regions
+from app.services.geometry import build_context, panel_shape, panel_shapes, overlap_ratio, overlap_ratios, installable_regions
 
 
 def capacity(req):
@@ -35,6 +35,20 @@ def robust_contexts(req):
         ctx.robust_regions=[region for _,region in installable_regions(ctx.surfaces,distance)]
         for region in [ctx.usable_roof,ctx.obstacle_union,*ctx.robust_regions]:prepare(region)
     return contexts
+
+
+def robust_positions(xs,ys,angle,req,contexts):
+    """robust_position() for a whole grid in one pass, with the same result for each position."""
+    import numpy as np
+    import shapely
+    ok=np.ones(len(xs),dtype=bool)
+    for i,ctx in enumerate(contexts):
+        scale=1.01 if i==2 else 1
+        shapes=panel_shapes(xs.tolist(),ys.tolist(),req.panel.width_m*scale,req.panel.height_m*scale,angle)
+        inside=np.zeros(len(shapes),dtype=bool)
+        for region in ctx.robust_regions:inside|=shapely.covers(region,shapes)
+        ok&=shapely.covers(ctx.usable_roof,shapes)&inside&(overlap_ratios(shapes,ctx.obstacle_union)<=1e-9)
+    return ok
 
 
 def robust_position(x,y,angle,req,contexts,width=None,height=None):
