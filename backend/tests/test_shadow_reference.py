@@ -157,3 +157,11 @@ def test_object_on_a_gable_is_measured_on_the_roof_really_under_it():
     # The ridge inside the footprint is its highest point; both low edges lie on their own faces.
     assert ridge['roof_max_m']==pytest.approx(9)
     assert ridge['roof_min_m']==pytest.approx(8.333,abs=.001)
+
+
+def test_shadow_on_a_slope_starts_from_the_flat_top_above_the_highest_roof_point():
+    # Roof falls 1 m per metre to the south, so the 2 m deep box spans 2 m of roof height and its flat top
+    # stands 1 m above the north edge, 3 m above the south edge. Sun due east at 45 degrees: shadow length = height.
+    cfg=ProjectConfig(roof_width_m=20,roof_height_m=20,roof_elevation_m=30,roof_tilt_deg=45,roof_azimuth_deg=180,north_rotation_deg=0)
+    box_=RectObstacle(id='a',x=9,y=9,width_m=2,depth_m=2,height_m=1)
+    assert shadow_polygon(box_,sun(90,45),cfg).bounds[0]==pytest.approx(6)

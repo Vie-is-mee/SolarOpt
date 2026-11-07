@@ -288,7 +288,8 @@ export default function Roof3D({config,obstacles,scene,design,photo,sunDate}:{co
    }else{
     // On a slope or across a ridge the object keeps its height above the highest roof point under it,
     // on a plinth down to the lowest one, the way a tank sits on a pitched roof; the roof never swallows it.
-    const low=lv?lv.roof_min_m:base,seat=lv?lv.roof_max_m:base
+    // A server not yet updated sends no roof range; fall back to the base range it does send.
+    const low=lv?.roof_min_m??base,seat=lv?.roof_max_m??lv?.base_max_m??base
     if(seat-low>.01)st.content.add(prism(footprint(o),low,seat-low,obstacleMat))
     st.content.add(assetModel(o,seat,assetMats,()=>prism(footprint(o),seat,o.height_m,o.shape==='ellipse'?steelMat:obstacleMat)))
    }

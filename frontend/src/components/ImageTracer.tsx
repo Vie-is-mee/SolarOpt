@@ -97,7 +97,7 @@ export function ImageTracer({image,kind,measuredLong,measuredShort,onLongChange,
  const scaleReady=calibrated||(long!==undefined&&Number.isFinite(long)&&long>=.1&&long<=MAX_ROOF_SIDE_M)
  // Only an impossible scale blocks. A disagreeing second side or check segment is shown as a warning:
  // the engineer decides, and the outline keeps the photo's proportions either way.
- const applyBlockedReason=busy?'Đang xử lý ảnh.':!scaleReady?'Nhập cạnh dài nhất của mái (hoặc đo một đoạn tham chiếu) để quy đổi ảnh ra mét.':!calibration.sound||actualWidth<.1||actualHeight<.1?'Chưa quy đổi được kích thước từ biên này; khoanh lại vùng mái.':Math.max(actualWidth,actualHeight)>MAX_ROOF_SIDE_M?`Mái dài hơn ${MAX_ROOF_SIDE_M} m; chia thành từng khu và trích riêng.`:''
+ const applyBlockedReason=busy?'Đang xử lý ảnh.':!scaleReady?'Nhập cạnh dài nhất của mái (hoặc đo một đoạn tham chiếu) để quy đổi ảnh ra mét.':!calibration.sound||actualWidth<.1||actualHeight<.1?'Chưa quy đổi được kích thước từ biên này; khoanh lại vùng mái.':Math.max(actualWidth,actualHeight)>MAX_ROOF_SIDE_M+1e-6?`Mái dài hơn ${MAX_ROOF_SIDE_M} m; chia thành từng khu và trích riêng.`:''
  const warning=calibration.checked&&!calibration.acceptable?`Cạnh ngắn bạn nhập lệch ${(calibration.mismatch*100).toFixed(0)}% so với ảnh. Thường do biên ôm cả sân/mái nhà bên, ảnh chụp xiên, hoặc nhập nhầm số. Vẫn áp dụng được theo cạnh dài; nên xem lại lớp phủ xanh.`:checkMismatch>.03?`Đoạn kiểm tra lệch ${(checkMismatch*100).toFixed(1)}% so với tỷ lệ ảnh; nên kiểm tra lại trước khi xác nhận.`:''
 
  // ---- pointer geometry ------------------------------------------------------------------------

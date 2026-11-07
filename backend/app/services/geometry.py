@@ -169,6 +169,22 @@ def obstacle_base_z(o,x,y,source,config):
     return o.base_elevation_m if o.base_elevation_m is not None else (0 if o.scope=='neighbor' else surface_z(source,x,y,config))
 
 
+def roof_under(o,config,planes):
+    """Heights of the roof really under a roof object's footprint, or [] when it stands on nothing there.
+    A plane peaks at a corner, so the corners of each overlap are enough."""
+    footprint=obstacle_polygon(o)
+    return [surface_z(s,x,y,config) for s in planes if not s.id.startswith(TOP_PREFIX)
+            for part in _parts(footprint.intersection(s.polygon)) for x,y in part.exterior.coords]
+
+
+def obstacle_seat_z(o,config,planes):
+    """Level a roof object stands at: the highest roof point under it, so its top stays flat and the roof
+    never swallows it. None for objects with their own level or standing on the ground."""
+    if o.scope!='roof' or o.base_elevation_m is not None:return None
+    under=roof_under(o,config,planes)
+    return max(under) if under else None
+
+
 def obstacle_elevations(config,obstacles,planes=None):
     planes=planes or surfaces(config);roof=roof_polygon(config);records=[]
     for o in obstacles:
@@ -176,10 +192,7 @@ def obstacle_elevations(config,obstacles,planes=None):
         bases=[obstacle_base_z(o,x,y,source,config) for x,y in footprint.exterior.coords]
         under=bases
         if o.scope=='roof' and o.base_elevation_m is None:
-            # What is really under the footprint, not the plane under its centre carried past a ridge.
-            # A plane peaks at a corner, so the corners of each overlap are enough.
-            under=[surface_z(s,x,y,config) for s in planes if not s.id.startswith(TOP_PREFIX)
-                   for part in _parts(footprint.intersection(s.polygon)) for x,y in part.exterior.coords] or bases
+            under=roof_under(o,config,planes) or bases
         warnings=[]
         if o.scope=='roof' and o.base_elevation_m is None:
             if not roof.buffer(1e-7).covers(footprint):warnings.append('Mặt bằng vượt biên mái hoặc khoảng trống; cao độ mặc định có phần ngoại suy. Cần kiểm tra hoặc nhập cao độ chân riêng.')
@@ -191,13 +204,15 @@ def obstacle_elevations(config,obstacles,planes=None):
     return records
 
 
-def shadow_polygon(o:RectObstacle,sun:SunPosition|None,config:ProjectConfig|None=None,target:Surface|None=None,all_surfaces=None):
+def shadow_polygon(o:RectObstacle,sun:SunPosition|None,config:ProjectConfig|None=None,target:Surface|None=None,all_surfaces=None,seat=None):
     cfg=config or ProjectConfig(roof_elevation_m=0)
     target=target or Surface('base','Mái',roof_polygon(cfg),cfg.roof_elevation_m,cfg.roof_tilt_deg,cfg.roof_azimuth_deg)
     base=obstacle_polygon(o)
     source=obstacle_source_surface(o,cfg,all_surfaces)
+    if seat is None:seat=obstacle_seat_z(o,cfg,all_surfaces or surfaces(cfg))
     def top(x,y):
-        return obstacle_base_z(o,x,y,source,cfg)+o.height_m
+        # Same flat top as the 3D view and an installable top.
+        return (seat if seat is not None else obstacle_base_z(o,x,y,source,cfg))+o.height_m
     return _project_prism(base,top,target,sun,cfg,lambda x,y:obstacle_base_z(o,x,y,source,cfg))
 
 def top_installable_obstacles(config:ProjectConfig,obstacles:list[RectObstacle]):
@@ -213,7 +228,8 @@ def with_obstacle_tops(config:ProjectConfig,obstacles:list[RectObstacle])->Proje
     planes=surfaces(config);faces=list(config.roof_faces)
     for o in tops:
         footprint=obstacle_polygon(o);source=obstacle_source_surface(o,config,planes)
-        top=max(obstacle_base_z(o,x,y,source,config) for x,y in footprint.exterior.coords)+o.height_m
+        seat=obstacle_seat_z(o,config,planes)
+        top=(seat if seat is not None else max(obstacle_base_z(o,x,y,source,config) for x,y in footprint.exterior.coords))+o.height_m
         coords=[(round(x,4),round(y,4)) for x,y in footprint.exterior.coords[:-1]][:80]
         faces.append(RoofFace(id=TOP_PREFIX+o.id,label=f'Nóc {o.label}',polygon=[{'x':x,'y':y} for x,y in coords],
                               elevation_m=min(300,top),tilt_deg=0,azimuth_deg=180,installable=True))
@@ -289,9 +305,9 @@ def build_context(config:ProjectConfig,obstacles:list[RectObstacle],sun:SunPosit
     obstacle_shapes=[blocked(o) for o in obstacles]
     records=[]
     for o in obstacles:
-        shapes=[]
+        shapes=[];seat=obstacle_seat_z(o,config,planes)
         for target in planes:
-            shadow=shadow_polygon(o,sun,config,target,planes)
+            shadow=shadow_polygon(o,sun,config,target,planes,seat)
             if shadow is not None:shapes.append(shadow.intersection(target.polygon))
         records.append({'id':o.id,'label':o.label,'shape':unary_union(shapes) if shapes else None})
     for source in planes:

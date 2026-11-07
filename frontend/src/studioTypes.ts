@@ -34,7 +34,7 @@ export type Panel = {manufacturer:string;model:string;width_m:number;height_m:nu
 export type Sun = {altitude_deg:number;azimuth_deg:number;zenith_deg:number;source:string}
 export type Scene = {
   sun:Sun;shadows:{id:string;label:string;polygons:number[][][];regions?:{boundary:number[][];openings:number[][][]}[];area_m2?:number}[];
-  obstacle_elevations?:{id:string;label:string;base_source:'explicit'|'ground'|'roof';source_label:string;base_min_m:number;base_max_m:number;top_min_m:number;top_max_m:number;roof_min_m:number;roof_max_m:number;height_m:number;warnings:string[]}[];
+  obstacle_elevations?:{id:string;label:string;base_source:'explicit'|'ground'|'roof';source_label:string;base_min_m:number;base_max_m:number;top_min_m:number;top_max_m:number;roof_min_m?:number;roof_max_m?:number;height_m:number;warnings:string[]}[];
   cells:{x:number;y:number;width_m:number;height_m:number;irradiance_w_m2:number;shade_fraction:number}[];
   roof_polygons:number[][][];usable_polygons:number[][][];shaded_area_m2:number;shaded_pct:number;
   plane_irradiance_w_m2:number;irradiance_source:string;notes:string[];
