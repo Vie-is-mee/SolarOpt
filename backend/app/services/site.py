@@ -9,7 +9,8 @@ Sources
   the style of TCVN 2737; the zone of each commune is in the national table of natural conditions for
   construction (QCVN 02). Edge zones e/10 with e = min(b, 2h) as in EN 1991-1-4. Net pressure coefficients for
   panels parallel to the roof are screening values.
-- Fire: Fire Police guidance 3288/C07-P4 (08/9/2020) — services/geometry.py holds the layout rules.
+- Fire: Fire Police guidance 3288/C07-P4 (08/9/2020), replaced by 207/C07-P4 (09/8/2024) which keeps the 40 × 40 m groups and
+  1,5 m gaps — services/geometry.py holds the layout rules.
 - Legal: Nghị định 58/2025/NĐ-CP (Điều 10, 12, 14, 15, 16, 17, 18, 23, 37 and forms 01–05), surplus cap 50 %
   per Nghị định 243/2026/NĐ-CP.
 - Corrosion: ISO 9223 categories by distance to the sea; anodising classes and A4 (316) fasteners by category.
@@ -229,7 +230,7 @@ def _structure(req: SiteReviewRequest, plan: MountingPlan, n: int):
                                 source="TCVN 2737 (hoạt tải mái)"))
     elif s.roof_material == "combustible":
         items.append(ReviewItem(id="material", label="Vật liệu mái", status="FAIL",
-                                detail="Không lắp tấm pin trên mái làm bằng hoặc hoàn thiện bằng vật liệu cháy được.", source="Hướng dẫn 3288/C07-P4"))
+                                detail="Không lắp tấm pin trên mái làm bằng hoặc hoàn thiện bằng vật liệu cháy được.", source="Hướng dẫn 207/C07-P4 (09/8/2024, thay 3288/C07-P4)"))
     else:
         status = "WARN" if s.roof_material == "tile" or (share or 0) > 50 else "PASS"
         extra = {"tile": " Mái ngói dễ vỡ khi đi lại và cần móc ngói chuyên dụng; kỹ sư kết cấu kiểm tra hệ li tô, cầu phong.",
@@ -295,7 +296,7 @@ def _corrosion(req: SiteReviewRequest, plan: MountingPlan):
 def _fire(req: SiteReviewRequest):
     from app.services.geometry import FIRE_BLOCK_M, FIRE_BREAK_M, FIRE_EXIT_M, FIRE_PARAPET_M, is_roof_exit, obstacle_polygon, panel_shape, roof_polygon
     s, cfg = req.survey, req.config
-    src = "Hướng dẫn 3288/C07-P4 (08/9/2020) của Cục Cảnh sát PCCC & CNCH"
+    src = "Hướng dẫn 207/C07-P4 (09/8/2024, thay 3288/C07-P4 ngày 08/9/2020) của Cục Cảnh sát PCCC & CNCH"
     hard = s.pccc_listed
     items = []
     if hard:

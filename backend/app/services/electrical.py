@@ -47,39 +47,40 @@ def _inv(id, maker, model, phase, ac, dc, vmax, lo, hi, start, mppts, per, imax,
 
 HUAWEI_L1 = "Huawei FusionSolar, trang thông số SUN2000-2/3/4/5/6KTL-L1"
 CATALOG: list[InverterSpec] = [
-    _inv("huawei-3ktl-l1", "Huawei", "SUN2000-3KTL-L1", "single", 3000, 4500, 600, 90, 560, 100, 2, 1, 12.5, 18, 13_500_000, HUAWEI_L1),
+    _inv("huawei-3ktl-l1", "Huawei", "SUN2000-3KTL-L1", "single", 3000, 4500, 600, 90, 560, 100, 2, 1, 12.5, 18, 15_500_000, HUAWEI_L1),
     _inv("huawei-5ktl-l1", "Huawei", "SUN2000-5KTL-L1", "single", 5000, 7500, 600, 90, 560, 100, 2, 1, 12.5, 18, 17_000_000, HUAWEI_L1),
     _inv("huawei-6ktl-l1", "Huawei", "SUN2000-6KTL-L1", "single", 6000, 9000, 600, 90, 560, 100, 2, 1, 12.5, 18, 19_000_000, HUAWEI_L1),
-    _inv("growatt-min-6000tl-x", "Growatt", "MIN 6000TL-X", "single", 6000, 9000, 550, 80, 550, 100, 2, 1, 13.5, 16.9, 13_500_000,
+    _inv("growatt-min-6000tl-x", "Growatt", "MIN 6000TL-X", "single", 6000, 9000, 550, 80, 550, 100, 2, 1, 13.5, 16.9, 12_600_000,
          "Growatt, datasheet MIN 2500-6000TL-X (bản dòng 13,5 A)"),
     _inv("solis-s6-gr1p5k-s", "Solis", "S6-GR1P5K-S", "single", 5000, 7500, 550, 90, 550, 120, 2, 1, 16, 22, 12_500_000,
          "Solis, datasheet S6-GR1P(4-5)K-S 2024"),
-    _inv("huawei-10ktl-m1-hc", "Huawei", "SUN2000-10KTL-M1 (High Current)", "three", 10000, 15000, 1100, 140, 980, 200, 2, 1, 13.5, 19.5, 30_000_000,
+    _inv("huawei-10ktl-m1-hc", "Huawei", "SUN2000-10KTL-M1 (High Current)", "three", 10000, 15000, 1100, 140, 980, 200, 2, 1, 13.5, 19.5, 27_000_000,
          "Huawei FusionSolar, thông số SUN2000-3-10KTL-M1 bản High Current"),
-    _inv("huawei-20ktl-m2", "Huawei", "SUN2000-20KTL-M2", "three", 20000, 30000, 1080, 160, 950, 200, 2, 2, 22, 30, 45_000_000,
+    _inv("huawei-20ktl-m2", "Huawei", "SUN2000-20KTL-M2", "three", 20000, 30000, 1080, 160, 950, 200, 2, 2, 22, 30, 46_200_000,
          "Huawei FusionSolar, thông số SUN2000-12-20KTL-M2"),
     # Three-phase range for larger homes, shops and factories (planning prices; check the current datasheet revision).
     _inv("huawei-8ktl-m1", "Huawei", "SUN2000-8KTL-M1", "three", 8000, 12000, 1100, 140, 980, 200, 2, 1, 11, 15, 26_000_000,
          "Huawei FusionSolar, thông số SUN2000-3-10KTL-M1"),
-    _inv("growatt-mod-10ktl3-x", "Growatt", "MOD 10KTL3-X", "three", 10000, 15000, 1100, 140, 1000, 160, 2, 1, 13, 16, 20_000_000,
+    _inv("growatt-mod-10ktl3-x", "Growatt", "MOD 10KTL3-X", "three", 10000, 15000, 1100, 140, 1000, 160, 2, 1, 13, 16, 21_000_000,
          "Growatt, datasheet MOD 3-15KTL3-X"),
     _inv("huawei-12ktl-m2", "Huawei", "SUN2000-12KTL-M2", "three", 12000, 18000, 1080, 160, 950, 200, 2, 2, 22, 30, 36_000_000,
          "Huawei FusionSolar, thông số SUN2000-12-20KTL-M2"),
-    _inv("huawei-15ktl-m2", "Huawei", "SUN2000-15KTL-M2", "three", 15000, 22500, 1080, 160, 950, 200, 2, 2, 22, 30, 40_000_000,
+    _inv("huawei-15ktl-m2", "Huawei", "SUN2000-15KTL-M2", "three", 15000, 22500, 1080, 160, 950, 200, 2, 2, 22, 30, 38_200_000,
          "Huawei FusionSolar, thông số SUN2000-12-20KTL-M2"),
-    _inv("huawei-30ktl-m3", "Huawei", "SUN2000-30KTL-M3", "three", 30000, 45000, 1100, 200, 1000, 200, 4, 2, 26, 40, 60_000_000,
+    _inv("huawei-30ktl-m3", "Huawei", "SUN2000-30KTL-M3", "three", 30000, 45000, 1100, 200, 1000, 200, 4, 2, 26, 40, 55_500_000,
          "Huawei FusionSolar, thông số SUN2000-30/36/40KTL-M3"),
-    _inv("huawei-40ktl-m3", "Huawei", "SUN2000-40KTL-M3", "three", 40000, 60000, 1100, 200, 1000, 200, 4, 2, 26, 40, 72_000_000,
+    _inv("huawei-40ktl-m3", "Huawei", "SUN2000-40KTL-M3", "three", 40000, 60000, 1100, 200, 1000, 200, 4, 2, 26, 40, 59_200_000,
          "Huawei FusionSolar, thông số SUN2000-30/36/40KTL-M3"),
-    _inv("sungrow-sg50cx", "Sungrow", "SG50CX", "three", 50000, 75000, 1100, 200, 1000, 250, 5, 2, 26, 40, 85_000_000,
+    _inv("sungrow-sg50cx", "Sungrow", "SG50CX", "three", 50000, 75000, 1100, 200, 1000, 250, 5, 2, 26, 40, 67_000_000,
          "Sungrow, datasheet SG33/40/50CX"),
-    _inv("huawei-100ktl-m1", "Huawei", "SUN2000-100KTL-M1", "three", 100000, 150000, 1100, 200, 1000, 200, 10, 2, 26, 40, 120_000_000,
+    _inv("huawei-100ktl-m1", "Huawei", "SUN2000-100KTL-M1", "three", 100000, 150000, 1100, 200, 1000, 200, 10, 2, 26, 40, 107_000_000,
          "Huawei FusionSolar, thông số SUN2000-100KTL-M1"),
-    _inv("sungrow-sg110cx", "Sungrow", "SG110CX", "three", 110000, 165000, 1100, 200, 1000, 200, 9, 2, 26, 40, 135_000_000,
+    _inv("sungrow-sg110cx", "Sungrow", "SG110CX", "three", 110000, 165000, 1100, 200, 1000, 200, 9, 2, 26, 40, 106_000_000,
          "Sungrow, datasheet SG110CX"),
 ]
 CATALOG.sort(key=lambda i: (i.phase != "single", i.ac_rated_w))
-CATALOG_NOTE = "Thông số inverter lấy từ datasheet hãng để tham khảo; kỹ sư đối chiếu đúng phiên bản thiết bị mua. Giá là giả định lập kế hoạch, chưa phải báo giá."
+CATALOG_NOTE = ("Thông số inverter lấy từ datasheet hãng để tham khảo; kỹ sư đối chiếu đúng phiên bản thiết bị mua. Giá theo niêm yết nhà phân phối "
+                "(DHC Solar, Megasolar, đọc 07/11/2026; trang không ghi VAT), chưa phải báo giá.")
 
 
 class ElectricalRequest(BaseModel):
@@ -339,7 +340,7 @@ def _wire(req: ElectricalRequest, inv: InverterSpec, count: int, groups, lo: int
 
 RHO = 0.0225          # Ω·mm²/m: copper near its 80 °C working temperature
 DROP_LIMIT = 1.5      # % per side (DC, AC); the cable is upsized until it holds
-DC_SIZES = [(4, 18_000), (6, 26_000), (10, 42_000)]
+DC_SIZES = [(4, 18_000), (6, 24_000), (10, 42_000)]   # đ/m: DHC, TC Energy 11/2026 (10 mm² chưa có nguồn)
 V_TRIP, V_BAND = 253.0, 241.5   # inverter over-voltage trip (110 % of 230 V); +5 % of the distribution band
 PHASE_IMBALANCE_KW = 5.0
 
@@ -453,10 +454,12 @@ def _checks(req, inv, count, plan: _Plan, lo, hi, dc_w, t_min, total_panels) -> 
 
 BREAKERS = [10, 16, 20, 25, 32, 40, 50, 63, 80, 100, 125, 160]
 AC_CABLE = [(25, 4, 28_000), (32, 6, 38_000), (45, 10, 62_000), (60, 16, 95_000), (80, 25, 145_000), (110, 35, 200_000), (150, 50, 280_000)]
-PRICES = {"dc_cable": 18_000, "mc4": 25_000, "dc_breaker": 450_000, "dc_spd": 650_000, "dc_box": 900_000, "ac_spd": 550_000,
-          "ac_box": 700_000, "earth_wire": 22_000, "earth_rod": 1_500_000, "rail": 135_000, "mid": 15_000, "end": 15_000, "foot": 45_000,
+# Retail prices read 07/11/2026 on DHC Solar and TC Energy (sources per item in frontend src/dataSources.ts). dc_breaker, the
+# isolator, e-stop, dispatch link and the multi-core AC cable have no public price yet: planning values.
+PRICES = {"dc_cable": 18_000, "mc4": 25_000, "dc_breaker": 450_000, "dc_spd": 350_000, "dc_box": 700_000, "ac_spd": 250_000,
+          "ac_box": 700_000, "earth_wire": 25_000, "earth_rod": 840_000, "rail": 93_000, "mid": 12_000, "end": 12_000, "foot": 45_000,
           # Planning prices: DC isolator, emergency stop with posted diagrams, smart meter + CT, dispatch link (≥ 100 kW).
-          "dc_isolator": 1_200_000, "estop": 800_000, "meter_1p": 2_500_000, "meter_3p": 3_500_000, "dispatch": 60_000_000}
+          "dc_isolator": 1_200_000, "estop": 800_000, "meter_1p": 2_700_000, "meter_3p": 4_500_000, "dispatch": 60_000_000}
 
 
 def _feet(req, used: list[CandidatePanel], rows: int, mount) -> tuple[int, str]:
@@ -503,15 +506,15 @@ def _bom(req, inv, count, phase, plan: _Plan, rows: int, used_panels: int) -> li
         item("ac", "CB AC", f"{breaker} A {'2P' if phase == 'single' else '4P'}", count, "cái", 300_000 + 8_000 * breaker),
         item("ac", "Chống sét AC (SPD loại II)", "275 V AC", count, "bộ", PRICES["ac_spd"]),
         item("ac", "Tủ điện AC", "vỏ IP65", count, "tủ", PRICES["ac_box"]),
-        item("earthing", "Dây tiếp địa", "Cu bọc vàng-xanh 6 mm², nối khung và vỏ thiết bị", math.ceil(rail / 2 + 15), "m", PRICES["earth_wire"]),
-        item("earthing", "Cọc tiếp địa", "bộ 3 cọc 2,4 m, điện trở ≤ 10 Ω", 1, "bộ", PRICES["earth_rod"]),
+        item("earthing", "Dây tiếp địa", "Cu bọc vàng-xanh ≥ 4 mm², nối khung và vỏ thiết bị", math.ceil(rail / 2 + 15), "m", PRICES["earth_wire"]),
+        item("earthing", "Cọc tiếp địa", "bộ 3 cọc mạ đồng, điện trở ≤ 10 Ω", 1, "bộ", PRICES["earth_rod"]),
         item("mounting", "Ray nhôm", f"ray 40 × 40, {mount.rail_spec}" if mount.surveyed else "ray 40 × 40", math.ceil(rail), "m", round(PRICES["rail"] * f)),
         item("mounting", "Kẹp giữa", "giữa hai tấm" + (f", {mount.fastener_spec}" if mount.surveyed else ""), 2 * max(0, used_panels - rows), "cái", round(PRICES["mid"] * f)),
         item("mounting", "Kẹp biên", "đầu dãy", 4 * rows, "cái", round(PRICES["end"] * f)),
         item("mounting", "Chân đỡ / móc mái", feet_spec, feet, "cái", round(PRICES["foot"] * f)),
     ]
     if mount.surveyed:
-        # Fire Police guidance 3288/C07-P4: emergency disconnection at the inverter and at the switchgear, instructions posted.
+        # Fire Police guidance 3288/C07-P4 (now 207/C07-P4, 09/8/2024): emergency disconnection at the inverter and at the switchgear, instructions posted.
         bom += [item("dc", "Ngắt khẩn cấp phía DC", "cầu dao cách ly DC đặt tại inverter, có biển hướng dẫn", count, "bộ", PRICES["dc_isolator"]),
                 item("ac", "Ngắt khẩn cấp tại tủ đóng cắt", "nút dừng khẩn cấp + sơ đồ bố trí, sơ đồ đấu nối niêm yết gần lối lên mái", 1, "bộ", PRICES["estop"])]
     if req.zero_export:

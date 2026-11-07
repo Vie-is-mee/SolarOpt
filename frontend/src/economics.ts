@@ -17,7 +17,8 @@ export type CostMode='itemized'|'per_kwp'
 /* ---- Market reference (Việt Nam, 11/2026) -------------------------------------------------------
  * An empty field means "use the reference": the engineer only types what they actually know.
  * Sources: EVN tariff (QĐ 2892/QĐ-BCT from 01/11/2026; peak 17:30–22:30 per QĐ 963/QĐ-BCT); rooftop surplus sale ≤ 50 % of output at the previous
- * year's average market price (NĐ 58/2025/NĐ-CP, amended by NĐ 243/2026/NĐ-CP); press quotes 2026:
+ * year's average market price (NĐ 58/2025/NĐ-CP, amended by NĐ 243/2026/NĐ-CP): 844,8 đ/kWh for 2026 (NSMO công văn 205,
+ * 16/01/2026); press quotes 2026:
  * households about 12–15 million VND/kWp all-in, businesses about 7.5–13. Planning values, not quotes. */
 export const CUSTOMER:Record<CustomerType,{label:string;buy:number;self:number;note:string}>={
  residential:{label:'Hộ gia đình',buy:3450,self:50,note:'giá bậc 3–4 sinh hoạt (2.894–3.456 đ, QĐ 2892) + VAT 8%: điện mặt trời thay phần đắt nhất của hóa đơn'},
@@ -28,15 +29,18 @@ export const CUSTOMER:Record<CustomerType,{label:string;buy:number;self:number;n
 export function marketCapex(type:CustomerType,kwp:number){
  if(type==='residential')return kwp<=5?13.5:kwp<=15?12:11
  if(type==='business')return kwp<=50?10:kwp<=200?8.5:7.5
- return kwp<=200?8:7
+ return kwp<=200?8:7.5
 }
 /** Share of yearly output that may be sold to the grid (NĐ 243/2026 amending NĐ 58/2025). */
 export const EXPORT_CAP=.5
-export const SURPLUS_PRICE=670
-export const MARKET_NOTE='Giá trị tham khảo SolarOpt (thị trường Việt Nam 11/2026, chưa phải báo giá): suất đầu tư trọn gói theo quy mô; giá điện EVN QĐ 2892/QĐ-BCT (cao điểm 17h30–22h30); bán điện dư tối đa 50% sản lượng theo giá thị trường bình quân năm trước (NĐ 58/2025, sửa bởi NĐ 243/2026) — kiểm tra giá công bố trước khi ký; bảo trì 150.000 đ/kWp/năm; thay inverter năm 12 khoảng 1,5 triệu đ/kWp. Thay bằng số liệu thật khi có.'
+/** Surplus paid in 2026 = 2025 average market energy price (NSMO công văn 205, 16/01/2026). Update every January. */
+export const SURPLUS_PRICE=845
+/** Inverter replacement in year 12, VND per kWp: today's grid-tie prices per kW AC (DHC Solar, 11/2026) at DC/AC ≈ 1,15. */
+const REPLACEMENT_PER_KWP:Record<CustomerType,number>={residential:2_200_000,business:1_500_000,industrial:1_000_000}
+export const MARKET_NOTE='Giá trị tham khảo SolarOpt (thị trường Việt Nam 11/2026, chưa phải báo giá): suất đầu tư trọn gói theo quy mô; giá điện EVN QĐ 2892/QĐ-BCT (cao điểm 17h30–22h30); bán điện dư tối đa 50% sản lượng theo giá thị trường bình quân năm trước (NĐ 58/2025, sửa bởi NĐ 243/2026): 844,8 đ/kWh năm 2026 (NSMO, công văn 205 ngày 16/01/2026); bảo trì 150.000 đ/kWp/năm (giả định); thay inverter năm 12 theo giá inverter hiện nay (2,2 / 1,5 / 1,0 triệu đ/kWp cho hộ gia đình / kinh doanh / sản xuất). Nguồn từng số: mục Nguồn lấy số liệu. Thay bằng số liệu thật khi có.'
 export function marketDefaults(type:CustomerType,kwp:number):Partial<Economics>{
  const k=Math.max(0,kwp)
- return {capex_million_per_kwp:marketCapex(type,k),contingency_pct:3,markup_pct:15,vat_pct:8,self_use_pct:CUSTOMER[type].self,buy_price:CUSTOMER[type].buy,sell_price:SURPLUS_PRICE,maintenance_year:Math.round(150_000*k),degradation_pct:.55,price_growth_pct:3,discount_pct:8,replacement_cost:Math.round(1_500_000*k),loan_amount:0,loan_rate_pct:0}
+ return {capex_million_per_kwp:marketCapex(type,k),contingency_pct:3,markup_pct:15,vat_pct:8,self_use_pct:CUSTOMER[type].self,buy_price:CUSTOMER[type].buy,sell_price:SURPLUS_PRICE,maintenance_year:Math.round(150_000*k),degradation_pct:.55,price_growth_pct:3,discount_pct:8,replacement_cost:Math.round(REPLACEMENT_PER_KWP[type]*k),loan_amount:0,loan_rate_pct:0}
 }
 export const AUTO_KEYS=['capex_million_per_kwp','contingency_pct','markup_pct','vat_pct','self_use_pct','buy_price','sell_price','maintenance_year','degradation_pct','price_growth_pct','discount_pct','replacement_cost','loan_amount','loan_rate_pct'] as const
 /** Empty fields take the market reference for this customer type and size; returns which ones did. */

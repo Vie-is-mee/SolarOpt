@@ -214,7 +214,8 @@ def with_obstacle_tops(config:ProjectConfig,obstacles:list[RectObstacle])->Proje
     return config.model_copy(update={'roof_faces':faces})
 
 
-# Fire Police guidance 3288/C07-P4 (Cục Cảnh sát PCCC & CNCH, 08/9/2020) for rooftop solar.
+# Fire Police guidance 3288/C07-P4 (Cục Cảnh sát PCCC & CNCH, 08/9/2020) for rooftop solar, replaced by 207/C07-P4 (09/8/2024):
+# groups ≤ 40 × 40 m and 1,5 m gaps are confirmed in reporting on 207; 3 m from roof exits and 2,5 m from a parapet come from 3288.
 FIRE_EXIT_M=3.0       # no panels within 3 m of roof exits (stair housings, fire ladders, hatches)
 FIRE_BLOCK_M=40.0     # panel groups at most 40 × 40 m ...
 FIRE_BREAK_M=1.5      # ... at least 1,5 m apart
