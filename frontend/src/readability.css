@@ -24,7 +24,12 @@
 .image-tracer{background:#fff;border:1px solid #dce7da;border-radius:14px;padding:20px;min-width:0;box-shadow:0 6px 24px #214e2b06}
 .tracer-heading{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:15px}.tracer-heading h3{font-size:17px;color:#285e49}.tracer-heading p{font-size:12px;line-height:1.8;margin-top:6px;color:#647b6d}.tracer-heading>span{font-size:10px;color:#51816a;background:#edf5ec;border-radius:5px;padding:7px;white-space:nowrap}
 .tracer-tools,.geometry-tools{display:flex;flex-wrap:wrap;gap:6px}.tracer-tools button,.geometry-tools button{padding:9px 11px;font-size:11px;line-height:1.5;border:1px solid #dce6d8;background:#fbfdf9;color:#56745e;border-radius:7px}.tracer-tools button.active,.geometry-tools button.active{background:#286b4f;border-color:#286b4f;color:#fff}.tracer-help{font-size:12px;line-height:1.8;color:#536f60;padding:12px 0;min-height:45px}
-.trace-image{display:block;width:100%;height:auto;background:#e9efe5;border:1px solid #d9e4d2;border-radius:8px;touch-action:none;cursor:crosshair;user-select:none}.tracer-actions{display:flex;flex-wrap:wrap;gap:9px;margin:15px 0}.tracer-actions .button{white-space:normal;text-align:center;font-size:12px}
+.trace-image{display:block;box-sizing:border-box;width:min(100%,calc(var(--trace-max-h) * var(--ar,1)));height:auto;margin-inline:auto;background:#e9efe5;border:1px solid #d9e4d2;border-radius:8px;touch-action:none;cursor:crosshair;user-select:none}
+/* Photo height is capped to what a 14–16" laptop shows under the tool row (≈ 430–600 px), so the whole roof and the crop frame stay on screen. */
+.trace-stage{--trace-max-h:clamp(300px,calc(100vh - 240px),800px);max-height:calc(var(--trace-max-h) + 2px);overflow:auto;overscroll-behavior:contain;border-radius:8px}
+.trace-stage.zoomed{background:#e9efe5;border:1px solid #d9e4d2}.trace-stage.zoomed .trace-image{width:calc(min(100%,calc(var(--trace-max-h) * var(--ar,1))) * var(--zoom,1));max-width:none;border:0;border-radius:0}
+.trace-view-row{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px 16px;margin-bottom:10px}.trace-view-row>.field{flex:1 1 220px;margin:0}
+.trace-zoom{display:flex;gap:4px}.trace-zoom button{padding:7px 10px;font-size:11px;border:1px solid #dce6d8;background:#fbfdf9;color:#56745e;border-radius:7px}.trace-zoom button.active{background:#286b4f;border-color:#286b4f;color:#fff}.tracer-actions{display:flex;flex-wrap:wrap;gap:9px;margin:15px 0}.tracer-actions .button{white-space:normal;text-align:center;font-size:12px}
 .tracer-calibration{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:14px 0}.tracer-calibration label{font-size:11px;line-height:1.8;color:#526c5d;min-width:0}.tracer-calibration input{display:block;width:100%;border:1px solid #d6e2d0;padding:10px;border-radius:7px;font:inherit;font-size:14px;margin-top:5px;color:#294f3d}.tracer-calibration select{margin-top:5px}.tracer-calibration p{font-size:12px;color:#6e7f71;line-height:1.8}
 .tracer-error{color:#a24738;background:#fff0e9;padding:12px;border-radius:7px;font-size:12px;line-height:1.8}.trace-result{background:linear-gradient(120deg,#e9f4e7,#f6f4e4);border:1px solid #d6e5cc;border-radius:9px;padding:15px}.trace-result strong{font-size:14px;color:#316346}.trace-result p{font-size:12px;line-height:1.8;margin:8px 0;color:#5d7564}.trace-result>div{display:flex;gap:9px;flex-wrap:wrap}.trace-result select{width:auto;flex:1;min-width:150px}
 .geometry-tools{padding:12px 14px;border-bottom:1px solid #e3eadc;background:#fbfcf8}.reference-opacity{display:flex;align-items:center;gap:12px;padding:10px 15px;background:#f1f6ee;color:#526f5a;font-size:11px}.reference-opacity input{flex:1;max-width:200px;min-width:50px}.geometry-inspector-heading{display:flex;flex-direction:column;gap:10px;margin-bottom:18px}.geometry-inspector-heading h3{font-size:16px}.geometry-inspector-heading>div{display:flex;gap:18px}.geometry-inspector h4{font-size:13px;margin:20px 0 9px;color:#47664f}.geometry-inspector .field-grid{column-gap:10px}.geometry-inspector .inline-actions{flex-wrap:wrap;gap:8px}.face-detail{border:1px solid #dfe9da;border-radius:9px;padding:11px;margin-top:10px;background:#fafcf8}.face-detail summary{font-size:12px;color:#426a57;margin-bottom:12px;cursor:pointer;line-height:1.7}.opening-row{display:flex;justify-content:space-between;gap:12px;font-size:12px;padding:10px 0;border-bottom:1px solid #edf2e8}
@@ -188,3 +193,26 @@
 .design-action-card .button{margin-top:12px;white-space:normal}
 @media(min-width:761px) and (max-width:1450px){.project-heading{flex-direction:column;align-items:stretch;gap:16px}.heading-actions{align-self:flex-end}}
 @media(max-width:760px){.heading-actions{display:grid;grid-template-columns:1fr 1fr;width:100%}.heading-actions .primary{grid-column:1/-1}.heading-actions .button{min-width:0;padding-left:10px;padding-right:10px}}
+
+/* Image tracer tools: grouped toolbar with icons and shortcuts, contextual options, cursors per tool, handles */
+.tracer-toolbar{display:flex;flex-wrap:wrap;gap:10px 14px;padding:10px;border:1px solid #dce6d8;border-radius:10px;background:#f7faf5}
+.tool-group{display:flex;flex-direction:column;gap:5px;min-width:0}.tool-group>span{font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:#6d8475}
+.tool-group>div{display:flex;flex-wrap:wrap;gap:4px}
+.tool-group button{display:inline-flex;align-items:center;gap:6px;padding:7px 9px;font-size:12px;line-height:1.2;border:1px solid #d6e2d1;background:#fff;color:#3f6150;border-radius:7px;cursor:pointer}
+.tool-group button:hover:not(:disabled){border-color:#8fb79c;background:#f1f8ee}
+.tool-group button.active{background:#286b4f;border-color:#286b4f;color:#fff}.tool-group button:disabled{opacity:.45;cursor:default}
+.tool-group kbd{font:600 10px/1 ui-monospace,Consolas,monospace;padding:2px 4px;border-radius:4px;border:1px solid currentColor;opacity:.55}
+.tracer-options{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;min-height:40px;padding:8px 2px;font-size:12.5px;color:#4b6656}
+.tracer-options .text-button{font-size:12px}.tracer-options .inline-field{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0}.tracer-options .inline-field input{width:110px}
+.brush-size{display:flex;align-items:center;gap:8px;font-size:12.5px}.brush-size input{width:150px}.brush-size output{min-width:44px;font-variant-numeric:tabular-nums;color:#285e49;font-weight:600}
+.brush-swatch{display:inline-block;width:12px;height:12px;border-radius:50%;margin-left:6px}.brush-swatch.keep{background:#21c86d}.brush-swatch.remove{background:#ff4d6d}
+.trace-zoom output{min-width:84px;text-align:center;font-size:12px;font-weight:600;color:#285e49;align-self:center}
+.tracer-status{font-size:12px;line-height:1.7;color:#536f60;margin:8px 0 0}.tracer-status strong{color:#285e49}.tracer-keys{display:block;color:#7b8f80;font-size:11.5px}
+.trace-image.tool-box,.trace-image.tool-polygon,.trace-image.tool-opening,.trace-image.tool-measure,.trace-image.tool-check,.trace-image.tool-quad{cursor:crosshair}
+.trace-image.tool-keep,.trace-image.tool-remove{cursor:none}.trace-image.tool-edit{cursor:default}
+.trace-image.pan-ready{cursor:grab}.trace-image.panning{cursor:grabbing}
+.trace-image .box-body{cursor:move}.trace-image .box-nw,.trace-image .box-se{cursor:nwse-resize}.trace-image .box-ne,.trace-image .box-sw{cursor:nesw-resize}
+.trace-image .box-n,.trace-image .box-s{cursor:ns-resize}.trace-image .box-e,.trace-image .box-w{cursor:ew-resize}
+.trace-image .vertex-handle{cursor:move}.trace-image .mid-handle{cursor:copy}
+.trace-image .vertex-handle:hover rect:last-child,.trace-image .box-handle:hover rect:last-child{fill:#fff3c4}.trace-image .mid-handle:hover circle:last-child{fill:#d8fff0}
+@media(max-width:760px){.tool-group button span{display:none}.tool-group kbd{display:none}.brush-size input{width:110px}}

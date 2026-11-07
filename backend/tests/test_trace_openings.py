@@ -53,3 +53,17 @@ def test_multiple_significant_regions_are_reported_not_silently_merged():
     result=extract_roof(TraceRequest(image_data_url=data_url(image),rect=[5,5,90,90],foreground=[{'x':20,'y':40},{'x':70,'y':40}]))
     assert result['discarded_regions']==1
     assert any('vùng rời' in note for note in result['notes'])
+
+
+def test_brush_strokes_keep_a_two_tone_roof_and_remove_what_was_painted_out():
+    """A roof with a newer, differently coloured half needs the keep brush across both colours; a painted-out
+    neighbouring shed must leave the outline."""
+    image=np.full((400,600,3),25,np.uint8)
+    cv2.rectangle(image,(60,60),(300,340),(100,180,120),-1)        # old sheets
+    cv2.rectangle(image,(300,60),(540,340),(150,150,210),-1)       # replaced sheets, other colour
+    keep=[{'points':[{'x':20,'y':50},{'x':80,'y':50}],'radius':.03}]
+    whole=extract_roof(TraceRequest(image_data_url=data_url(image),rect=[5,5,90,90],keep_strokes=keep))
+    assert Polygon([(p['x'],p['y']) for p in whole['polygon_image_pct']]).area==pytest.approx(80*70,rel=.08)
+    drop=[{'points':[{'x':75,'y':20},{'x':75,'y':80}],'radius':.06},{'points':[{'x':85,'y':20},{'x':85,'y':80}],'radius':.06}]
+    left=extract_roof(TraceRequest(image_data_url=data_url(image),rect=[5,5,90,90],keep_strokes=[{'points':[{'x':20,'y':50},{'x':40,'y':50}],'radius':.03}],drop_strokes=drop))
+    assert max(p['x'] for p in left['polygon_image_pct'])<70
