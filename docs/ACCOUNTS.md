@@ -29,28 +29,29 @@ The popup supports Escape, backdrop dismissal, keyboard focus containment and a 
 Account changes are synchronized between tabs and revalidated on focus. Expired or revoked sessions return 401 instead of silently downgrading a signed-in calculation to an unsaved guest calculation. Invalid cookies are cleared, and the UI offers login again. Browser drafts remain under their original account key.
 
 
-## Gói sử dụng và hạn mức (freemium)
+## Gói theo dự án, phí lưu trữ và hạn mức
 
-Mã: `backend/app/billing.py`, giao diện `frontend/src/components/PlanCenter.tsx`.
+Mã: `backend/app/billing.py`, giao diện `frontend/src/components/PlanCenter.tsx`. Giá do sáng lập viên đặt ngày 07/11/2026; so sánh đối thủ và chi phí: [GIA_VA_CHI_PHI_THUONG_MAI.md](GIA_VA_CHI_PHI_THUONG_MAI.md).
 
-| Gói | Giá dự kiến | Ghế | Dự án tính phương án | AI đọc ảnh | Câu hỏi trợ lý AI |
+| Gói (mã) | Giá | Chu kỳ | Dự án / chu kỳ | Ghế | AI đọc ảnh / câu hỏi trợ lý mỗi chu kỳ |
 |---|---|---|---|---|---|
-| Khách (chưa đăng nhập) | 0 đ | — | 2 dự án mỗi ngày theo IP (`SOLAROPT_GUEST_DAILY_PROJECTS`) | Không (cần đăng nhập) | Không: trợ lý và tư vấn trả lời bằng bộ quy tắc |
-| Miễn phí | 0 đ | 1 | 5 dự án tổng cộng | 10 lượt / 30 ngày | 30 / 30 ngày |
-| Cá nhân (`pro`) | 790.000 đ/tháng | 1 | 20 dự án / 30 ngày | 40 lượt / 30 ngày | 300 / 30 ngày |
-| Team (`team`, gắn nhóm) | 3.490.000 đ/tháng | 3 | 60 dự án / 30 ngày | 120 lượt / 30 ngày | 900 / 30 ngày |
-| Doanh nghiệp (`business`, gắn nhóm) | 9.900.000 đ/tháng | 10 | 250 dự án / 30 ngày | 500 lượt / 30 ngày | 3.000 / 30 ngày |
+| Khách (chưa đăng nhập) | 0 đ | ngày | 2 dự án/ngày theo IP (`SOLAROPT_GUEST_DAILY_PROJECTS`) | — | Không (trợ lý trả lời bằng bộ quy tắc) |
+| Dùng thử (`free`) | 0 đ | trọn đời | 1 dự án, dữ liệu giữ 7 ngày | 1 | 5 / 30 |
+| Tháng · 1 dự án (`month_1`) | 5.990.000 đ | 30 ngày | 1 | 3 | 20 / 300 |
+| Tháng · 2 dự án (`month_2`) | 7.990.000 đ | 30 ngày | 2 | 5 | 40 / 600 |
+| Năm · 3 dự án (`year_3`) | 15.000.000 đ | 365 ngày | 3 | 5 | 60 / 900 |
+| Năm · 7 dự án (`year_7`) | 30.000.000 đ | 365 ngày | 7 | 10 | 140 / 2.100 |
 
-Giá tính từ mô hình chi phí `output/report/SolarOpt_Mo_hinh_tai_chinh.xlsx` (AI trả phí). Enterprise (từ 24 triệu/tháng) ký hợp đồng riêng, không bán qua bảng này. Mỗi câu trả lời của trợ lý dùng mô hình AI trừ một lượt "câu hỏi trợ lý AI"; hết lượt hoặc là khách thì trợ lý vẫn trả lời bằng bộ quy tắc, kèm ghi chú.
-
-- **Một lượt = một dự án mới được tính phương án thành công.** Tính lại, sửa phương án hoặc so sánh 3 mục tiêu của cùng dự án (cùng tên, không phân biệt hoa thường/khoảng trắng) không trừ thêm. Đổi tên dự án sẽ tính là dự án mới.
-- AI đọc ảnh trừ một lượt mỗi lần gọi nhà cung cấp; kết quả lấy từ bộ nhớ đệm và trường hợp chưa cấu hình AI không trừ.
-- Hết lượt: máy chủ trả 402, giao diện mở bảng gói.
-- **Nâng cấp:** chưa tích hợp thanh toán. Người dùng bấm “Gửi yêu cầu nâng cấp”; quản trị viên mở trang Quản trị, xem mức dùng và yêu cầu, rồi đặt gói 1–12 tháng. Hết hạn tự quay về gói Miễn phí.
-- **Quản trị viên không bị giới hạn.** Quyền lưu trong cột `users.role` và **chỉ cấp trên máy chủ**:
+- **Chu kỳ tính từ ngày kích hoạt.** Gói tháng chỉ dùng trong 30 ngày đăng ký, gói năm trong 365 ngày; mua nhiều kỳ (ví dụ 3 tháng) thì mỗi 30 ngày cấp lại hạn mức. Dự án chưa dùng không cộng dồn.
+- **Một lượt = một dự án mới được tính phương án thành công trong chu kỳ.** Dự án được nhận diện bằng **tên + vị trí (làm tròn ~1 km)**: giữ nguyên tên nhưng đổi sang mái ở nơi khác vẫn tính là dự án mới. Tính lại, sửa, so sánh 3 mục tiêu của cùng dự án trong chu kỳ không trừ thêm. Sang chu kỳ sau, dự án cũ dùng tiếp sẽ trừ một lượt.
+- **Lưu trữ dữ liệu dự án:** dữ liệu (ảnh, biên mái, phương án, bản duyệt) được giữ đến hết chu kỳ đã dùng dự án đó (dùng thử: 7 ngày). Sau đó phí là **1.000.000 đ / dự án / tháng**. Quá hạn **2 ngày** (`SOLAROPT_STORAGE_GRACE_DAYS`) không gia hạn: dự án bị ẩn khỏi tài khoản (API trả 410), rồi `python scripts/purge_expired_projects.py --apply` xóa hẳn các phiên bản và ghi ngày xóa (`project_storage.purged_at`). Chạy không có `--apply` để xem trước. Khách gửi yêu cầu gia hạn ở nút **Lưu trữ**; quản trị viên bấm **Ghi nhận đã thu** sau khi nhận tiền.
+- **Quản trị viên không bị giới hạn** và dự án của quản trị viên không bao giờ hết hạn lưu trữ. Quyền lưu trong cột `users.role` và **chỉ cấp trên máy chủ**:
   `python scripts/manage_admin.py grant email@cua-ban.com` (chạy trong thư mục `backend`, cùng `SOLAROPT_DB_PATH` với máy chủ; tài khoản phải đăng ký trên web trước). `revoke` để thu hồi, `list` để xem. Không cấp qua API hay theo danh sách email, vì chưa có xác minh email nên ai đăng ký trước bằng email đó sẽ chiếm quyền.
-- **Admin dùng chung cho máy local và web:** mỗi máy chủ có cơ sở dữ liệu riêng, nên admin tạo ở máy này không tồn tại ở máy kia. Đặt `SOLAROPT_ADMIN_EMAIL` và `SOLAROPT_ADMIN_PASSWORD` (≥ 10 ký tự) giống nhau trong `backend/.env` và trong biến môi trường của dịch vụ backend trên host; khi khởi động, máy chủ tự tạo tài khoản đó (hoặc đặt lại mật khẩu theo biến) và cấp quyền admin. Mật khẩu do bạn đặt trong môi trường nên không ai chiếm được email bằng cách đăng ký trước.
-- **Nhóm doanh nghiệp:** người dùng tạo nhóm và là chủ nhóm; gói Team (3 chỗ) và Doanh nghiệp (10 chỗ) gắn với nhóm (chủ nhóm gửi yêu cầu, quản trị viên kích hoạt). Chủ nhóm thêm kỹ sư bằng email đã đăng ký, xóa thành viên, hoặc giải tán nhóm khi chỉ còn mình. Khi nhóm có gói trả phí còn hạn: mọi thành viên dùng chung hạn mức (đếm theo nhóm) và xem chung lịch sử dự án của nhóm. Mỗi người thuộc tối đa một nhóm; rời nhóm thì quay về gói cá nhân.
-- Giá là giả thuyết cần kiểm chứng với khách hàng; sửa ở một chỗ trong `PLANS`.
+- **Admin dùng chung cho máy local và web:** đặt `SOLAROPT_ADMIN_EMAIL` và `SOLAROPT_ADMIN_PASSWORD` (≥ 10 ký tự) giống nhau trong `backend/.env` và trên host; khi khởi động, máy chủ tự tạo tài khoản đó và cấp quyền admin.
+- **Mua gói:** chưa tích hợp thanh toán. Khách bấm "Gửi yêu cầu mua gói"; quản trị viên liên hệ, xuất hóa đơn, rồi đặt gói 1/3/6/12 tháng (gói tháng) hoặc 1/2/3 năm (gói năm) ở trang Quản trị. Hết hạn tự về gói Dùng thử.
+- **Nhóm công ty:** người dùng tạo nhóm và là chủ nhóm; mọi gói trả phí đều gắn được cho nhóm (quản trị viên đặt gói cho nhóm). Khi nhóm có gói còn hạn: thành viên dùng chung số dự án và xem chung lịch sử. Số chỗ theo cột Ghế.
+- AI đọc ảnh trừ một lượt mỗi lần gọi nhà cung cấp; kết quả lấy từ bộ nhớ đệm không trừ. Hết lượt trợ lý AI thì trợ lý vẫn trả lời bằng bộ quy tắc.
 
-API: `GET /api/account/usage`, `POST /api/account/upgrade-request`, `GET|POST /api/team`, `POST /api/team/members`, `POST /api/team/members/{id}/remove`, `POST /api/team/leave`, `GET /api/admin/users`, `GET /api/admin/teams`, `POST /api/admin/users/{id}/plan`, `POST /api/admin/teams/{id}/plan`.
+**Lưu ý vận hành:** bản web trên Render gói miễn phí dùng ổ đĩa tạm, nên SQLite (tài khoản, lịch sử, dữ liệu lưu trữ) mất khi máy chủ khởi động lại. Phải chuyển sang cơ sở dữ liệu bền trước khi thu phí lưu trữ (kế hoạch trong GIA_VA_CHI_PHI_THUONG_MAI.md).
+
+API: `GET /api/account/usage`, `POST /api/account/upgrade-request`, `GET /api/account/storage`, `POST /api/account/storage-request`, `GET|POST /api/team`, `POST /api/team/members`, `POST /api/team/members/{id}/remove`, `POST /api/team/leave`, `GET /api/admin/users`, `GET /api/admin/teams`, `GET|POST /api/admin/storage`, `POST /api/admin/users/{id}/plan`, `POST /api/admin/teams/{id}/plan` (`{"plan": "...", "periods": n}`).

@@ -52,8 +52,8 @@
 .pa-arc{fill:none;stroke:#e6b84a;stroke-width:1;stroke-dasharray:3 6;opacity:.55}
 .pa-hill{fill:#d6e8cb;opacity:.8}.pa-ground{stroke:#9fc39a;stroke-width:1}
 .plan-card{position:relative;overflow:hidden;border-top:3px solid #cfe0c6!important;background:linear-gradient(180deg,#fff,#fbfdf9)}
-.plan-card.plan-pro{border-color:#9cc78b!important;border-top-color:#2e8b4e!important;box-shadow:0 10px 26px #1b5e3314}
-.plan-card.plan-business{border-top-color:#1b5e33!important}
+.plan-card.plan-year_3{border-color:#9cc78b!important;border-top-color:#2e8b4e!important;box-shadow:0 10px 26px #1b5e3314}
+.plan-card.plan-year_7{border-top-color:#1b5e33!important}
 .plan-card-head{display:flex;align-items:center;gap:10px}
 .plan-icon{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:#eaf4e4;color:#2e8b4e;border:1px solid #d4e6cb}
 .plan-pro .plan-icon{background:#2e8b4e;color:#fff;border-color:#2e8b4e}
@@ -68,3 +68,10 @@
 .plan-dialog .account-close{z-index:2;background:#ffffffcc}
 @media(max-width:600px){.plan-hero{height:140px}.plan-hero>div{left:18px;top:22px}.plan-hero h2{font-size:21px}}
 @media(max-width:600px){.plan-hero{height:176px}.plan-art{top:62px;height:calc(100% - 62px)}}
+
+/* Project plans: year and month groups, price per project, storage terms */
+.plan-group{margin:14px 0 8px;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:#4d6b57}
+.plan-per-project{margin:0;font-size:12.5px;color:#5c6b60;font-variant-numeric:tabular-nums}
+.plan-storage-terms{display:flex;gap:10px;align-items:flex-start;margin:14px 0 6px;padding:12px 14px;border:1px solid #f0d9a3;border-radius:10px;background:#fff8e8;color:#5d4a1c}
+.plan-storage-terms p{margin:0;font-size:13px;line-height:1.6}.plan-storage-terms svg{flex:none;margin-top:2px;color:#93630c}
+.button.attention{border-color:#e0a526;color:#8a5a00;background:#fff6dd}
