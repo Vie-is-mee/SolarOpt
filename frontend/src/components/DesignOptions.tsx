@@ -13,7 +13,7 @@ export function layoutSignature(design:Design){
  return JSON.stringify(design.panels.map(p=>[p.x,p.y,p.width_m,p.height_m,((p.rotation_deg||0)%180+180)%180].map(v=>Math.round(v*10000)/10000).join(',')).sort())
 }
 const fmt=(n:number)=>n.toLocaleString('vi-VN',{maximumFractionDigits:2})
-export function DesignOptions({options,objective,ready,busy,onChoose}:{options:Partial<Record<Objective,Design>>;objective:Objective;ready:boolean;busy:boolean;onChoose:(id:Objective)=>void}){
+export function DesignOptions({options,objective,ready,busy,weather,onChoose}:{options:Partial<Record<Objective,Design>>;objective:Objective;ready:boolean;busy:boolean;weather:boolean;onChoose:(id:Objective)=>void}){
  const results=OBJECTIVES.map(o=>options[o.id])
  const complete=ready&&results.every(Boolean)
  const empty=complete&&results.every(r=>r!.panels.length===0)
@@ -35,6 +35,6 @@ export function DesignOptions({options,objective,ready,busy,onChoose}:{options:P
     <div className="option-bottom"><span>{result?vnd(result.metrics.estimated_cost_vnd):busy?'Đang tính…':ready?'Chưa tính lựa chọn này':'Cần tính lại'}</span><small>chỉ tấm pin</small></div>
    </button>
   })}</div>
-  <div className="option-explanation" role="status">{busy?'Đang tính cả ba mục tiêu trên cùng đầu vào…':!ready?'Nhập điện năng mục tiêu rồi nhấn Tính lại phương án để so sánh.':!complete?'Hiện chỉ có kết quả của mục tiêu đã cập nhật. Nhấn Tính lại phương án để tính đủ ba lựa chọn.':empty?'Cả ba mục tiêu chưa chọn được tấm pin. Kiểm tra ngân sách, vùng mái sử dụng được và các ràng buộc.':same?'Ba mục tiêu cùng chọn một bố trí trong phạm vi đã thử. Kiểm tra trạng thái đáp ứng nhu cầu và kiểm chứng sai số; số tấm giống nhau chưa có nghĩa cả ba đạt mục tiêu.':sameTotals?'Các tổng chỉ số giống nhau nhưng vị trí bố trí khác nhau. Chọn từng thẻ để đối chiếu bản vẽ.':'Chọn thẻ để đối chiếu phần đánh đổi: sản lượng tối đa, chi phí tấm pin để đáp ứng nhu cầu, hoặc dự phòng sai số.'} <span>Nắng năm quy đổi theo 12 ngày trời quang đại diện cho từng mặt mái; bóng tính cho mọi giờ có nắng của 12 ngày đó, theo 3 chuỗi cell có diode bypass của mỗi tấm. Kiểm chứng dự phòng chỉ áp dụng các tình huống đã thử; kỹ sư vẫn cần xác nhận trước khi thi công.</span></div>
+  <div className="option-explanation" role="status">{busy?'Đang tính cả ba mục tiêu trên cùng đầu vào…':!ready?'Nhập điện năng mục tiêu rồi nhấn Tính lại phương án để so sánh.':!complete?'Hiện chỉ có kết quả của mục tiêu đã cập nhật. Nhấn Tính lại phương án để tính đủ ba lựa chọn.':empty?'Cả ba mục tiêu chưa chọn được tấm pin. Kiểm tra ngân sách, vùng mái sử dụng được và các ràng buộc.':same?'Ba mục tiêu cùng chọn một bố trí trong phạm vi đã thử. Kiểm tra trạng thái đáp ứng nhu cầu và kiểm chứng sai số; số tấm giống nhau chưa có nghĩa cả ba đạt mục tiêu.':sameTotals?'Các tổng chỉ số giống nhau nhưng vị trí bố trí khác nhau. Chọn từng thẻ để đối chiếu bản vẽ.':'Chọn thẻ để đối chiếu phần đánh đổi: sản lượng tối đa, chi phí tấm pin để đáp ứng nhu cầu, hoặc dự phòng sai số.'} <span>Nắng năm quy đổi theo 12 ngày {weather?'đại diện của năm khí tượng điển hình PVGIS':'trời quang đại diện'} cho từng mặt mái; bóng tính cho mọi giờ có nắng của 12 ngày đó, theo 3 chuỗi cell có diode bypass của mỗi tấm. Kiểm chứng dự phòng chỉ áp dụng các tình huống đã thử; kỹ sư vẫn cần xác nhận trước khi thi công.</span></div>
  </>
 }
