@@ -1,4 +1,4 @@
-"""Build the SolarOpt cost, pricing and cash-flow workbook (output/report/SolarOpt_Mo_hinh_tai_chinh_v2.xlsx).
+"""Build the SolarOpt cost, pricing and cash-flow workbook (output/report/SolarOpt_Mo_hinh_tai_chinh_v3.xlsx).
 
 Every result is an Excel formula over the input cells, so the team can change a price, a model or a forecast and
 the workbook recalculates. Blue = input, black = formula, green = link to another sheet, yellow fill = key
@@ -6,6 +6,7 @@ assumption to validate. Token counts come from scripts/measure_cost.py (04/11/20
 carry their source and reading date next to them.
     python scripts/build_cost_model.py        (then open in Excel, or recalculate, before reading cached values)
 """
+from datetime import date
 from pathlib import Path
 
 from openpyxl import Workbook
@@ -15,7 +16,7 @@ from openpyxl.utils import get_column_letter as col
 from openpyxl.workbook.defined_name import DefinedName
 from openpyxl.worksheet.datavalidation import DataValidation
 
-OUT = Path(__file__).resolve().parents[2] / "output" / "report" / "SolarOpt_Mo_hinh_tai_chinh_v2.xlsx"
+OUT = Path(__file__).resolve().parents[2] / "output" / "report" / "SolarOpt_Mo_hinh_tai_chinh_v3.xlsx"
 FONT = "Arial"
 BLUE, BLACK, GREEN, GREY = "0000FF", "000000", "008000", "666666"
 YELLOW = PatternFill("solid", fgColor="FFFF00")
@@ -80,15 +81,15 @@ def widths(ws, values):
 # ------------------------------------------------------------------------------------------------
 ws = wb.active
 ws.title = "Huong_dan"
-title(ws, "SolarOpt — Mô hình chi phí, giá gói theo dự án và dòng tiền (bản 2)", "Lập 07/11/2026 · đơn vị VND · tháng 1 của dòng tiền = 01/2027 · thay bản 04/11/2026 (gói theo khách)")
+title(ws, "SolarOpt — Mô hình chi phí, gói đề xuất, hòa vốn và dòng tiền (bản 3)", "Lập 08/11/2026 · đơn vị VND · tháng 1 của dòng tiền = tháng đầu bán (Gia_dinh: LAUNCH) · bảng giá ở đây là ĐỀ XUẤT, app vẫn chạy bảng 07/11")
 rows = [
     ("Cách dùng", ""),
     ("1", "Chỉ sửa ô CHỮ XANH (đầu vào). Ô chữ đen là công thức; chữ xanh lá là liên kết sang sheet khác."),
     ("2", "Ô NỀN VÀNG là giả định then chốt chưa có dữ liệu thật: phải kiểm chứng bằng phỏng vấn khách / pilot trước khi đưa lên slide."),
-    ("3", "Đổi mô hình AI cho từng tính năng ở Gia_dinh (ô chọn danh sách). Đổi giá gói ở sheet Goi cột C. Đổi dự báo số lượt mua ở Dong_tien (dòng chữ xanh)."),
-    ("4", "Kết quả: Tong_hop (năm 1–3, tháng có lãi, tiền mặt thấp nhất), Goi (lãi gộp từng gói), Doi_thu (so giá đối thủ), Chi_phi_du_an (chi phí biến đổi 1 dự án)."),
+    ("3", "Đổi mô hình AI cho từng tính năng ở Gia_dinh (ô chọn danh sách). Đổi giá gói ở sheet Goi cột C, bậc lưu trữ ở Luu_tru. Đổi dự báo số lượt mua ở Dong_tien (dòng chữ xanh). Đặt FIXED_STAFF trong Gia_dinh để cố định số nhân sự; để 0 thì tuyển theo mốc khách ở Chi_phi_co_dinh."),
+    ("4", "Kết quả: Tong_hop (năm 1–3, tháng có lãi, tiền mặt thấp nhất), Hoa_von (số khách tối thiểu theo từng phương án nhân sự), Goi (lãi gộp và chi phí tối đa từng gói), Luu_tru (bậc phí và kho lạnh), Doi_thu (so giá đối thủ), Chi_phi_du_an (chi phí biến đổi 1 dự án)."),
     ("", ""),
-    ("Thay đổi so với bản 04/11", "Gói bán theo SỐ DỰ ÁN (tháng: 1–2 dự án; năm: 3–7 dự án) thay cho gói theo khách; thêm phí lưu trữ dữ liệu dự án; AI dùng mô hình trả phí đủ mạnh (mặc định Claude Sonnet 5.5 cho đọc ảnh và tư vấn, Claude Haiku 5.5 cho trợ lý); thêm chi phí ảnh vệ tinh, cơ sở dữ liệu bền + sao lưu ngoài, email thông báo, bảo hiểm trách nhiệm, tuân thủ Luật Bảo vệ dữ liệu cá nhân, kỹ sư kết cấu cố vấn; thêm bảng giá đối thủ."),
+    ("Thay đổi so với bản 07/11", "Bốn gói đề xuất (Dự án lẻ, Start, Team, Pro) thay Tháng·1, Tháng·2, Năm·3, Năm·7; giới hạn giờ hỗ trợ và chi phí tối đa theo gói; nhân sự 6 vị trí, tuyển theo mốc khách; thêm văn phòng và dự phòng 10%; phí lưu trữ theo bậc và kho lạnh; Thiết kế hộ; trừ tiền lẻ khi nâng gói; pilot 5 khách chỉ gói năm; sheet Hoa_von; năm 1 tính từ tháng đầu bán."),
     ("Nguồn số đo", "Token AI và giây CPU: backend/scripts/measure_cost.py chạy 04/11/2026 trên 5 mái mẫu (output/report/cost_measurements_2026-11-04.json)."),
     ("Nguồn giá", "Ghi cạnh từng ô (cột Nguồn). Tỷ giá Vietcombank bán ra 13:30 07/11/2026 (webgia.com); CHF và INR không đọc được, là giả định."),
     ("Giới hạn", "Số lượt mua gói, tỷ lệ dùng hạn mức, tỷ lệ trả phí lưu trữ, CAC, gia hạn là GIẢ ĐỊNH chưa có dữ liệu pilot. Bảo hiểm, pháp lý, lương là ước tính cần báo giá. Giá đối thủ lấy từ trang chính hãng khi đọc được, còn lại từ trang bên thứ ba (ghi rõ)."),
@@ -102,7 +103,7 @@ r = 4 + len(rows)
 put(ws, f"A{r}", "Chữ xanh = đầu vào", BLUE)
 put(ws, f"A{r+1}", "Nền vàng = giả định then chốt", fill=YELLOW)
 put(ws, f"A{r+2}", "Chữ xanh lá = liên kết sheet khác", GREEN)
-put(ws, f"A{r+3}", "Ví dụ dòng nhập: gói Năm · 3 dự án, giá 15.000.000 đ, 12 tháng, 3 dự án, khách dùng 80% hạn mức.", GREY, italic=True)
+put(ws, f"A{r+3}", "Ví dụ dòng nhập: gói Start, giá 17.900.000 đ, 12 tháng, 8 dự án, khách dùng 80% hạn mức.", GREY, italic=True)
 widths(ws, [26, 120])
 
 # ------------------------------------------------------------------------------------------------
@@ -219,20 +220,42 @@ for i, (label, v, unit, n, assumed, note) in enumerate(ops, 43):
 
 header(g, 52, ["Bán hàng, lưu trữ, kịch bản", "Giá trị", "Đơn vị", "", "Ghi chú"])
 sales = [("Tỷ lệ dùng hạn mức dự án của gói", .8, "%", "UTIL", True, "Mua gói khi có dự án nên dùng gần hết; kiểm chứng ở pilot"),
-         ("Phí lưu trữ (giá các sáng lập viên đặt)", 1_000_000, "đ/dự án/tháng", "STORE_FEE", False, "Theo chỉ đạo 07/11/2026"),
-         ("Tỷ lệ dự án trả phí lưu trữ sau khi hết gói", .25, "%", "STORE_SHARE", True, "Phần lớn sẽ tải PDF/JSON về và để xóa"),
-         ("Số tháng lưu trữ được trả bình quân", 6, "tháng", "STORE_MONTHS", True, ""),
+         ("Tỷ lệ khách gói năm mới từng mua lẻ (được trừ tiền)", .3, "%", "UPGRADE_SHARE", True, "Tiền mua lẻ trong 30 ngày được trừ khi nâng lên gói năm"),
+         ("Tỷ lệ khách đóng phí kho khi hết kỳ gói", .25, "%", "STORE_SHARE", True, "Phần lớn sẽ tải PDF/JSON về; thử 60% để xem mức cao"),
+         ("Số tháng đóng phí kho bình quân", 12, "tháng", "STORE_MONTHS", True, ""),
          ("Tỷ lệ gia hạn gói năm", .6, "%", "RENEW", True, ""),
          ("Tỷ lệ lượt mua gói tháng là khách mới", .4, "%", "NEW_SHARE", True, "Còn lại là khách cũ mua lại khi có dự án mới"),
          ("CAC (chi phí có 1 khách mới)", 8_000_000, "đ", "CAC", True, "Bán B2B cho EPC: demo, khảo sát thử, đi gặp; chưa có số đo"),
-         ("Giảm giá giai đoạn pilot", .5, "%", "PILOT_DISC", False, "Đổi lấy câu chuyện khách hàng và số đo thật"),
-         ("Số tháng pilot (từ tháng 1)", 6, "tháng", "PILOT_MONTHS", False, ""),
-         ("Dự án dùng thử mỗi người dùng thử", 1, "dự án", "TRIAL_PROJECTS", False, "Gói Dùng thử: 1 dự án, 5 lượt đọc ảnh"),
+         ("Giảm giá pilot (chỉ gói năm)", .3, "%", "PILOT_DISC", False, "Đổi lấy câu chuyện khách hàng và số đo thật"),
+         ("Số khách pilot", 5, "khách", "PILOT_CUSTOMERS", False, "Năm khách gói năm đầu tiên"),
+         ("Người dùng thử cho mỗi khách mới", 3, "người", "TRIALS_PER_CUSTOMER", True, "Mỗi người 1 dự án thử; chưa có số đo tỷ lệ chuyển đổi"),
          ("Thuế TNDN áp dụng", 0, "%", "TAX", True, "Giả định miễn 3 năm đầu (NQ 198/2025/QH15) — CẦN XÁC MINH; không được miễn thì 20%"),
          ("Hệ số kịch bản (0,5 thận trọng · 1 cơ sở · 1,5 lạc quan)", 1, "×", "SCENARIO", False, "")]
 for i, (label, v, unit, n, assumed, note) in enumerate(sales, 53):
     put(g, f"A{i}", label)
     put(g, f"B{i}", v, BLUE, PCT if unit == "%" else (VND if v >= 100 else NUM), fill=YELLOW if assumed else None)
+    put(g, f"C{i}", unit)
+    put(g, f"E{i}", note, GREY)
+    name(g, f"B{i}", n)
+
+header(g, 66, ["Nhân sự, gói, dịch vụ thêm (bản 3)", "Giá trị", "Đơn vị", "", "Ghi chú"])
+extra = [("Tháng bắt đầu bán", date(2027, 10, 1), "tháng", "LAUNCH", True, "Bài nói: pilot 04/2027, bán thương mại cuối 2027"),
+         ("Cố định số nhân sự (0 = tuyển theo mốc khách)", 0, "người", "FIXED_STAFF", False, "Đặt 5 hoặc 6 để xem đội đủ người từ đầu"),
+         ("Lãi mục tiêu năm đầu", 50_000_000, "đ", "TARGET_PROFIT", False, "Dùng ở Hoa_von"),
+         ("Dự phòng trên chi phí cố định", .1, "%", "CONTINGENCY", True, ""),
+         ("Tỷ lệ khách chọn Start", .5, "%", "MIX_START", True, "Chưa có dữ liệu"),
+         ("Tỷ lệ khách chọn Team", .35, "%", "MIX_TEAM", True, "Chưa có dữ liệu"),
+         ("Tỷ lệ khách chọn Pro", .15, "%", "MIX_PRO", True, "Chưa có dữ liệu"),
+         ("Giá Thiết kế hộ", 3_900_000, "đ/dự án", "DFY_PRICE", True, "Nhóm chạy phần mềm, kỹ sư của khách ký"),
+         ("Giờ làm 1 dự án Thiết kế hộ", 3, "giờ", "DFY_HOURS", True, ""),
+         ("AI và ảnh của 1 dự án Thiết kế hộ", 50_000, "đ", "DFY_AI", True, ""),
+         ("Giá kho lạnh", .01, "USD/GB-tháng", "COLD_PRICE", True, "Cloudflare R2 Infrequent Access; đối chiếu trang giá trước khi dùng"),
+         ("Số bản sao kho lạnh", 2, "bản", "COLD_COPIES", False, ""),
+         ("Chi phí có 1 khách, mức thấp", 3_000_000, "đ", "CAC_LOW", True, "Sáng lập viên tự bán; dùng ở Hoa_von")]
+for i, (label, val, unit, n, assumed, note) in enumerate(extra, 67):
+    put(g, f"A{i}", label)
+    fmt = "mm/yyyy" if n == "LAUNCH" else PCT if unit == "%" else USD if unit.startswith("USD") else VND
+    put(g, f"B{i}", val, BLUE, fmt, fill=YELLOW if assumed else None)
     put(g, f"C{i}", unit)
     put(g, f"E{i}", note, GREY)
     name(g, f"B{i}", n)
@@ -243,7 +266,7 @@ for i, (label, v, unit, n, assumed, note) in enumerate(sales, 53):
 v = wb.create_sheet("Chi_phi_du_an")
 title(v, "Chi phí biến đổi của 1 dự án", "Mọi ô là công thức từ Gia_dinh · đ/dự án")
 widths(v, [48, 18, 18, 18, 60])
-header(v, 4, ["Khoản", "Dự kiến (đ)", "Xấu nhất (đ)", "", "Cách tính"])
+header(v, 4, ["Khoản", "Dự kiến (đ)", "Tối đa, mô hình đắt nhất (đ)", "Tối đa, ghim mô hình (đ)", "Cách tính"])
 
 
 def ai_cost(key, model, uses):
@@ -253,32 +276,36 @@ def ai_cost(key, model, uses):
 
 
 WORST = '"Claude Opus 5.5"'
-lines = [("AI đọc ảnh mái", ai_cost("VISION", "VISION_MODEL", "VISION_USES"), ai_cost("VISION", WORST, "VISION_MAX"), "lượt × (token vào × giá vào + token ra × giá ra) × hệ số token × an toàn × tỷ giá; xấu nhất: dùng hết hạn mức bằng Opus"),
-         ("Tư vấn từ hóa đơn", ai_cost("ADVISOR", "ADVISOR_MODEL", "ADVISOR_USES"), ai_cost("ADVISOR", WORST, "ADVISOR_MAX"), ""),
-         ("Trợ lý hỏi đáp", ai_cost("CHAT", "CHAT_MODEL", "CHAT_USES"), ai_cost("CHAT", WORST, "CHAT_MAX"), ""),
-         ("Ảnh vệ tinh", f"=TILES_PER_PROJECT*INDEX({IMG_PRICE},MATCH(IMG_SOURCE,{IMG_NAMES},0))/1000*FX_USD", f"=TILES_PER_PROJECT*3*INDEX({IMG_PRICE},MATCH(IMG_SOURCE,{IMG_NAMES},0))/1000*FX_USD", "ô ảnh × giá/1.000 × tỷ giá; xấu nhất ×3 ô ảnh"),
-         ("CPU máy chủ", "=CPU_PROJECT", "=CPU_PROJECT*3", ""),
-         ("Lưu trữ trong thời hạn gói", "=MB_PROJECT/1024*R2_PRICE*COPIES*FX_USD*PLAN_KEEP_MONTHS", "=MB_PROJECT*3/1024*R2_PRICE*COPIES*FX_USD*12", "MB/1024 × giá GB-tháng × số bản sao × tỷ giá × số tháng"),
-         ("Hỗ trợ kỹ sư", "=SUPPORT_HOURS*HOUR_COST", "=SUPPORT_HOURS*2*HOUR_COST", "")]
-for i, (label, exp, worst, how) in enumerate(lines, 5):
+lines = [("AI đọc ảnh mái", ai_cost("VISION", "VISION_MODEL", "VISION_USES"), ai_cost("VISION", WORST, "VISION_MAX"), ai_cost("VISION", "VISION_MODEL", "VISION_MAX"), "lượt × (token vào × giá vào + token ra × giá ra) × hệ số token × an toàn × tỷ giá; xấu nhất: dùng hết hạn mức bằng Opus"),
+         ("Tư vấn từ hóa đơn", ai_cost("ADVISOR", "ADVISOR_MODEL", "ADVISOR_USES"), ai_cost("ADVISOR", WORST, "ADVISOR_MAX"), ai_cost("ADVISOR", "ADVISOR_MODEL", "ADVISOR_MAX"), ""),
+         ("Trợ lý hỏi đáp", ai_cost("CHAT", "CHAT_MODEL", "CHAT_USES"), ai_cost("CHAT", WORST, "CHAT_MAX"), ai_cost("CHAT", "CHAT_MODEL", "CHAT_MAX"), ""),
+         ("Ảnh vệ tinh", f"=TILES_PER_PROJECT*INDEX({IMG_PRICE},MATCH(IMG_SOURCE,{IMG_NAMES},0))/1000*FX_USD", f"=TILES_PER_PROJECT*3*INDEX({IMG_PRICE},MATCH(IMG_SOURCE,{IMG_NAMES},0))/1000*FX_USD", f"=TILES_PER_PROJECT*3*INDEX({IMG_PRICE},MATCH(IMG_SOURCE,{IMG_NAMES},0))/1000*FX_USD", "ô ảnh × giá/1.000 × tỷ giá; xấu nhất ×3 ô ảnh"),
+         ("CPU máy chủ", "=CPU_PROJECT", "=CPU_PROJECT*3", "=CPU_PROJECT*3", ""),
+         ("Lưu trữ trong thời hạn gói", "=MB_PROJECT/1024*R2_PRICE*COPIES*FX_USD*PLAN_KEEP_MONTHS", "=MB_PROJECT*3/1024*R2_PRICE*COPIES*FX_USD*12", "=MB_PROJECT*3/1024*R2_PRICE*COPIES*FX_USD*12", "MB/1024 × giá GB-tháng × số bản sao × tỷ giá × số tháng"),
+         ("Hỗ trợ kỹ sư", "=SUPPORT_HOURS*HOUR_COST", "=SUPPORT_HOURS*2*HOUR_COST", "=SUPPORT_HOURS*2*HOUR_COST", "")]
+for i, (label, exp, worst, pinned, how) in enumerate(lines, 5):
     put(v, f"A{i}", label)
     put(v, f"B{i}", exp, fmt=VND)
     put(v, f"C{i}", worst, fmt=VND)
+    put(v, f"D{i}", pinned, fmt=VND)
     put(v, f"E{i}", how, GREY)
 end = 4 + len(lines)
 put(v, f"A{end+1}", "TỔNG CHI PHÍ BIẾN ĐỔI / DỰ ÁN (chưa gồm phí thanh toán)", bold=True)
 put(v, f"B{end+1}", f"=SUM(B5:B{end})", fmt=VND, bold=True)
 put(v, f"C{end+1}", f"=SUM(C5:C{end})", fmt=VND, bold=True)
+put(v, f"D{end+1}", f"=SUM(D5:D{end})", fmt=VND, bold=True)
+name(v, f"D{end+1}", "VAR_COST_PINNED")
 name(v, f"B{end+1}", "VAR_COST")
 name(v, f"C{end+1}", "VAR_COST_WORST")
 put(v, f"A{end+2}", "  trong đó AI")
 put(v, f"B{end+2}", "=SUM(B5:B7)", fmt=VND)
 put(v, f"C{end+2}", "=SUM(C5:C7)", fmt=VND)
+put(v, f"D{end+2}", "=SUM(D5:D7)", fmt=VND)
 name(v, f"B{end+2}", "AI_COST")
 put(v, f"A{end+3}", "Chi phí lưu trữ thực 1 dự án / tháng (để so phí lưu trữ)")
 put(v, f"B{end+3}", "=MB_PROJECT/1024*R2_PRICE*COPIES*FX_USD", fmt=NUM)
 name(v, f"B{end+3}", "STORE_COST_MONTH")
-put(v, f"E{end+3}", "So với phí lưu trữ 1.000.000 đ/tháng: chi phí thật chỉ vài chục đồng — giá này là giá trị pháp lý, không phải chi phí.", GREY)
+put(v, f"E{end+3}", "Chi phí thật chỉ vài chục đồng: phí lưu trữ là giá của hồ sơ có niêm phong, không phải giá dung lượng (xem Luu_tru).", GREY)
 
 r0 = end + 6
 put(v, f"A{r0-1}", "So sánh mô hình AI: chi phí AI của 1 dự án nếu dùng MỘT mô hình cho cả 3 tính năng (lượt dự kiến)", bold=True)
@@ -295,18 +322,19 @@ put(v, f"E{r0+1}", "Chênh lệch giữa mô hình rẻ nhất và mạnh nhất
 # Goi (plans, unit economics)
 # ------------------------------------------------------------------------------------------------
 p = wb.create_sheet("Goi")
-title(p, "Gói theo dự án — kinh tế đơn vị", "Cột B–F là đầu vào (giá sáng lập viên đặt 07/11/2026); từ cột G là công thức")
-widths(p, [12, 22, 15, 10, 11, 12, 14, 15, 14, 14, 14, 12, 14, 15, 15])
+title(p, "Gói đề xuất 08/11/2026 — kinh tế đơn vị", "Cột B–F và P là đầu vào; còn lại là công thức. App vẫn chạy bảng 07/11 trong backend/app/billing.py cho tới khi chốt.")
+widths(p, [12, 22, 15, 10, 11, 12, 14, 15, 14, 14, 14, 12, 14, 15, 15, 12, 17, 10, 17, 10])
 header(p, 4, ["Mã gói", "Tên gói", "Giá (đ)", "Kỳ (tháng)", "Dự án / kỳ", "Ghế", "Giá / dự án", "Dự án dùng thực / kỳ", "Doanh thu / dự án dùng",
-              "Giá vốn / dự án dùng", "Lãi gộp / dự án", "Biên gộp", "Biên gộp xấu nhất", "Quy đổi đ/tháng", "So với neo đối thủ"])
-plans = [("month_1", "Tháng · 1 dự án", 5_990_000, 1, 1, 3, "NEO_MONTH"),
-         ("month_2", "Tháng · 2 dự án", 7_990_000, 1, 2, 5, "NEO_MONTH"),
-         ("year_3", "Năm · 3 dự án", 15_000_000, 12, 3, 5, "NEO_YEAR"),
-         ("year_7", "Năm · 7 dự án", 30_000_000, 12, 7, 10, "NEO_YEAR")]
-for i, (pid, nm, price, months, projects, seats, neo) in enumerate(plans, 5):
+              "Giá vốn / dự án dùng", "Lãi gộp / dự án", "Biên gộp", "Biên gộp xấu nhất", "Quy đổi đ/tháng", "So với neo đối thủ",
+              "Giờ hỗ trợ / kỳ", "Tối đa cả gói: mô hình đắt nhất, không giới hạn giờ", "% giá", "Tối đa cả gói: ghim mô hình, giới hạn giờ", "% giá"])
+plans = [("single", "Dự án lẻ", 5_990_000, 1, 1, 1, "NEO_MONTH", 3),
+         ("start", "Start", 17_900_000, 12, 8, 2, "NEO_START", 6),
+         ("team", "Team", 34_900_000, 12, 24, 5, "NEO_TEAM", 18),
+         ("pro", "Pro", 54_900_000, 12, 60, 10, "NEO_PRO", 30)]
+for i, (pid, nm, price, months, projects, seats, neo, hours) in enumerate(plans, 5):
     put(p, f"A{i}", pid, BLUE)
     put(p, f"B{i}", nm, BLUE)
-    put(p, f"C{i}", price, BLUE, VND, note="Giá sáng lập viên đặt ngày 07/11/2026")
+    put(p, f"C{i}", price, BLUE, VND, note="Giá đề xuất 08/11/2026, chưa chốt")
     put(p, f"D{i}", months, BLUE, VND)
     put(p, f"E{i}", projects, BLUE, VND)
     put(p, f"F{i}", seats, BLUE, VND)
@@ -319,20 +347,79 @@ for i, (pid, nm, price, months, projects, seats, neo) in enumerate(plans, 5):
     put(p, f"M{i}", f"=1-(VAR_COST_WORST+G{i}*PAY_FEE)/G{i}", fmt=PCT)
     put(p, f"N{i}", f"=C{i}/D{i}", fmt=VND)
     put(p, f"O{i}", f"=N{i}/{neo}-1", fmt=PCT, note="Âm = rẻ hơn đối thủ theo tiền mỗi tháng (CHƯA tính số dự án được dùng)")
+    put(p, f"P{i}", hours, BLUE, VND)
+    put(p, f"Q{i}", f"=E{i}*VAR_COST_WORST", fmt=VND)
+    put(p, f"R{i}", f"=Q{i}/C{i}", fmt=PCT)
+    put(p, f"S{i}", f"=E{i}*(VAR_COST_PINNED-SUPPORT_HOURS*2*HOUR_COST)+P{i}*HOUR_COST", fmt=VND)
+    put(p, f"T{i}", f"=S{i}/C{i}", fmt=PCT)
     name(p, f"C{i}", f"PRICE_{pid.upper()}")
     name(p, f"E{i}", f"PROJ_{pid.upper()}")
-put(p, "A10", "Lưu trữ", bold=True)
-put(p, "B10", "Phí lưu trữ 1 dự án / tháng")
-put(p, "C10", "=STORE_FEE", GREEN, VND)
-put(p, "J10", "=STORE_COST_MONTH+C10*PAY_FEE", fmt=VND)
+put(p, "A10", "Thiết kế hộ", bold=True)
+put(p, "B10", "Dịch vụ thêm, 1 dự án")
+put(p, "C10", "=DFY_PRICE", GREEN, VND)
+put(p, "J10", "=DFY_HOURS*HOUR_COST+DFY_AI+C10*PAY_FEE", fmt=VND)
 put(p, "K10", "=C10-J10", fmt=VND)
 put(p, "L10", "=K10/C10", fmt=PCT)
 put(p, "A12", "Đọc bảng", bold=True)
-notes = ["• Biên gộp rất cao vì chi phí biến đổi (AI, ảnh, máy chủ) chỉ vài chục nghìn đồng/dự án: giá gói KHÔNG bị chi phí ràng buộc, mà bị đối thủ và giá trị khách nhận được ràng buộc.",
-         "• Cột 'So với neo đối thủ' so tiền mỗi tháng với Aurora Premium (gói tháng) / HelioScope Basic (gói năm). Đối thủ cho 10–50 dự án/tháng với số tiền đó, nên tính theo từng dự án SolarOpt đắt hơn nhiều lần (xem Doi_thu).",
-         "• Đề xuất xem docs/GIA_VA_CHI_PHI_THUONG_MAI.md: giữ giá cho công trình C&I nhưng tính lượt theo quy mô (dân dụng ≤ 30 kWp = 0,2 lượt), phí lưu trữ theo năm và ân hạn 30 ngày."]
-for k, t in enumerate(notes, 13):
-    put(p, f"A{k}", t, wrap=False)
+notes = ["• Biên gộp cao vì AI, ảnh, máy chủ chỉ vài chục nghìn đồng/dự án. Khoản biến đổi lớn nhất là giờ hỗ trợ, nên gói năm có giới hạn giờ ở cột P.",
+         "• Cột 'So với neo đối thủ': Dự án lẻ so Aurora Premium trả tháng; Start so PVsyst; Team so HelioScope Basic; Pro so Aurora Premium trả năm. Đó là sản phẩm 1 người, gói này cho 2–10 ghế.",
+         "• Cột Q là trần lý thuyết. Cột S là trần sau khi không dùng mô hình đắt nhất cho khách và giới hạn giờ hỗ trợ.",
+         "• Tính lượt theo quy mô chưa đưa vào mô hình: ≤ 30 kWp = 0,2 lượt, 30 kWp–1 MWp = 1 lượt, trên 1 MWp = 1 lượt mỗi MWp."]
+for k, line in enumerate(notes, 13):
+    put(p, f"A{k}", line, wrap=False)
+
+# ------------------------------------------------------------------------------------------------
+# Luu_tru (tiered storage and cold archive)
+# ------------------------------------------------------------------------------------------------
+l = wb.create_sheet("Luu_tru")
+title(l, "Lưu trữ hồ sơ dự án theo bậc và kho lạnh", "Đề xuất 08/11/2026, chưa có trong app. Phí tính theo số dự án đang lưu ngoài phần gói năm đã bao gồm.")
+widths(l, [46, 13, 13, 15, 17, 17, 17, 18, 44])
+put(l, "A3", "Phí cũ (đ/dự án/tháng, đang chạy trong app)", GREY)
+put(l, "D3", 1_000_000, BLUE, VND)
+name(l, "D3", "OLD_STORE_FEE")
+header(l, 4, ["Bậc", "Từ (dự án)", "Đến (dự án)", "Phí / tháng", "Trả cả năm (đóng 10 tháng)", "Bình quân đ/dự án/tháng", "Chi phí lưu thật / tháng", "Theo phí cũ (đ/tháng)", "Ghi chú"])
+for i, (low, high, fee) in enumerate([(1, 8, 299_000), (9, 24, 599_000), (25, 60, 899_000), (61, 150, 1_490_000)], 5):
+    put(l, f"A{i}", f"Bậc {i - 4}")
+    put(l, f"B{i}", low, BLUE, VND)
+    put(l, f"C{i}", high, BLUE, VND)
+    put(l, f"D{i}", fee, BLUE, VND, fill=YELLOW)
+    put(l, f"E{i}", f"=D{i}*10", fmt=VND)
+    put(l, f"F{i}", f"=D{i}/C{i}", fmt=VND)
+    put(l, f"G{i}", f"=C{i}*STORE_COST_MONTH", fmt=VND)
+    put(l, f"H{i}", f"=C{i}*OLD_STORE_FEE", fmt=VND)
+    name(l, f"D{i}", f"TIER_{i - 4}")
+put(l, "A9", "Trên 150 dự án: báo giá riêng", GREY)
+header(l, 11, ["Gói năm", "Dự án lưu miễn phí", "", "Bậc khi vượt mức", "Phí kho / năm", "Bằng % giá gói"])
+for i, (nm, pid, tier) in enumerate([("Start", "START", 1), ("Team", "TEAM", 2), ("Pro", "PRO", 3)], 12):
+    put(l, f"A{i}", nm)
+    put(l, f"B{i}", f"=PROJ_{pid}", GREEN, VND)
+    put(l, f"D{i}", f"=TIER_{tier}", GREEN, VND)
+    put(l, f"E{i}", f"=D{i}*12", fmt=VND)
+    put(l, f"F{i}", f"=E{i}/PRICE_{pid}", fmt=PCT)
+header(l, 16, ["Chính sách khi không đóng phí", "Giá trị", "Đơn vị", "", "", "", "", "", "Ghi chú"])
+policy = [("Thời gian chỉ xem và tải về sau hạn", 30, "ngày", "ARCHIVE_GRACE", False, "Nhắc 3 lần: 14 ngày trước, 3 ngày trước, ngày đến hạn"),
+          ("Số tháng truy thu tối đa khi khôi phục", 6, "tháng", "RECOVER_MONTHS", True, "Có trần để không thành đòi tiền chuộc dữ liệu"),
+          ("Phí khôi phục toàn bộ", 500_000, "đ", "RECOVER_FEE", True, ""),
+          ("Phí lấy lẻ 1 dự án từ kho", 299_000, "đ", "RETRIEVE_ONE", True, ""),
+          ("Thời hạn giữ trong kho lạnh", 5, "năm", "ARCHIVE_YEARS", True, "CHƯA XÁC MINH: luật sư chốt theo quy định lưu hồ sơ và dữ liệu cá nhân")]
+for i, (label, val, unit, n, assumed, note) in enumerate(policy, 17):
+    put(l, f"A{i}", label)
+    put(l, f"B{i}", val, BLUE, VND, fill=YELLOW if assumed else None)
+    put(l, f"C{i}", unit)
+    put(l, f"I{i}", note, GREY)
+    name(l, f"B{i}", n)
+put(l, "A23", "Chi phí kho lạnh 1 dự án / tháng (đ)")
+put(l, "B23", "=MB_PROJECT/1024*COLD_PRICE*COLD_COPIES*FX_USD", fmt=NUM)
+name(l, "B23", "STORE_COLD_MONTH")
+put(l, "A24", "Ví dụ: khách Team bỏ 12 tháng rồi khôi phục (đ)")
+put(l, "B24", "=MIN(12,RECOVER_MONTHS)*TIER_2+RECOVER_FEE", fmt=VND)
+put(l, "A26", "Điều kiện trước khi bán", bold=True)
+for i, text in enumerate(["• Điều khoản ghi rõ dữ liệu được chuyển sang kho lưu trữ, thời hạn giữ và cách yêu cầu xóa thật; không gọi là đã xóa.",
+                          "• Kho chỉ giữ phần cần truy vết: bản duyệt, báo cáo, dữ liệu đầu vào, mã niêm phong, thời điểm ký.",
+                          "• Cơ quan có thẩm quyền yêu cầu thì cung cấp theo luật, không thu phí khôi phục. Khi có sự cố thật, khách lấy miễn phí bản duyệt đã ký.",
+                          "• Chuyển máy chủ sang lưu trữ bền, có sao lưu ngoài và niêm phong SHA-256; đổi purge_expired_projects.py từ xóa hẳn sang chuyển kho.",
+                          "• Doanh thu chưa tính phí khôi phục, để thận trọng."], 27):
+    put(l, f"A{i}", text)
 
 # ------------------------------------------------------------------------------------------------
 # Doi_thu (competitors)
@@ -380,18 +467,20 @@ put(d, f"F{last+1}", "Miễn phí; kỹ sư VN đang dùng kèm AutoCAD + PVsyst
 
 a = last + 3
 put(d, f"A{a}", "Neo giá để so (cùng phân khúc C&I)", bold=True)
-put(d, f"A{a+1}", "Neo gói tháng: Aurora Premium trả theo tháng (đ/tháng)")
-put(d, f"G{a+1}", "=G7", fmt=VND)
-name(d, f"G{a+1}", "NEO_MONTH")
-put(d, f"A{a+2}", "Neo gói năm: HelioScope Basic (đ/tháng quy đổi)")
-put(d, f"G{a+2}", "=G9", fmt=VND)
-name(d, f"G{a+2}", "NEO_YEAR")
-put(d, f"A{a+3}", "Mức rẻ hơn mục tiêu")
-put(d, f"G{a+3}", .175, BLUE, PCT, note="Sáng lập viên yêu cầu rẻ hơn 15–20%; lấy giữa khoảng")
-name(d, f"G{a+3}", "DISCOUNT_TARGET")
-header(d, a + 5, ["Gói SolarOpt", "", "Giá", "", "", "Đ / dự án (SolarOpt)", "Giá đối thủ cùng kỳ", "Chênh theo tiền/kỳ", "Đ / dự án đối thủ (EPC)", "Chênh theo đ/dự án", "Giá cần đặt để rẻ hơn mục tiêu (theo tiền/kỳ)"])
-for j, (pid, nm, price, months, projects, seats, neo) in enumerate(plans):
-    rr = a + 6 + j
+anchors = [("Neo Dự án lẻ: Aurora Premium trả theo tháng (đ/tháng)", "=G7", "NEO_MONTH"),
+           ("Neo Start: PVsyst Professional (đ/tháng quy đổi)", "=G11", "NEO_START"),
+           ("Neo Team: HelioScope Basic (đ/tháng quy đổi)", "=G9", "NEO_TEAM"),
+           ("Neo Pro: Aurora Premium trả năm (đ/tháng quy đổi)", "=G8", "NEO_PRO")]
+for j, (label, ref, n) in enumerate(anchors, a + 1):
+    put(d, f"A{j}", label)
+    put(d, f"G{j}", ref, fmt=VND)
+    name(d, f"G{j}", n)
+put(d, f"A{a+5}", "Mức rẻ hơn mục tiêu")
+put(d, f"G{a+5}", .175, BLUE, PCT, note="Sáng lập viên yêu cầu rẻ hơn 15–20%; lấy giữa khoảng")
+name(d, f"G{a+5}", "DISCOUNT_TARGET")
+header(d, a + 7, ["Gói SolarOpt", "", "Giá", "", "", "Đ / dự án (SolarOpt)", "Giá đối thủ cùng kỳ", "Chênh theo tiền/kỳ", "Đ / dự án đối thủ (EPC)", "Chênh theo đ/dự án", "Giá cần đặt để rẻ hơn mục tiêu (theo tiền/kỳ)"])
+for j, (pid, nm, price, months, projects, seats, neo, hours) in enumerate(plans):
+    rr = a + 8 + j
     put(d, f"A{rr}", f"=Goi!B{5+j}", GREEN)
     put(d, f"C{rr}", f"=Goi!C{5+j}", GREEN, VND)
     put(d, f"F{rr}", f"=Goi!G{5+j}", GREEN, VND)
@@ -400,7 +489,7 @@ for j, (pid, nm, price, months, projects, seats, neo) in enumerate(plans):
     put(d, f"I{rr}", f"={neo}/EPC_PROJECTS", fmt=VND)
     put(d, f"J{rr}", f"=F{rr}/I{rr}-1", fmt=PCT)
     put(d, f"K{rr}", f"=G{rr}*(1-DISCOUNT_TARGET)", fmt=VND)
-put(d, f"A{a+11}", "Đọc bảng: theo tiền mỗi kỳ, gói năm của SolarOpt đã rẻ hơn HelioScope; gói tháng chỉ rẻ hơn Aurora Premium khoảng 11%. Nhưng tính theo từng dự án, SolarOpt đắt hơn nhiều lần vì đối thủ cho 10–50 dự án/tháng.", wrap=False)
+put(d, f"A{a+13}", "Đọc bảng: ba gói năm rẻ hơn neo 15–20% theo tiền mỗi kỳ. Tính theo dự án, đối thủ vẫn rẻ hơn với khách làm nhiều dự án, vì họ cho 10–50 dự án/tháng.", wrap=False)
 
 # ------------------------------------------------------------------------------------------------
 # Chi_phi_co_dinh (fixed monthly costs)
@@ -444,7 +533,8 @@ comp_costs = [("Pháp lý một lần (điều khoản dịch vụ, chính sách
               ("Kiểm thử xâm nhập (từ tháng 13)", 30_000_000, "năm", "PENTEST", True, "Ước tính — cần báo giá"),
               ("Bộ đánh giá khi đổi/nâng mô hình AI (token + giờ công)", 10_000_000, "năm", "MODEL_EVAL", True, "Mô hình đổi giá/ngừng 6–12 tháng/lần"),
               ("Công cụ phát triển, giám sát lỗi, tên miền", 1_100_000, "tháng", "TOOLS", False, "GitHub, Sentry, tên miền .vn ~1 tr/năm"),
-              ("Marketing cố định (nội dung, hội thảo, demo tại công trình)", 5_000_000, "tháng", "MKT_FIXED", False, "")]
+              ("Marketing cố định (nội dung, hội thảo, demo tại công trình)", 5_000_000, "tháng", "MKT_FIXED", False, ""),
+              ("Văn phòng / chỗ ngồi chung", 5_000_000, "tháng", "OFFICE", True, "Giả định mới; cần báo giá")]
 for i, (label, val, kind, n, assumed, src) in enumerate(comp_costs, h + 1):
     put(f, f"A{i}", label)
     put(f, f"B{i}", val, BLUE, VND, fill=YELLOW if assumed else None)
@@ -453,30 +543,39 @@ for i, (label, val, kind, n, assumed, src) in enumerate(comp_costs, h + 1):
     name(f, f"B{i}", n)
 
 s = h + len(comp_costs) + 2
-header(f, s, ["Nhân sự", "Lương gross (đ/tháng)", "Số người", "", "Ghi chú"])
-staff = [("Lập trình viên (backend, giao diện, AI)", 11_570_000, 2, "Mặt bằng junior ITviec 2025–2026"),
-         ("Bán hàng / chăm sóc khách hàng kỹ thuật", 11_570_000, 1, "")]
-for i, (label, pay, cnt, note) in enumerate(staff, s + 1):
+header(f, s, ["Nhân sự, theo thứ tự tuyển", "Lương gross (đ/tháng)", "Tuyển khi đạt (khách)", "Thứ tự", "Ghi chú"])
+staff = [("Lập trình viên (backend, AI)", 11_570_000, 0, "Mặt bằng junior ITviec 2025–2026"),
+         ("Lập trình viên (giao diện, sản phẩm)", 11_570_000, 0, ""),
+         ("Bán hàng / chăm sóc khách hàng kỹ thuật", 11_570_000, 0, ""),
+         ("Kỹ sư hỗ trợ điện mặt trời", 11_570_000, 15, "Tin tuyển dụng TP.HCM 2026 ghi 11–25 tr; đổi lương ở đây nếu cần"),
+         ("Bán hàng thứ hai", 11_570_000, 30, ""),
+         ("Vận hành, tài chính", 11_570_000, 60, "")]
+for i, (label, pay, threshold, note) in enumerate(staff, s + 1):
     put(f, f"A{i}", label)
     put(f, f"B{i}", pay, BLUE, VND)
-    put(f, f"C{i}", cnt, BLUE, VND)
+    put(f, f"C{i}", threshold, BLUE, VND, fill=YELLOW)
+    put(f, f"D{i}", i - s, fmt="0")
     put(f, f"E{i}", note, GREY)
-put(f, f"A{s+3}", "Đóng góp người sử dụng lao động")
-put(f, f"B{s+3}", .215, BLUE, PCT)
-put(f, f"E{s+3}", "BHXH 17,5% + BHYT 3% + BHTN 1%", GREY)
-put(f, f"A{s+4}", "Tỷ lệ lương trả bằng tiền năm đầu")
-put(f, f"B{s+4}", .5, BLUE, PCT, fill=YELLOW)
-name(f, f"B{s+4}", "PAY_RATIO_Y1")
-put(f, f"A{s+5}", "Tổng chi phí nhân sự đủ lương (đ/tháng)", bold=True)
-put(f, f"B{s+5}", f"=(B{s+1}*C{s+1}+B{s+2}*C{s+2})*(1+B{s+3})", fmt=VND, bold=True)
-name(f, f"B{s+5}", "STAFF")
+last_staff = s + len(staff)
+STAFF_WAGE = f"Chi_phi_co_dinh!$B${s+1}:$B${last_staff}"
+STAFF_FROM = f"Chi_phi_co_dinh!$C${s+1}:$C${last_staff}"
+STAFF_ORDER = f"Chi_phi_co_dinh!$D${s+1}:$D${last_staff}"
+put(f, f"A{last_staff+1}", "Đóng góp người sử dụng lao động")
+put(f, f"B{last_staff+1}", .215, BLUE, PCT)
+name(f, f"B{last_staff+1}", "EMPLOYER")
+put(f, f"E{last_staff+1}", "BHXH 17,5% + BHYT 3% + BHTN 1%", GREY)
+put(f, f"A{last_staff+2}", "Tỷ lệ lương trả bằng tiền năm đầu")
+put(f, f"B{last_staff+2}", 1, BLUE, PCT, fill=YELLOW)
+name(f, f"B{last_staff+2}", "PAY_RATIO_Y1")
+put(f, f"A{last_staff+3}", "Quỹ lương khi đủ 6 người, đủ lương (đ/tháng)", bold=True)
+put(f, f"B{last_staff+3}", f"=SUM(B{s+1}:B{last_staff})*(1+B{last_staff+1})", fmt=VND, bold=True)
 
 # ------------------------------------------------------------------------------------------------
 # Dong_tien (36-month cash flow)
 # ------------------------------------------------------------------------------------------------
 c = wb.create_sheet("Dong_tien")
-title(c, "Dòng tiền 36 tháng (VND) — tháng 1 = 01/2027", "Dòng chữ xanh là dự báo đầu vào (giả định); còn lại là công thức. Gói năm thu tiền ngay khi mua.")
-c.column_dimensions["A"].width = 52
+title(c, "Dòng tiền 36 tháng (VND) — tháng 1 = tháng đầu bán (Gia_dinh: LAUNCH)", "Dòng chữ xanh là dự báo đầu vào (giả định); còn lại là công thức. Gói năm thu tiền ngay khi mua, nên đây là số theo tiền thu, không phân bổ doanh thu.")
+c.column_dimensions["A"].width = 58
 c.column_dimensions["B"].width = 4
 M = list(range(1, 37))
 C0 = 3  # column C = month 1
@@ -498,95 +597,184 @@ def tiers(m, a, b, d_, e):
     return a if m <= 6 else b if m <= 12 else d_ if m <= 24 else e
 
 
+def ago(m, r, months):
+    return f"{mc(m - months)}{r}" if m > months else "0"
+
+
+def last12(m, r):
+    return f"SUM({mc(max(1, m - 11))}{r}:{mc(m)}{r})"
+
+
 row(3, "Tháng thứ", lambda m: m, "0")
-row(4, "Kỳ", lambda m: f"T{(m - 1) % 12 + 1:02d}/{2027 + (m - 1) // 12}", "@")
-row(5, "Đang trong pilot (1/0)", lambda m: f"=IF({mc(m)}3<=PILOT_MONTHS,1,0)", "0")
-put(c, "A7", "GÓI THÁNG (mua theo lượt, khi có dự án)", bold=True)
-row(8, "  Lượt mua Tháng·1 dự án — cơ sở", lambda m: tiers(m, 1, 2, 3, 4), NUM, BLUE)
-row(9, "  Lượt mua Tháng·1 dự án — theo kịch bản", lambda m: f"={mc(m)}8*SCENARIO", NUM)
-row(10, "  Lượt mua Tháng·2 dự án — cơ sở", lambda m: tiers(m, 0, .5, 1, 1.5), NUM, BLUE)
-row(11, "  Lượt mua Tháng·2 dự án — theo kịch bản", lambda m: f"={mc(m)}10*SCENARIO", NUM)
-put(c, "A13", "GÓI NĂM", bold=True)
-row(14, "  Năm·3 dự án mua mới — cơ sở", lambda m: tiers(m, .3, .5, 1, 1.5), NUM, BLUE)
-row(15, "  Năm·3 dự án mua mới — theo kịch bản", lambda m: f"={mc(m)}14*SCENARIO", NUM)
-row(16, "  Năm·3 dự án gia hạn", lambda m: f"={mc(m-12)}17*RENEW" if m > 12 else "=0", NUM)
-row(17, "  Năm·3 dự án tổng lượt mua", lambda m: f"={mc(m)}15+{mc(m)}16", NUM)
-row(18, "  Năm·7 dự án mua mới — cơ sở", lambda m: tiers(m, 0, .25, .5, 1), NUM, BLUE)
-row(19, "  Năm·7 dự án mua mới — theo kịch bản", lambda m: f"={mc(m)}18*SCENARIO", NUM)
-row(20, "  Năm·7 dự án gia hạn", lambda m: f"={mc(m-12)}21*RENEW" if m > 12 else "=0", NUM)
-row(21, "  Năm·7 dự án tổng lượt mua", lambda m: f"={mc(m)}19+{mc(m)}20", NUM)
-row(22, "  Gói năm đang hiệu lực", lambda m: f"=SUM({mc(max(1, m-11))}17:{mc(m)}17)+SUM({mc(max(1, m-11))}21:{mc(m)}21)", NUM)
-row(23, "Khách trả phí đang hoạt động (gói tháng tháng này + gói năm còn hạn)", lambda m: f"={mc(m)}9+{mc(m)}11+{mc(m)}22", NUM, bold=True)
-put(c, "A25", "DỰ ÁN", bold=True)
-row(26, "  Dự án dùng từ gói tháng", lambda m: f"=({mc(m)}9*PROJ_MONTH_1+{mc(m)}11*PROJ_MONTH_2)*UTIL", NUM)
-row(27, "  Dự án dùng từ gói năm (rải đều 12 tháng)", lambda m: f"=(SUM({mc(max(1, m-11))}17:{mc(m)}17)*PROJ_YEAR_3+SUM({mc(max(1, m-11))}21:{mc(m)}21)*PROJ_YEAR_7)/12*UTIL", NUM)
-row(28, "  Tổng dự án dùng trong tháng", lambda m: f"={mc(m)}26+{mc(m)}27", NUM, bold=True)
-row(29, "  Dự án hết thời hạn gói trong tháng", lambda m: ("=0" if m == 1 else f"={mc(m-1)}26") + (f"+({mc(m-12)}17*PROJ_YEAR_3+{mc(m-12)}21*PROJ_YEAR_7)*UTIL" if m > 12 else ""), NUM)
-row(30, "  Dự án đang trả phí lưu trữ", lambda m: (f"={mc(m-1)}30*(1-1/STORE_MONTHS)+" if m > 1 else "=") + f"{mc(m)}29*STORE_SHARE", NUM)
-row(31, "  Người dùng thử mới — cơ sở", lambda m: tiers(m, 5, 5, 10, 15), NUM, BLUE)
-put(c, "A33", "DOANH THU", bold=True)
-row(34, "  Gói tháng", lambda m: f"=({mc(m)}9*PRICE_MONTH_1+{mc(m)}11*PRICE_MONTH_2)*(1-{mc(m)}5*PILOT_DISC)")
-row(35, "  Gói năm (thu khi mua)", lambda m: f"=({mc(m)}17*PRICE_YEAR_3+{mc(m)}21*PRICE_YEAR_7)*(1-{mc(m)}5*PILOT_DISC)")
-row(36, "  Phí lưu trữ dự án", lambda m: f"={mc(m)}30*STORE_FEE")
-row(37, "TỔNG DOANH THU", lambda m: f"=SUM({mc(m)}34:{mc(m)}36)", bold=True)
-put(c, "A39", "GIÁ VỐN", bold=True)
-row(40, "  Chi phí biến đổi dự án (gồm dự án dùng thử)", lambda m: f"=({mc(m)}28+{mc(m)}31*SCENARIO*TRIAL_PROJECTS)*VAR_COST")
-row(41, "  Lưu trữ dữ liệu dự án đã hết gói", lambda m: f"={mc(m)}30*STORE_COST_MONTH")
-row(42, "  Phí thanh toán", lambda m: f"={mc(m)}37*PAY_FEE")
-row(43, "TỔNG GIÁ VỐN", lambda m: f"=SUM({mc(m)}40:{mc(m)}42)", bold=True)
-row(44, "LÃI GỘP", lambda m: f"={mc(m)}37-{mc(m)}43", bold=True)
-put(c, "A46", "CHI PHÍ HOẠT ĐỘNG", bold=True)
-row(47, "  Hạ tầng (theo giai đoạn)", lambda m: f"=IF({mc(m)}23<=STAGE_2,INFRA_1,IF({mc(m)}23<=STAGE_3,INFRA_2,INFRA_3))*FX_USD")
-row(48, "  Nhân sự", lambda m: f"=STAFF*IF({mc(m)}3<=12,PAY_RATIO_Y1,1)")
-row(49, "  Pháp lý, tuân thủ, bảo hiểm, kỹ sư cố vấn, công cụ", lambda m: f"=IF({mc(m)}3=1,LEGAL_ONCE+PDPL_ONCE,0)+ACCOUNTING+INSURANCE/12+ADVISOR_ENG+IF({mc(m)}3>12,PENTEST/12,0)+MODEL_EVAL/12+TOOLS")
-row(50, "  Marketing (cố định + CAC khách mới)", lambda m: f"=MKT_FIXED+CAC*(({mc(m)}9+{mc(m)}11)*NEW_SHARE+{mc(m)}15+{mc(m)}19)")
-row(51, "TỔNG CHI PHÍ HOẠT ĐỘNG", lambda m: f"=SUM({mc(m)}47:{mc(m)}50)", bold=True)
-row(52, "EBITDA", lambda m: f"={mc(m)}44-{mc(m)}51", bold=True)
-row(53, "  Thuế TNDN", lambda m: f"=MAX(0,{mc(m)}52)*TAX")
-row(54, "LỢI NHUẬN RÒNG", lambda m: f"={mc(m)}52-{mc(m)}53", bold=True)
-row(55, "  Vốn góp / gọi vốn", lambda m: {1: 250_000_000, 4: 200_000_000, 8: 150_000_000}.get(m, 0), VND, BLUE)
-row(56, "TIỀN MẶT CUỐI THÁNG", lambda m: (f"={mc(m-1)}56+" if m > 1 else "=") + f"{mc(m)}54+{mc(m)}55", bold=True)
-row(57, "  (phụ) tháng có EBITDA ≥ 0", lambda m: f"=IF({mc(m)}52>=0,{mc(m)}3,999)", "0")
+row(4, "Kỳ", lambda m: f"=EDATE(LAUNCH,{mc(m)}3-1)", "mm/yyyy")
+put(c, "A6", "KHÁCH VÀ LƯỢT MUA", bold=True)
+row(7, "  Lượt mua Dự án lẻ — cơ sở", lambda m: tiers(m, 1, 2, 3, 4), NUM, BLUE)
+row(8, "  Lượt mua Dự án lẻ — theo kịch bản", lambda m: f"={mc(m)}7*SCENARIO", NUM)
+row(9, "  Khách gói năm mới — cơ sở", lambda m: tiers(m, 1.33, 2.33, 2.5, 3.33), NUM, BLUE)
+row(10, "  Khách gói năm mới — theo kịch bản", lambda m: f"={mc(m)}9*SCENARIO", NUM)
+row(11, "  Start mua mới", lambda m: f"={mc(m)}10*MIX_START", NUM)
+row(12, "  Team mua mới", lambda m: f"={mc(m)}10*MIX_TEAM", NUM)
+row(13, "  Pro mua mới", lambda m: f"={mc(m)}10*MIX_PRO", NUM)
+row(14, "  Start gia hạn", lambda m: f"={ago(m, 17, 12)}*RENEW", NUM)
+row(15, "  Team gia hạn", lambda m: f"={ago(m, 18, 12)}*RENEW", NUM)
+row(16, "  Pro gia hạn", lambda m: f"={ago(m, 19, 12)}*RENEW", NUM)
+row(17, "  Start tổng lượt mua", lambda m: f"={mc(m)}11+{mc(m)}14", NUM)
+row(18, "  Team tổng lượt mua", lambda m: f"={mc(m)}12+{mc(m)}15", NUM)
+row(19, "  Pro tổng lượt mua", lambda m: f"={mc(m)}13+{mc(m)}16", NUM)
+row(20, "  Gói năm đang hiệu lực", lambda m: f"={last12(m, 17)}+{last12(m, 18)}+{last12(m, 19)}", NUM)
+row(21, "Khách trả phí đang hoạt động", lambda m: f"={mc(m)}8+{mc(m)}20", NUM, bold=True)
+row(22, "  Số khách cao nhất từ đầu (mốc tuyển người)", lambda m: f"=MAX({ago(m, 22, 1)},{mc(m)}21)", NUM)
+row(23, "  Dự án Thiết kế hộ — cơ sở", lambda m: tiers(m, 2, 3, 3, 4), NUM, BLUE)
+row(24, "  Dự án Thiết kế hộ — theo kịch bản", lambda m: f"={mc(m)}23*SCENARIO", NUM)
+put(c, "A26", "DỰ ÁN", bold=True)
+row(27, "  Dự án dùng từ Dự án lẻ", lambda m: f"={mc(m)}8*PROJ_SINGLE", NUM)
+row(28, "  Dự án dùng từ gói năm (rải đều 12 tháng)", lambda m: f"=({last12(m, 17)}*PROJ_START+{last12(m, 18)}*PROJ_TEAM+{last12(m, 19)}*PROJ_PRO)/12*UTIL", NUM)
+row(29, "  Tổng dự án dùng trong tháng", lambda m: f"={mc(m)}27+{mc(m)}28", NUM, bold=True)
+row(30, "  Dự án tích lũy trong hệ thống", lambda m: f"={ago(m, 30, 1)}+{mc(m)}29", NUM)
+row(31, "  Người dùng thử mới", lambda m: f"=({mc(m)}8*NEW_SHARE+{mc(m)}10)*TRIALS_PER_CUSTOMER", NUM)
+put(c, "A32", "KHÁCH ĐÓNG PHÍ KHO LƯU TRỮ (phí năm đầu gần như bằng 0 vì gói năm chưa hết hạn)", bold=True)
+row(33, "  Bậc 1: khách lẻ và Start", lambda m: f"={ago(m, 33, 1)}*(1-1/STORE_MONTHS)+({ago(m, 8, 1)}*NEW_SHARE+{ago(m, 17, 12)})*STORE_SHARE", NUM)
+row(34, "  Bậc 2: khách Team", lambda m: f"={ago(m, 34, 1)}*(1-1/STORE_MONTHS)+{ago(m, 18, 12)}*STORE_SHARE", NUM)
+row(35, "  Bậc 3: khách Pro", lambda m: f"={ago(m, 35, 1)}*(1-1/STORE_MONTHS)+{ago(m, 19, 12)}*STORE_SHARE", NUM)
+put(c, "A37", "DOANH THU", bold=True)
+row(38, "  Dự án lẻ", lambda m: f"={mc(m)}8*PRICE_SINGLE")
+row(39, "  Gói năm (thu khi mua)", lambda m: f"={mc(m)}17*PRICE_START+{mc(m)}18*PRICE_TEAM+{mc(m)}19*PRICE_PRO")
+row(40, "  Khách pilot trong tháng", lambda m: f"=MAX(0,MIN({mc(m)}10,PILOT_CUSTOMERS-{f'SUM($C10:{mc(m - 1)}10)' if m > 1 else '0'}))", NUM)
+row(41, "  Giảm giá pilot (chỉ gói năm)", lambda m: f"=IF({mc(m)}10=0,0,-{mc(m)}40*PILOT_DISC*({mc(m)}11*PRICE_START+{mc(m)}12*PRICE_TEAM+{mc(m)}13*PRICE_PRO)/{mc(m)}10)")
+row(42, "  Trừ tiền lẻ khi nâng lên gói năm", lambda m: f"=-{mc(m)}10*UPGRADE_SHARE*PRICE_SINGLE")
+row(43, "  Thiết kế hộ", lambda m: f"={mc(m)}24*DFY_PRICE")
+row(44, "  Phí kho lưu trữ", lambda m: f"={mc(m)}33*TIER_1+{mc(m)}34*TIER_2+{mc(m)}35*TIER_3")
+row(45, "TỔNG DOANH THU", lambda m: f"=SUM({mc(m)}38:{mc(m)}39)+SUM({mc(m)}41:{mc(m)}44)", bold=True)
+put(c, "A47", "GIÁ VỐN", bold=True)
+row(48, "  Chi phí biến đổi dự án (gồm dùng thử)", lambda m: f"=({mc(m)}29+{mc(m)}31)*VAR_COST")
+row(49, "  Thiết kế hộ", lambda m: f"={mc(m)}24*(DFY_HOURS*HOUR_COST+DFY_AI)")
+row(50, "  Kho lạnh", lambda m: f"={mc(m)}30*STORE_COLD_MONTH")
+row(51, "  Phí thanh toán", lambda m: f"={mc(m)}45*PAY_FEE")
+row(52, "TỔNG GIÁ VỐN", lambda m: f"=SUM({mc(m)}48:{mc(m)}51)", bold=True)
+row(53, "LÃI GỘP", lambda m: f"={mc(m)}45-{mc(m)}52", bold=True)
+put(c, "A55", "CHI PHÍ HOẠT ĐỘNG", bold=True)
+row(56, "  Hạ tầng (theo giai đoạn)", lambda m: f"=IF({mc(m)}21<=STAGE_2,INFRA_1,IF({mc(m)}21<=STAGE_3,INFRA_2,INFRA_3))*FX_USD")
+row(57, "  Số nhân sự (theo mốc khách hoặc FIXED_STAFF)", lambda m: f'=IF(FIXED_STAFF>0,FIXED_STAFF,COUNTIF({STAFF_FROM},"<="&{mc(m)}22))', "0")
+row(58, "  Nhân sự", lambda m: f"=SUMPRODUCT(({STAFF_ORDER}<={mc(m)}57)*{STAFF_WAGE})*(1+EMPLOYER)*IF({mc(m)}3<=12,PAY_RATIO_Y1,1)")
+row(59, "  Pháp lý, tuân thủ, bảo hiểm, kỹ sư cố vấn, công cụ, văn phòng", lambda m: f"=IF({mc(m)}3=1,LEGAL_ONCE+PDPL_ONCE,0)+ACCOUNTING+INSURANCE/12+ADVISOR_ENG+IF({mc(m)}3>12,PENTEST/12,0)+MODEL_EVAL/12+TOOLS+OFFICE")
+row(60, "  Marketing (cố định + chi phí có khách mới)", lambda m: f"=MKT_FIXED+CAC*({mc(m)}8*NEW_SHARE+{mc(m)}10)")
+row(61, "  Dự phòng trên chi phí cố định", lambda m: f"=CONTINGENCY*({mc(m)}56+{mc(m)}58+{mc(m)}59+MKT_FIXED)")
+row(62, "TỔNG CHI PHÍ HOẠT ĐỘNG", lambda m: f"={mc(m)}56+SUM({mc(m)}58:{mc(m)}61)", bold=True)
+row(63, "EBITDA", lambda m: f"={mc(m)}53-{mc(m)}62", bold=True)
+row(64, "  Thuế TNDN", lambda m: f"=MAX(0,{mc(m)}63)*TAX")
+row(65, "LỢI NHUẬN RÒNG", lambda m: f"={mc(m)}63-{mc(m)}64", bold=True)
+row(66, "  Vốn góp / gọi vốn", lambda m: {1: 250_000_000, 4: 200_000_000, 8: 150_000_000}.get(m, 0), VND, BLUE)
+row(67, "TIỀN MẶT CUỐI THÁNG", lambda m: (f"={mc(m-1)}67+" if m > 1 else "=") + f"{mc(m)}65+{mc(m)}66", bold=True)
+row(68, "  (phụ) tháng có EBITDA ≥ 0", lambda m: f"=IF({mc(m)}63>=0,{mc(m)}3,999)", "0")
 c.freeze_panes = "C5"
+
+# ------------------------------------------------------------------------------------------------
+# Hoa_von (fewest buyers to break even in year one)
+# ------------------------------------------------------------------------------------------------
+b = wb.create_sheet("Hoa_von")
+title(b, "Số khách tối thiểu để hòa vốn và đạt lãi mục tiêu năm đầu", "Một loại gói cho toàn bộ khách, để làm nền so sánh. Tối đa = mỗi dự án dùng hết hạn mức bằng mô hình đắt nhất (Chi_phi_du_an cột C). Chưa tính doanh thu lưu trữ và Thiết kế hộ.")
+widths(b, [50, 12, 16, 15, 15, 15, 15, 15, 15])
+put(b, "A4", "Lãi mục tiêu năm đầu")
+put(b, "B4", "=TARGET_PROFIT", GREEN, VND)
+put(b, "A5", "Số tháng bình quân khi khách lẻ vào rải đều trong năm")
+put(b, "B5", 6.5, BLUE, NUM, fill=YELLOW)
+put(b, "A6", "Giá gói Năm · 3 dự án của bảng giá 07/11 (để so)")
+put(b, "B6", 15_000_000, BLUE, VND)
+header(b, 8, ["Phương án nhân sự", "", ""] + ["6 người đủ lương", "5 người đủ lương", "6 người, lương 15 tr", "6 người nửa lương", "3 người đủ lương", "3 người nửa lương"])
+cases = [(6, 11_570_000, 1), (5, 11_570_000, 1), (6, 15_000_000, 1), (6, 11_570_000, .5), (3, 11_570_000, 1), (3, 11_570_000, .5)]
+CC = "DEFGHI"
+labels = ["Số người", "Lương gross (đ/tháng)", "Tỷ lệ lương trả năm đầu", "Quỹ lương (đ/tháng)", "Chi phí cố định, tới 30 khách (đ/tháng)", "Chi phí cố định cả năm, tới 30 khách", "Chi phí cố định cả năm, 31–120 khách", "Chi phí cố định cả năm, trên 120 khách"]
+for i, text in enumerate(labels, 9):
+    put(b, f"A{i}", text)
+OTHER_MONTH = "(ACCOUNTING+INSURANCE/12+ADVISOR_ENG+MODEL_EVAL/12+TOOLS+MKT_FIXED+OFFICE)"
+for k, (people, wage, ratio) in zip(CC, cases):
+    put(b, f"{k}9", people, BLUE, "0")
+    put(b, f"{k}10", wage, BLUE, VND)
+    put(b, f"{k}11", ratio, BLUE, PCT)
+    put(b, f"{k}12", f"={k}9*{k}10*(1+EMPLOYER)*{k}11", fmt=VND)
+    put(b, f"{k}13", f"={k}12+INFRA_1*FX_USD+{OTHER_MONTH}", fmt=VND)
+    for r_, infra_ in ((14, "INFRA_1"), (15, "INFRA_2"), (16, "INFRA_3")):
+        put(b, f"{k}{r_}", f"=(({k}12+{infra_}*FX_USD+{OTHER_MONTH})*12+LEGAL_ONCE+PDPL_ONCE)*(1+CONTINGENCY)", fmt=VND)
+products = [("Mua lẻ mỗi tháng, đủ 12 tháng từ tháng 1", "Tối đa", "=12*(PRICE_SINGLE*(1-PAY_FEE)-VAR_COST_WORST)"),
+            ("Mua lẻ mỗi tháng, đủ 12 tháng từ tháng 1", "Dự kiến", "=12*(PRICE_SINGLE*(1-PAY_FEE)-VAR_COST)"),
+            ("Mua lẻ mỗi tháng, khách vào rải đều trong năm", "Tối đa", "=$B$5*(PRICE_SINGLE*(1-PAY_FEE)-VAR_COST_WORST)"),
+            ("Mua lẻ mỗi tháng, khách vào rải đều trong năm", "Dự kiến", "=$B$5*(PRICE_SINGLE*(1-PAY_FEE)-VAR_COST)"),
+            ("Mua lẻ 3 lần/năm", "Tối đa", "=3*(PRICE_SINGLE*(1-PAY_FEE)-VAR_COST_WORST)"),
+            ("Mua lẻ 3 lần/năm", "Dự kiến", "=3*(PRICE_SINGLE*(1-PAY_FEE)-VAR_COST)"),
+            ("Toàn gói Năm · 3 dự án (bảng giá 07/11)", "Tối đa", "=$B$6*(1-PAY_FEE)-3*VAR_COST_WORST"),
+            ("Toàn gói Năm · 3 dự án (bảng giá 07/11)", "Dự kiến", "=$B$6*(1-PAY_FEE)-3*UTIL*VAR_COST"),
+            ("Toàn gói Start (gói năm rẻ nhất)", "Tối đa", "=PRICE_START*(1-PAY_FEE)-PROJ_START*VAR_COST_WORST"),
+            ("Toàn gói Start (gói năm rẻ nhất)", "Dự kiến", "=PRICE_START*(1-PAY_FEE)-PROJ_START*UTIL*VAR_COST"),
+            ("Trộn Start, Team, Pro theo tỷ lệ ở Gia_dinh", "Dự kiến",
+             "=(MIX_START*PRICE_START+MIX_TEAM*PRICE_TEAM+MIX_PRO*PRICE_PRO)*(1-PAY_FEE)-(MIX_START*PROJ_START+MIX_TEAM*PROJ_TEAM+MIX_PRO*PROJ_PRO)*UTIL*VAR_COST")]
+
+
+def breakeven_block(top, cac, cac_note):
+    put(b, f"A{top}", f"Chi phí có 1 khách: {cac_note}", bold=True)
+    put(b, f"B{top}", cac, GREEN, VND)
+    header(b, top + 1, ["Trường hợp", "Mức dùng", "Đóng góp / khách, chưa trừ chi phí có khách"] + [f"={k}8" for k in CC])
+    for i, (label, level, formula) in enumerate(products, top + 2):
+        put(b, f"A{i}", label)
+        put(b, f"B{i}", level)
+        put(b, f"C{i}", formula, fmt=VND)
+        margin = f"($C{i}-$B${top}-TRIALS_PER_CUSTOMER*VAR_COST)"
+        for k in CC:
+            n1, n2, n3 = [f"ROUNDUP(({k}${r_}+$B$4)/{margin},0)" for r_ in (14, 15, 16)]
+            put(b, f"{k}{i}", f'=IF({margin}<=0,"Không hòa vốn",IF({n1}<=STAGE_2,{n1},IF(MAX(STAGE_2+1,{n2})<=STAGE_3,MAX(STAGE_2+1,{n2}),MAX(STAGE_3+1,{n3}))))', fmt="#,##0")
+
+
+breakeven_block(18, "=CAC", "mức trong Gia_dinh")
+breakeven_block(32, "=CAC_LOW", "mức thấp, sáng lập viên tự bán")
+put(b, "A46", "Đọc bảng", bold=True)
+for k_, text in enumerate(["• Hai dòng mua lẻ đủ 12 tháng chỉ là nền lý thuyết: khách sẽ trả 71,9 tr cho 12 dự án, trong khi Team là 34,9 tr cho 24 dự án.",
+                           "• Mức Tối đa tính cao hơn thực tế vì giờ hỗ trợ đã có người trong lương; số thật nằm giữa hai mức.",
+                           "• Số khách là số phải có, không phải dự báo. Chưa có dữ liệu về số EPC tại TP.HCM và mức giá khách chấp nhận."], 47):
+    put(b, f"A{k_}", text)
 
 # ------------------------------------------------------------------------------------------------
 # Tong_hop (summary)
 # ------------------------------------------------------------------------------------------------
 t = wb.create_sheet("Tong_hop", 1)
-title(t, "Tổng hợp kết quả", "Mọi số là công thức từ Dong_tien, Goi, Chi_phi_du_an")
-widths(t, [48, 18, 18, 18, 50])
-header(t, 4, ["Chỉ tiêu (VND)", "Năm 1 (2027)", "Năm 2 (2028)", "Năm 3 (2029)", "Ghi chú"])
+title(t, "Tổng hợp kết quả", "Năm 1 = 12 tháng đầu bán. Mọi số là công thức từ Dong_tien, Goi, Chi_phi_du_an")
+widths(t, [50, 18, 18, 18, 50])
+header(t, 4, ["Chỉ tiêu (VND)", "Năm 1", "Năm 2", "Năm 3", "Ghi chú"])
 yr = [("C", "N"), ("O", "Z"), ("AA", "AL")]
-summary = [("Lượt mua gói tháng", 9, 11), ("Lượt mua gói năm (mới + gia hạn)", 17, 21), ("Dự án được tính", 28, None),
-           ("Doanh thu gói tháng", 34, None), ("Doanh thu gói năm", 35, None), ("Doanh thu lưu trữ", 36, None), ("Tổng doanh thu", 37, None),
-           ("Giá vốn", 43, None), ("Lãi gộp", 44, None), ("Chi phí hoạt động", 51, None), ("EBITDA", 52, None), ("Lợi nhuận ròng", 54, None)]
-for i, (label, r_, extra) in enumerate(summary, 5):
+summary = [("Lượt mua Dự án lẻ", [8]), ("Lượt mua gói năm (mới + gia hạn)", [17, 18, 19]), ("Dự án được tính", [29]),
+           ("Doanh thu Dự án lẻ", [38]), ("Doanh thu gói năm, sau giảm giá và trừ tiền lẻ", [39, 41, 42]), ("Doanh thu Thiết kế hộ", [43]),
+           ("Doanh thu kho lưu trữ", [44]), ("Tổng doanh thu", [45]), ("Giá vốn", [52]), ("Lãi gộp", [53]),
+           ("Chi phí hoạt động", [62]), ("EBITDA", [63]), ("Lợi nhuận ròng", [65])]
+for i, (label, rows_) in enumerate(summary, 5):
     put(t, f"A{i}", label, bold=label in ("Tổng doanh thu", "Lợi nhuận ròng"))
     for j, (a_, b_) in enumerate(yr):
-        other = f"+SUM(Dong_tien!{a_}{extra}:{b_}{extra})" if extra else ""
-        put(t, f"{'BCD'[j]}{i}", f"=SUM(Dong_tien!{a_}{r_}:{b_}{r_}){other}", GREEN, NUM if r_ in (9, 17, 28) else VND)
-put(t, "A17", "Biên lãi gộp")
-for j in range(3):
-    put(t, f"{'BCD'[j]}17", f"=IF({'BCD'[j]}11=0,0,{'BCD'[j]}13/{'BCD'[j]}11)", fmt=PCT)
-put(t, "A18", "Tiền mặt cuối năm")
+        put(t, f"{'BCD'[j]}{i}", "=" + "+".join(f"SUM(Dong_tien!{a_}{r_}:{b_}{r_})" for r_ in rows_), GREEN, NUM if i <= 7 else VND)
+REV, GROSS = 12, 14
+put(t, "A18", "Biên lãi gộp")
+put(t, "A19", "Tiền mặt cuối năm")
+put(t, "A20", "Số nhân sự cuối năm")
+put(t, "A21", "Khách trả phí đang hoạt động cuối năm")
 for j, (a_, b_) in enumerate(yr):
-    put(t, f"{'BCD'[j]}18", f"=Dong_tien!{b_}56", GREEN, VND)
-put(t, "A20", "Chỉ số then chốt", bold=True)
-key = [("Tháng đầu tiên có EBITDA ≥ 0", "=IF(MIN(Dong_tien!C57:AL57)=999,\"Chưa có lãi trong 36 tháng\",INDEX(Dong_tien!C4:AL4,MATCH(MIN(Dong_tien!C57:AL57),Dong_tien!C3:AL3,0)))", None),
-       ("Tiền mặt thấp nhất trong 36 tháng", "=MIN(Dong_tien!C56:AL56)", VND),
-       ("Đủ vốn? (tiền mặt không âm)", "=IF(B22>=0,\"Đủ\",\"THIẾU VỐN\")", None),
-       ("Tổng vốn góp", "=SUM(Dong_tien!C55:AL55)", VND),
+    put(t, f"{'BCD'[j]}18", f"=IF({'BCD'[j]}{REV}=0,0,{'BCD'[j]}{GROSS}/{'BCD'[j]}{REV})", fmt=PCT)
+    put(t, f"{'BCD'[j]}19", f"=Dong_tien!{b_}67", GREEN, VND)
+    put(t, f"{'BCD'[j]}20", f"=Dong_tien!{b_}57", GREEN, "0")
+    put(t, f"{'BCD'[j]}21", f"=Dong_tien!{b_}21", GREEN, NUM)
+put(t, "A23", "Chỉ số then chốt", bold=True)
+key = [("Tháng đầu tiên có EBITDA ≥ 0", "=IF(MIN(Dong_tien!C68:AL68)=999,\"Chưa có lãi trong 36 tháng\",INDEX(Dong_tien!C4:AL4,MATCH(MIN(Dong_tien!C68:AL68),Dong_tien!C3:AL3,0)))", "mm/yyyy"),
+       ("Tiền mặt thấp nhất trong 36 tháng", "=MIN(Dong_tien!C67:AL67)", VND),
+       ("Đủ vốn? (tiền mặt không âm)", "=IF(B25>=0,\"Đủ\",\"THIẾU VỐN\")", None),
+       ("Tổng vốn góp", "=SUM(Dong_tien!C66:AL66)", VND),
+       ("Vốn cần thêm để tiền mặt không âm", "=MAX(0,-B25)", VND),
        ("Chi phí biến đổi / dự án (dự kiến)", "=VAR_COST", VND),
        ("  trong đó AI", "=AI_COST", VND),
-       ("Chi phí biến đổi / dự án (xấu nhất)", "=VAR_COST_WORST", VND),
+       ("Chi phí biến đổi / dự án (tối đa, ghim mô hình)", "=VAR_COST_PINNED", VND),
+       ("Chi phí biến đổi / dự án (tối đa, mô hình đắt nhất)", "=VAR_COST_WORST", VND),
        ("Chi phí biến đổi / giá rẻ nhất mỗi dự án", "=VAR_COST/MIN(Goi!G5:G8)", '0.00%'),
        ("Mô hình đọc ảnh / tư vấn / trợ lý", "=VISION_MODEL&\" / \"&ADVISOR_MODEL&\" / \"&CHAT_MODEL", None),
        ("Hệ số kịch bản", "=SCENARIO", NUM)]
-for i, (label, formula, fmt) in enumerate(key, 21):
+for i, (label, formula, fmt) in enumerate(key, 24):
     put(t, f"A{i}", label)
     put(t, f"B{i}", formula, GREEN, fmt)
-put(t, "E21", "Theo giả định số lượt mua ở Dong_tien — chưa có dữ liệu khách", GREY)
-put(t, "E28", "Chi phí AI + ảnh + máy chủ rất nhỏ so với giá gói: rủi ro nằm ở số khách và giá đối thủ, không ở chi phí vận hành", GREY)
+put(t, "E24", "Theo giả định số lượt mua ở Dong_tien — chưa có dữ liệu khách", GREY)
+put(t, "E33", "Chi phí AI, ảnh, máy chủ rất nhỏ so với giá gói: rủi ro nằm ở số khách và quỹ lương", GREY)
 
 for sheet in wb.worksheets:
     sheet.sheet_view.showGridLines = False
