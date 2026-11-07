@@ -490,3 +490,21 @@ details.handover-more[open]>summary{margin-bottom:10px}
 .orientation-grid button.active{background:#2b6a51;color:#fff;border-color:#2b6a51}
 .orientation-fine{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
 .roof-scope{display:flex;gap:4px;margin:6px 0 10px}
+
+/* Roof node tools and the review of AI-placed objects */
+.node-tools{padding:0 14px;border-bottom:1px solid #e3eadc;background:#fbfcf8;font-size:13px}
+.node-tools summary{display:flex;align-items:center;gap:6px;padding:9px 0;cursor:pointer;font-weight:600;color:var(--ink)}
+.node-tools summary span{margin-left:auto;font-weight:400;color:var(--muted);font-size:12px}
+.node-tools-body{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding-bottom:12px}
+.node-tools .muted-note{margin:0}
+.node-fields{display:flex;flex-wrap:wrap;gap:10px}
+.node-fields label{display:flex;align-items:center;gap:5px;color:var(--muted);font-size:12px}
+.node-fields input{width:78px;padding:4px 6px;border:1px solid #d5dfd0;border-radius:6px;background:#fff;color:var(--ink);font-size:13px}
+.read-image{margin-top:10px}
+.ai-review{display:flex;flex-direction:column;gap:8px;border:1px solid #e9cf96;background:#fffaf0}
+.ai-review.done{border-color:#cfe0c8;background:#f6fbf3}.ai-review.done p{display:flex;align-items:center;gap:6px;margin:0;font-size:13px}
+.ai-review-head{display:flex;align-items:center;justify-content:space-between;font-size:13px}.ai-review-head strong{display:flex;align-items:center;gap:6px}.ai-review-head span{color:var(--muted)}
+.ai-review-name{margin:0;font-size:15px;font-weight:700;color:var(--ink)}
+.ai-review-why{margin:0;padding-left:18px;font-size:12.5px;color:#8a5a12}
+.ai-review .muted-note{margin:0}
+.ai-review-actions{display:flex;flex-wrap:wrap;gap:6px}
