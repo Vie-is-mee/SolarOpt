@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import math
 
+from shapely.strtree import STRtree
+
 from app.schemas import CheckResult, VerifyRequest, VerifyResult
 from app.services.geometry import build_context, panel_shape, overlap_ratio, installable_regions, footprint_dims
 from app.services.energy import EnergyContext, summarize
@@ -39,8 +41,10 @@ def verify_design(req: VerifyRequest, *, energy_context=None) -> VerifyResult:
 
     overlap_pairs = []
     gap_pairs = []
+    # Only neighbours can touch: comparing every pair took 40 s on a 1 500-panel roof.
+    tree = STRtree(shapes) if shapes else None
     for i in range(len(shapes)):
-        for j in range(i+1, len(shapes)):
+        for j in sorted(int(k) for k in tree.query(shapes[i], predicate='dwithin', distance=req.config.panel_gap_m+1e-5) if k > i):
             if shapes[i].intersection(shapes[j]).area > 1e-6:
                 overlap_pairs.append((panels[i].id, panels[j].id))
             elif shapes[i].distance(shapes[j]) + 3e-6 < req.config.panel_gap_m:
