@@ -29,14 +29,23 @@ class Customer(BaseModel):
     notes: str = Field(default="", max_length=2000)
 
 
+# Same planning values as the handover economics (frontend economics.ts marketDefaults), so the advisor's payback
+# and the handover's agree. Sources: frontend dataSources.ts, docs/bang_chung/.
+SURPLUS_PRICE_2026 = 845          # 2025 average market energy price, NSMO công văn 205 (16/01/2026); NĐ 243/2026
+REPLACEMENT_PER_KWP = {"residential": 2_200_000, "business": 1_500_000}   # inverter in year 12, today's prices
+
+
 class Finance(BaseModel):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
     years: int = Field(default=25, ge=5, le=40)
-    degradation_pct: float = Field(default=0.5, ge=0, le=5)
-    price_growth_pct: float = Field(default=0, ge=0, le=15)
-    discount_pct: float = Field(default=6, ge=0, le=30)
-    maintenance_vnd_per_kwp_year: float = Field(default=100_000, ge=0, le=5_000_000)
-    sell_price_vnd_kwh: float = Field(default=0, ge=0, le=20_000, description="Paid surplus; 0 unless there is a basis for payment")
+    degradation_pct: float = Field(default=0.55, ge=0, le=5)
+    price_growth_pct: float = Field(default=3, ge=0, le=15)
+    discount_pct: float = Field(default=8, ge=0, le=30)
+    maintenance_vnd_per_kwp_year: float = Field(default=150_000, ge=0, le=5_000_000)
+    sell_price_vnd_kwh: float = Field(default=SURPLUS_PRICE_2026, ge=0, le=20_000,
+                                      description="Paid surplus (at most half the output); 0 when the customer does not sell")
+    replacement_year: int = Field(default=12, ge=0, le=40, description="Inverter replacement year; 0 = none")
+    replacement_vnd_per_kwp: float | None = Field(default=None, ge=0, le=20_000_000, description="None: by tariff (REPLACEMENT_PER_KWP)")
 
 
 class AdvisorRequest(BaseModel):

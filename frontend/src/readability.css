@@ -216,3 +216,13 @@
 .trace-image .vertex-handle{cursor:move}.trace-image .mid-handle{cursor:copy}
 .trace-image .vertex-handle:hover rect:last-child,.trace-image .box-handle:hover rect:last-child{fill:#fff3c4}.trace-image .mid-handle:hover circle:last-child{fill:#d8fff0}
 @media(max-width:760px){.tool-group button span{display:none}.tool-group kbd{display:none}.brush-size input{width:110px}}
+
+/* Data sources dialog */
+.sources-nav{margin-top:4px}
+.history-modal.sources-modal{width:min(1100px,94vw);max-height:86vh}
+.source-filter{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0}.source-filter button{padding:7px 11px;font-size:12px;border:1px solid #dce6d8;background:#fbfdf9;color:#56745e;border-radius:999px}.source-filter button.active{background:#286b4f;border-color:#286b4f;color:#fff}
+.source-section{border:1px solid #e1e9dd;border-radius:10px;margin:10px 0;overflow:hidden}
+.source-section-head{display:flex;align-items:center;gap:10px;width:100%;padding:12px 14px;border:0;background:#f6faf3;text-align:left}.source-section-head small{color:#6d8475;margin-left:auto}.source-section-head svg{transition:transform .2s}.source-section-head[aria-expanded="true"] svg{transform:rotate(90deg)}
+.source-table td{vertical-align:top;font-size:12.5px;line-height:1.55}.source-table td small{display:block;color:#6d8475;margin-top:4px}.source-table ul{margin:0;padding-left:16px}.source-table a{color:#1f6a4b;text-decoration:underline}
+.source-table{table-layout:fixed;width:100%}.source-table td,.source-table th{white-space:normal;overflow-wrap:anywhere}.source-table th:nth-child(1){width:24%}.source-table th:nth-child(2){width:34%}.source-table th:nth-child(3){width:28%}.source-table th:nth-child(4){width:14%}
+.sources-modal .table-scroll .source-table th,.sources-modal .table-scroll .source-table td{white-space:normal;overflow-wrap:anywhere}

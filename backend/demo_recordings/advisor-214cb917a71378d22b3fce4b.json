@@ -1,7 +1,7 @@
 {
- "recorded_at": "2026-11-05T08:45:39+00:00",
+ "recorded_at": "2026-11-07T07:24:44+00:00",
  "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
- "live_elapsed_ms": 92530,
+ "live_elapsed_ms": 42190,
  "inputs": {
   "kind": "advisor",
   "config": {
@@ -176,10 +176,10 @@
    "width_m": 1.134,
    "height_m": 2.278,
    "power_w": 580.0,
-   "price_vnd": 2200000.0,
-   "voc_v": 52.1,
-   "vmp_v": 43.6,
-   "imp_a": 13.3
+   "price_vnd": 2650000.0,
+   "voc_v": 52.21,
+   "vmp_v": 44.06,
+   "imp_a": 13.17
   },
   "need": "min_cost",
   "customer": {
@@ -195,16 +195,18 @@
   },
   "finance": {
    "years": 25,
-   "degradation_pct": 0.5,
-   "price_growth_pct": 0,
-   "discount_pct": 6,
-   "maintenance_vnd_per_kwp_year": 100000,
-   "sell_price_vnd_kwh": 0
+   "degradation_pct": 0.55,
+   "price_growth_pct": 3,
+   "discount_pct": 8,
+   "maintenance_vnd_per_kwp_year": 150000,
+   "sell_price_vnd_kwh": 845,
+   "replacement_year": 12,
+   "replacement_vnd_per_kwp": null
   },
   "feedback": [
    "Khách sắp mua xe điện, sạc ban ngày thêm 150 kWh/tháng"
   ],
-  "previous": "Đề xuất “Tối đa mái không lùi”: 6 tấm (3,48 kWp), vốn khoảng 47 triệu đ."
+  "previous": "Khuyên lắp 6 tấm (3,48 kWp) – vừa đủ bù điện ban ngày, vốn thấp 47 triệu, hoàn vốn 3,6 năm, NPV 116 triệu. Mái còn chỗ rộng nhưng mở rộng thêm làm giảm tỷ lệ tự tiêu và kéo dài hoàn vốn do giá bán điện dư chỉ 845 đ/kWh."
  },
  "result": {
   "mode": "llm",
@@ -222,63 +224,13 @@
   "scenarios": [
    {
     "id": "S1",
-    "label": "Đủ điện ban ngày (có xe điện)",
-    "intent": "Đáp ứng nhu cầu dùng ban ngày 5510 kWh/năm (gốc 3710 + xe điện 1800) với chi phí thấp nhất",
+    "label": "Vừa đủ điện ban ngày (có xe điện)",
+    "intent": "Đáp ứng nhu cầu ban ngày mới 5510 kWh/năm (3710 + 1800 xe điện)",
     "params": {
      "objective": "min_cost",
      "target_energy_kwh_year": 5510.0,
      "max_investment_vnd": null,
-     "edge_reserve_m": 0.5,
-     "extra_daytime_kwh_year": 1800.0
-    },
-    "panel_count": 2,
-    "peak_power_kwp": 1.16,
-    "annual_energy_kwh": 1334.0,
-    "coverage_pct": 12.0,
-    "self_use_pct": 100.0,
-    "average_shading_loss_pct": 5.35,
-    "investment_vnd": 15660000.0,
-    "annual_saving_vnd": 5539000.0,
-    "payback_years": 2.9,
-    "npv_vnd": 50550000.0,
-    "target_met": false,
-    "warnings": [
-     "Chưa đáp ứng điện năng mục tiêu trong ngân sách và các lưới đã thử. Kết quả hiển thị là sản lượng khả thi tìm được, không phải phương án đã đáp ứng nhu cầu."
-    ]
-   },
-   {
-    "id": "S2",
-    "label": "Tối đa mái lùi 0,5 m (có xe điện)",
-    "intent": "Tận dụng tối đa diện tích mái sau khi lùi 0,5 m mọi mép, có tính sạc xe điện ban ngày",
-    "params": {
-     "objective": "max_energy",
-     "target_energy_kwh_year": null,
-     "max_investment_vnd": null,
-     "edge_reserve_m": 0.5,
-     "extra_daytime_kwh_year": 1800.0
-    },
-    "panel_count": 2,
-    "peak_power_kwp": 1.16,
-    "annual_energy_kwh": 1334.0,
-    "coverage_pct": 12.0,
-    "self_use_pct": 100.0,
-    "average_shading_loss_pct": 5.35,
-    "investment_vnd": 15660000.0,
-    "annual_saving_vnd": 5539000.0,
-    "payback_years": 2.9,
-    "npv_vnd": 50550000.0,
-    "target_met": null,
-    "warnings": []
-   },
-   {
-    "id": "S3",
-    "label": "Tối đa mái không lùi (có xe điện)",
-    "intent": "Tận dụng tối đa mái không lùi mép, có tính sạc xe điện ban ngày",
-    "params": {
-     "objective": "max_energy",
-     "target_energy_kwh_year": null,
-     "max_investment_vnd": null,
-     "edge_reserve_m": 0.0,
+     "edge_reserve_m": 0,
      "extra_daytime_kwh_year": 1800.0
     },
     "panel_count": 6,
@@ -288,56 +240,67 @@
     "self_use_pct": 97.1,
     "average_shading_loss_pct": 3.25,
     "investment_vnd": 46980000.0,
-    "annual_saving_vnd": 15815000.0,
-    "payback_years": 3.1,
-    "npv_vnd": 141868000.0,
+    "annual_saving_vnd": 15914000.0,
+    "payback_years": 3.0,
+    "npv_vnd": 154147000.0,
+    "target_met": false,
+    "warnings": [
+     "Chưa đáp ứng điện năng mục tiêu trong ngân sách và các lưới đã thử. Kết quả hiển thị là sản lượng khả thi tìm được, không phải phương án đã đáp ứng nhu cầu."
+    ]
+   },
+   {
+    "id": "S2",
+    "label": "Tối đa sản lượng mái (có xe điện)",
+    "intent": "Xem mức sản lượng tối đa mái cho phép với nhu cầu ban ngày mới",
+    "params": {
+     "objective": "max_energy",
+     "target_energy_kwh_year": null,
+     "max_investment_vnd": null,
+     "edge_reserve_m": 0,
+     "extra_daytime_kwh_year": 1800.0
+    },
+    "panel_count": 6,
+    "peak_power_kwp": 3.48,
+    "annual_energy_kwh": 4053.0,
+    "coverage_pct": 36.6,
+    "self_use_pct": 97.1,
+    "average_shading_loss_pct": 3.25,
+    "investment_vnd": 46980000.0,
+    "annual_saving_vnd": 15914000.0,
+    "payback_years": 3.0,
+    "npv_vnd": 154147000.0,
     "target_met": null,
     "warnings": []
    }
   ],
-  "recommended_id": "S3",
+  "recommended_id": "S1",
   "recommended_budget_vnd": 55000000.0,
-  "summary": "Với nhu cầu sạc xe điện ban ngày (+1.800 kWh/năm), phương án 6 tấm không lùi mép cho 3,48 kWp, sản lượng 4.053 kWh/năm, đáp ứng ~73% điện ban ngày (4.053/5.510), tự dùng 97,1%, hoàn vốn 3,1 năm, NPV 142 triệu đ.",
+  "summary": "Mái nhà chỉ cho phép lắp tối đa 6 tấm (3,48 kWp) do giới hạn diện tích và bóng 4 vật cản; hệ thống sản xuất 4.053 kWh/năm, đáp ứng 73,5 % nhu cầu ban ngày mới (5.510 kWh/năm bao gồm sạc xe điện), tự tiêu 97,1 %, hoàn vốn 3 năm, NPV 154 triệu đ.",
   "reasons": [
    {
-    "text": "Phương án này tận dụng hết mái cho 6 tấm, sản lượng gần gấp 3 lần phương án lùi 0,5 m (chỉ 2 tấm), đủ bù phần lớn điện ban ngày kể cả sạc xe.",
+    "text": "Cùng 6 tấm nhưng nhu cầu ban ngày tăng từ 3.710 lên 5.510 kWh/năm nhờ sạc xe điện, làm tăng tiết kiệm năm đầu và rút ngắn hoàn vốn từ 3,6 xuống 3 năm",
     "refs": [
-     "S3.annual_energy_kwh",
-     "S3.panel_count",
-     "S1.panel_count",
+     "S1.payback_years",
+     "S1.annual_saving_vnd",
      "consumption.daytime_kwh_year"
-    ]
-   },
-   {
-    "text": "Hoàn vốn nhanh hơn đề xuất trước (3,1 vs 4,0 năm) nhờ tăng tự dùng từ sạc xe ban ngày, NPV cao 142 triệu đ.",
-    "refs": [
-     "S3.payback_years",
-     "S3.npv_vnd"
-    ]
-   },
-   {
-    "text": "Mức tự dùng 97,1% cho thấy điện sản xuất hầu như toàn bộ dùng trong nhà, hạn chế điện dư không bán được.",
-    "refs": [
-     "S3.self_use_pct"
     ]
    }
   ],
   "risks": [
+   "Chưa đáp ứng điện năng mục tiêu trong ngân sách và các lưới đã thử. Kết quả hiển thị là sản lượng khả thi tìm được, không phải phương án đã đáp ứng nhu cầu.",
    "Tổn thất bóng trung bình 3,25%: kiểm tra lại cao độ vật cản trước khi chốt.",
-   "Không lùi mép: tấm pin sát mép mái, cần kiểm tra an toàn bảo trì, lối đi, gió giật theo quy chuẩn.",
-   "Diện tích mái dùng được 66,3 m² cho 28 tấm tối đa; 6 tấm chỉ chiếm ~21%, còn dư chỗ mở rộng sau nếu cần.",
-   "Giá bán điện dư = 0 đồng/kWh: vượt quá điện ban ngày sẽ kéo dài hoàn vốn."
+   "Sản lượng 4.053 kWh/năm chưa đáp ứng đủ 5.510 kWh nhu cầu ban ngày mới; khách vẫn phải mua điện lưới vào ban ngày",
+   "Mái đã tối ưu bố trí, không thể thêm tấm nào nữa trừ khi dời/chuyển vật cản hoặc chấp nhận tổn thất bóng cao"
   ],
   "questions": [
-   "Khách có chấp nhận lắp tấm sát mép mái (không lùi 0,5 m) để đạt 6 tấm, hay ưu tiên lối đi an toàn chỉ được 2 tấm?",
-   "Xe điện sạc 100% ban ngày (150 kWh/tháng) hay có phần sạc đêm? (Ảnh hưởng mức tự dùng và dòng tiền).",
-   "Có dự định thêm máy lạnh, bơm nhiệt, nồi chiên không khí... trong 1–2 năm tới? (Để chừa dung lượng inverter)."
+   "Khách có muốn xem phương án lắp thêm bộ lưu trữ (pin) để bù đắp phần thiếu ban ngày và dùng vào ban đêm không?",
+   "Có kế hoạch mở rộng mái hoặc dời vật cản (bình nóng lạnh, ống thoát khí…) để nhường chỗ cho tấm pin không?"
   ],
   "assumptions": [
    "Quy đổi từ tiền điện 2.500.000 đ/tháng theo Biểu giá điện EVN theo Quyết định 2892/QĐ-BCT (hiệu lực 01/11/2026), chưa gồm VAT; cộng VAT 8%.",
    "Suất đầu tư trọn gói tham khảo theo quy mô (thị trường Việt Nam 11/2026, gồm thiết bị, thi công, lãi nhà thầu và VAT): hộ gia đình đến 5 kWp 13,5; đến 15 kWp 12; lớn hơn 11 triệu đ/kWp; kinh doanh đến 50 kWp 10; đến 200 kWp 8,5; lớn hơn 7,5. Thay bằng báo giá thật trước khi chốt.",
    "Điện dùng ban ngày 40% (kỹ sư nhập).",
-   "Suy giảm 0,5%/năm, bảo trì 100.000 đ/kWp/năm, chiết khấu 6%/năm, điện dư không được trả tiền.",
+   "Suy giảm 0,6%/năm, bảo trì 150.000 đ/kWp/năm, chiết khấu 8%/năm, giá điện tăng 3%/năm, điện dư 845 đ/kWh trên tối đa 50% sản lượng (NĐ 243/2026; giá thị trường bình quân năm trước), thay inverter năm 12.",
    "Ngân sách đề xuất = vốn phương án chọn + 10% dự phòng, làm tròn lên 5 triệu."
   ],
   "facts": {
@@ -350,7 +313,7 @@
    "site.tallest_obstacle_m": 1.0,
    "site.latitude": 10.7769,
    "panel.power_w": 580.0,
-   "panel.price_vnd": 2200000.0,
+   "panel.price_vnd": 2650000.0,
    "panel.model": "LONGi Hi-MO 6 · 580 W",
    "consumption.annual_kwh": 9275.0,
    "consumption.monthly_kwh": 773.0,
@@ -358,63 +321,47 @@
    "consumption.daytime_kwh_year": 3710.0,
    "customer.budget_vnd": null,
    "capex.million_per_kwp": 11.0,
-   "S1.panel_count": 2.0,
-   "S1.peak_power_kwp": 1.16,
-   "S1.annual_energy_kwh": 1334.0,
-   "S1.coverage_pct": 12.0,
-   "S1.self_use_pct": 100.0,
-   "S1.average_shading_loss_pct": 5.35,
-   "S1.investment_vnd": 15660000.0,
-   "S1.annual_saving_vnd": 5539000.0,
-   "S1.payback_years": 2.9,
-   "S1.npv_vnd": 50550000.0,
-   "S2.panel_count": 2.0,
-   "S2.peak_power_kwp": 1.16,
-   "S2.annual_energy_kwh": 1334.0,
-   "S2.coverage_pct": 12.0,
-   "S2.self_use_pct": 100.0,
-   "S2.average_shading_loss_pct": 5.35,
-   "S2.investment_vnd": 15660000.0,
-   "S2.annual_saving_vnd": 5539000.0,
-   "S2.payback_years": 2.9,
-   "S2.npv_vnd": 50550000.0,
-   "S3.panel_count": 6.0,
-   "S3.peak_power_kwp": 3.48,
-   "S3.annual_energy_kwh": 4053.0,
-   "S3.coverage_pct": 36.6,
-   "S3.self_use_pct": 97.1,
-   "S3.average_shading_loss_pct": 3.25,
-   "S3.investment_vnd": 46980000.0,
-   "S3.annual_saving_vnd": 15815000.0,
-   "S3.payback_years": 3.1,
-   "S3.npv_vnd": 141868000.0,
+   "S1.panel_count": 6.0,
+   "S1.peak_power_kwp": 3.48,
+   "S1.annual_energy_kwh": 4053.0,
+   "S1.coverage_pct": 36.6,
+   "S1.self_use_pct": 97.1,
+   "S1.average_shading_loss_pct": 3.25,
+   "S1.investment_vnd": 46980000.0,
+   "S1.annual_saving_vnd": 15914000.0,
+   "S1.payback_years": 3.0,
+   "S1.npv_vnd": 154147000.0,
+   "S2.panel_count": 6.0,
+   "S2.peak_power_kwp": 3.48,
+   "S2.annual_energy_kwh": 4053.0,
+   "S2.coverage_pct": 36.6,
+   "S2.self_use_pct": 97.1,
+   "S2.average_shading_loss_pct": 3.25,
+   "S2.investment_vnd": 46980000.0,
+   "S2.annual_saving_vnd": 15914000.0,
+   "S2.payback_years": 3.0,
+   "S2.npv_vnd": 154147000.0,
    "previous.panel_count": 6.0,
    "previous.investment_vnd": 46980000.0,
    "previous.annual_energy_kwh": 4053.0,
    "recommended.budget_vnd": 55000000.0
   },
   "apply": {
-   "objective": "max_energy",
-   "budget_vnd": 61600000.0,
-   "target_energy_kwh_year": null,
+   "objective": "min_cost",
+   "budget_vnd": 74200000.0,
+   "target_energy_kwh_year": 5510.0,
    "layout_edge_reserve_m": 0.0
   },
   "plans": {
    "S1": {
     "objective": "min_cost",
-    "budget_vnd": 61600000.0,
+    "budget_vnd": 74200000.0,
     "target_energy_kwh_year": 5510.0,
-    "layout_edge_reserve_m": 0.5
+    "layout_edge_reserve_m": 0.0
    },
    "S2": {
     "objective": "max_energy",
-    "budget_vnd": 61600000.0,
-    "target_energy_kwh_year": null,
-    "layout_edge_reserve_m": 0.5
-   },
-   "S3": {
-    "objective": "max_energy",
-    "budget_vnd": 61600000.0,
+    "budget_vnd": 74200000.0,
     "target_energy_kwh_year": null,
     "layout_edge_reserve_m": 0.0
    }
@@ -430,19 +377,15 @@
    },
    {
     "step": "tool",
-    "detail": "S1 · Đủ điện ban ngày (có xe điện): 2 tấm, 16 triệu đ"
+    "detail": "S1 · Vừa đủ điện ban ngày (có xe điện): 6 tấm, 47 triệu đ"
    },
    {
     "step": "tool",
-    "detail": "S2 · Tối đa mái lùi 0,5 m (có xe điện): 2 tấm, 16 triệu đ"
-   },
-   {
-    "step": "tool",
-    "detail": "S3 · Tối đa mái không lùi (có xe điện): 6 tấm, 47 triệu đ"
+    "detail": "S2 · Tối đa sản lượng mái (có xe điện): 6 tấm, 47 triệu đ"
    }
   ],
   "notice": "",
-  "elapsed_ms": 92530.0,
+  "elapsed_ms": 42190.0,
   "replay": ""
  }
 }

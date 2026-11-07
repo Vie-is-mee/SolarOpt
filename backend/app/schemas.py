@@ -67,7 +67,7 @@ class PanelSpec(StrictModel):
     width_m: float = Field(default=1.134, gt=0, le=10)
     height_m: float = Field(default=2.278, gt=0, le=10)
     power_w: float = Field(default=580.0, gt=0, le=2000)
-    price_vnd: float = Field(default=2_200_000, ge=1)
+    price_vnd: float = Field(default=2_650_000, ge=1)   # LONGi Hi-MO 6 580 W, Solar Saigon 26/05/2026
     voc_v: float = 52.1
     vmp_v: float = 43.6
     imp_a: float = 13.3
@@ -159,7 +159,7 @@ class ProjectConfig(StrictModel):
     weather: WeatherYear | None = None
     # When present, the performance ratio is the product of these losses (set by the validator below).
     yield_losses: YieldLosses | None = None
-    # Fire-safety layout of the Fire Police guidance 3288/C07-P4 (08/9/2020): groups of at most 40 × 40 m
+    # Fire-safety layout of the Fire Police guidance 3288/C07-P4 (08/9/2020, replaced by 207/C07-P4 of 09/8/2024): groups of at most 40 × 40 m
     # with 1,5 m breaks, nothing within 3 m of roof exits, 2,5 m from a perimeter parapet (services/geometry.py).
     fire_code: bool = False
     parapet: bool = Field(default=False, description="Roof has a railing or parapet around its perimeter")
