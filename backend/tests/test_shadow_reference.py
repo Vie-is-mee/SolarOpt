@@ -3,7 +3,7 @@ import math
 from datetime import date
 import pytest
 from shapely.geometry import box,Polygon,Point
-from app.schemas import ProjectConfig,RectObstacle,SunPosition,SceneRequest
+from app.schemas import ProjectConfig,RectObstacle,RoofFace,SunPosition,SceneRequest
 from app.services.geometry import Surface,shadow_polygon,build_context,obstacle_elevations
 from app.services.scene import simulate_scene,regions
 
@@ -142,3 +142,18 @@ def test_sloped_receiver_with_raised_block_matches_independent_ray_box_intersect
             if abs(leave-enter)<.01 or actual.boundary.distance(Point(x,y))<.01:continue
             if actual.covers(Point(x,y))!=(leave>enter):mismatches.append((x,y))
     assert not mismatches,mismatches[:10]
+
+
+def test_object_on_a_gable_is_measured_on_the_roof_really_under_it():
+    # 12 × 9 m gable, ridge along y=4.5 at 9 m, eaves at 6 m: one face each side of the ridge.
+    rise=3/4.5
+    def face(fid,y0,y1,az):
+        return RoofFace(id=fid,label=fid,polygon=[{'x':0,'y':y0},{'x':12,'y':y0},{'x':12,'y':y1},{'x':0,'y':y1}],elevation_m=7.5,tilt_deg=math.degrees(math.atan(rise)),azimuth_deg=az)
+    cfg=ProjectConfig(roof_width_m=12,roof_height_m=9,roof_faces=[face('n',4.5,9,0),face('s',0,4.5,180)])
+    on_slope=RectObstacle(id='a',x=6,y=6,width_m=1,depth_m=1.5,height_m=1)
+    across=RectObstacle(id='b',x=2,y=3.5,width_m=1,depth_m=1.6,height_m=1)
+    slope,ridge=obstacle_elevations(cfg,[on_slope,across])
+    assert slope['roof_min_m']==pytest.approx(7) and slope['roof_max_m']==pytest.approx(8)
+    # The ridge inside the footprint is its highest point; both low edges lie on their own faces.
+    assert ridge['roof_max_m']==pytest.approx(9)
+    assert ridge['roof_min_m']==pytest.approx(8.333,abs=.001)

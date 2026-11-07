@@ -423,8 +423,8 @@ class DimensionCheck(StrictModel):
     scale_m_per_px: float | None = None
     scale_spread_pct: float | None = None
     consistent: bool | None = None
-    suggested_width_m: float | None = Field(default=None, gt=0, le=100)
-    suggested_height_m: float | None = Field(default=None, gt=0, le=100)
+    suggested_width_m: float | None = Field(default=None, gt=0, le=300)
+    suggested_height_m: float | None = Field(default=None, gt=0, le=300)
     width_basis: str = ""
     height_basis: str = ""
     notes: list[str] = []
@@ -433,8 +433,8 @@ class DimensionCheck(StrictModel):
 class VisionResult(StrictModel):
     mode: Literal["gemini", "groq", "ollama", "openai", "manual", "demo"]
     model: str = ""
-    roof_width_m: float | None = Field(default=None, gt=0, le=100)
-    roof_height_m: float | None = Field(default=None, gt=0, le=100)
+    roof_width_m: float | None = Field(default=None, gt=0, le=300)
+    roof_height_m: float | None = Field(default=None, gt=0, le=300)
     roof_confidence: float = Field(default=0, ge=0, le=1)
     obstacles: list[VisionObstacle]
     extracted_text: list[str] = []

@@ -174,6 +174,12 @@ def obstacle_elevations(config,obstacles,planes=None):
     for o in obstacles:
         footprint=obstacle_polygon(o);source=obstacle_source_surface(o,config,planes)
         bases=[obstacle_base_z(o,x,y,source,config) for x,y in footprint.exterior.coords]
+        under=bases
+        if o.scope=='roof' and o.base_elevation_m is None:
+            # What is really under the footprint, not the plane under its centre carried past a ridge.
+            # A plane peaks at a corner, so the corners of each overlap are enough.
+            under=[surface_z(s,x,y,config) for s in planes if not s.id.startswith(TOP_PREFIX)
+                   for part in _parts(footprint.intersection(s.polygon)) for x,y in part.exterior.coords] or bases
         warnings=[]
         if o.scope=='roof' and o.base_elevation_m is None:
             if not roof.buffer(1e-7).covers(footprint):warnings.append('Mặt bằng vượt biên mái hoặc khoảng trống; cao độ mặc định có phần ngoại suy. Cần kiểm tra hoặc nhập cao độ chân riêng.')
@@ -181,7 +187,7 @@ def obstacle_elevations(config,obstacles,planes=None):
         if min(bases)<-1e-6:warnings.append('Cao độ chân có điểm thấp hơn mặt đất; kiểm tra cao độ và hướng dốc.')
         records.append({'id':o.id,'label':o.label,'base_source':'explicit' if o.base_elevation_m is not None else 'ground' if o.scope=='neighbor' else 'roof',
             'source_label':'Cao độ nhập riêng' if o.base_elevation_m is not None else 'Mặt đất' if o.scope=='neighbor' else source.label,
-            'base_min_m':round(min(bases),3),'base_max_m':round(max(bases),3),'top_min_m':round(min(bases)+o.height_m,3),'top_max_m':round(max(bases)+o.height_m,3),'height_m':o.height_m,'warnings':warnings})
+            'base_min_m':round(min(bases),3),'base_max_m':round(max(bases),3),'top_min_m':round(min(bases)+o.height_m,3),'top_max_m':round(max(bases)+o.height_m,3),'roof_min_m':round(min(under),3),'roof_max_m':round(max(under),3),'height_m':o.height_m,'warnings':warnings})
     return records
 
 
