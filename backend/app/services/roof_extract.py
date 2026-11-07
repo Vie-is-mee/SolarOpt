@@ -18,6 +18,12 @@ from app.services.vision import _image, VisionError
 cv2.setNumThreads(2)
 
 
+class BrushStroke(StrictModel):
+    """A painted stroke of the keep/remove brush: its centre line and its radius as a fraction of the image width."""
+    points: list[NormalizedPoint] = Field(min_length=1, max_length=400)
+    radius: float = Field(default=.008, ge=.001, le=.15)
+
+
 class TraceRequest(StrictModel):
     image_data_url: str = Field(max_length=18_000_000)
     input_kind: str = "drone"
@@ -25,6 +31,8 @@ class TraceRequest(StrictModel):
     rect: list[float] = Field(default_factory=lambda:[5,5,90,90],min_length=4,max_length=4)
     foreground: list[NormalizedPoint] = Field(default_factory=list,max_length=100)
     background: list[NormalizedPoint] = Field(default_factory=list,max_length=100)
+    keep_strokes: list[BrushStroke] = Field(default_factory=list,max_length=80)
+    drop_strokes: list[BrushStroke] = Field(default_factory=list,max_length=80)
     polygon: list[NormalizedPoint] = Field(default_factory=list,max_length=100)
     openings: list[list[NormalizedPoint]] = Field(default_factory=list,max_length=24)
     quad: list[NormalizedPoint] = Field(default_factory=list,max_length=4)
@@ -129,6 +137,16 @@ def _skew_deg(points):
     return float(skew-90 if skew>45 else skew)
 
 
+def _paint(mask,points,strokes,value,w,h):
+    """Seed dots (fixed small radius) and brush strokes (their own radius, round ends) into a mask."""
+    radius=max(2,int(min(h,w)*.008))
+    for p in points:cv2.circle(mask,(int(p.x*w/100),int(p.y*h/100)),radius,value,-1)
+    for stroke in strokes:
+        r=max(1,int(round(stroke.radius*w)));pts=np.int32([[p.x*w/100,p.y*h/100] for p in stroke.points])
+        if len(pts)>1:cv2.polylines(mask,[pts],False,value,thickness=2*r)
+        for x,y in pts:cv2.circle(mask,(int(x),int(y)),r,value,-1)
+
+
 def _refine_band(image,mask,keep,drop,w,h):
     """Re-decide a band around a GrabCut edge by colour. GrabCut with a box alone tends to swell
     by 2-4 % of the image along soft or compressed edges, enough to fail the measured-frame check.
@@ -151,9 +169,7 @@ def _refine_band(image,mask,keep,drop,w,h):
         near=lambda c:np.min(np.linalg.norm(pixels[:,None,:]-c[None],axis=2),axis=1)
         updated=current.copy();updated[edge]=near(fg)<near(bg)
         current=cv2.morphologyEx(updated,cv2.MORPH_OPEN,kernel)
-    radius=max(2,int(min(h,w)*.008))
-    for points,value in [(keep,1),(drop,0)]:
-        for p in points:cv2.circle(current,(int(p.x*w/100),int(p.y*h/100)),radius,value,-1)
+    for (points,strokes),value in [(keep,1),(drop,0)]:_paint(current,points,strokes,value,w,h)
     before,after=int(original.sum()),int(current.sum())
     return current if before and .7<=after/before<=1.15 else original
 
@@ -239,17 +255,16 @@ def extract_roof(req:TraceRequest):
             mask[y0:y1,x0:x1]=cv2.GC_PR_BGD
             pts=np.int32([[p.x*w/100,p.y*h/100] for p in req.polygon])
             cv2.fillPoly(mask,[pts],cv2.GC_PR_FGD)
-        radius=max(2,int(min(h,w)*.008))
-        for points,value in [(req.foreground,cv2.GC_FGD),(req.background,cv2.GC_BGD)]:
-            for p in points:cv2.circle(mask,(int(p.x*w/100),int(p.y*h/100)),radius,value,-1)
+        _paint(mask,req.foreground,req.keep_strokes,cv2.GC_FGD,w,h)
+        _paint(mask,req.background,req.drop_strokes,cv2.GC_BGD,w,h)
         try:
             cv2.grabCut(image,mask,None,np.zeros((1,65),np.float64),np.zeros((1,65),np.float64),4,cv2.GC_INIT_WITH_MASK)
         except cv2.error as exc:raise ValueError("Chưa tách được vùng mái. Chọn lại khung, thêm điểm giữ mái và loại nền.") from exc
-        mask=_refine_band(image,np.uint8((mask==cv2.GC_FGD)|(mask==cv2.GC_PR_FGD)),req.foreground,req.background,w,h)
+        mask=_refine_band(image,np.uint8((mask==cv2.GC_FGD)|(mask==cv2.GC_PR_FGD)),(req.foreground,req.keep_strokes),(req.background,req.drop_strokes),w,h)
         algorithm='opencv_grabcut'
         notes.append("Tách vùng theo màu và cạnh; bóng, cây hoặc mái cùng màu có thể làm sai biên. Thêm điểm giữ/loại hoặc chấm biên để sửa.")
     else:raise ValueError("Phương pháp tách biên không hợp lệ.")
-    if req.method=='grabcut':mask=_tidy_mask(mask,req.background,w,h,notes)
+    if req.method=='grabcut':mask=_tidy_mask(mask,[*req.background,*(p for s in req.drop_strokes for p in s.points)],w,h,notes)
     contours,hierarchy=cv2.findContours(mask,cv2.RETR_CCOMP,cv2.CHAIN_APPROX_SIMPLE)
     if not contours:raise ValueError("Không tìm được vùng mái. Khoanh lại hoặc thêm điểm giữ mái.")
     external=[i for i,entry in enumerate(hierarchy[0]) if entry[3]==-1]
