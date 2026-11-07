@@ -22,15 +22,21 @@ class CalibrationRecord(BaseModel):
     image_width_px:int=Field(gt=0,le=16000)
     image_height_px:int=Field(gt=0,le=16000)
     reference_points:list[EvidencePoint]=Field(default_factory=list,max_length=2)
-    reference_m:float|None=Field(default=None,gt=0,le=100)
+    reference_m:float|None=Field(default=None,gt=0,le=300)
     check_points:list[EvidencePoint]=Field(default_factory=list,max_length=2)
-    check_m:float|None=Field(default=None,gt=0,le=100)
-    measured_width_m:float|None=Field(default=None,gt=0,le=100)
-    measured_length_m:float|None=Field(default=None,gt=0,le=100)
-    result_width_m:float=Field(gt=0,le=100)
-    result_height_m:float=Field(gt=0,le=100)
+    check_m:float|None=Field(default=None,gt=0,le=300)
+    measured_width_m:float|None=Field(default=None,gt=0,le=300)
+    measured_length_m:float|None=Field(default=None,gt=0,le=300)
+    result_width_m:float=Field(gt=0,le=300)
+    result_height_m:float=Field(gt=0,le=300)
     frame_error_pct:float=Field(ge=0,le=10000)
     check_error_pct:float|None=Field(default=None,ge=0,le=10000)
+
+    @field_validator('reference_m','check_m','measured_width_m','measured_length_m','result_width_m','result_height_m',mode='before')
+    @classmethod
+    def drop_float_noise(cls,value):
+        # Image scaling gives 100.00000000000001 for a side measured as 100 m; micrometres mean nothing here.
+        return round(value,6) if isinstance(value,(int,float)) else value
 
     @model_validator(mode='after')
     def paired_measurements(self):

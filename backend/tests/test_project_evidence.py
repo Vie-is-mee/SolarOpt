@@ -23,6 +23,17 @@ def test_rejects_remote_or_non_image_evidence(image):
     with pytest.raises(ValidationError):ProjectEvidence(**{**evidence(),'source_image':image})
 
 
+@pytest.mark.parametrize('side,kept',[(100.00000000000001,100),(300.00000000000006,300),(150,150)])
+def test_roof_sides_follow_the_300_m_limit_despite_float_noise(side,kept):
+    data=evidence();data['calibration'].update(result_height_m=side,measured_width_m=side)
+    assert ProjectEvidence(**data).calibration.result_height_m==kept
+
+
+def test_side_beyond_the_roof_limit_is_still_rejected():
+    data=evidence();data['calibration']['result_height_m']=300.01
+    with pytest.raises(ValidationError):ProjectEvidence(**data)
+
+
 def test_rejects_unpaired_measurement_and_wrong_image_dimensions():
     data=evidence();data['calibration']['reference_points'].pop()
     with pytest.raises(ValidationError):ProjectEvidence(**data)
