@@ -55,14 +55,30 @@ def init_db() -> None:
         conn.execute("CREATE TABLE IF NOT EXISTS usage_events (id INTEGER PRIMARY KEY, owner TEXT NOT NULL, kind TEXT NOT NULL, project_key TEXT, created_at INTEGER NOT NULL)")
         conn.execute("CREATE INDEX IF NOT EXISTS usage_owner_kind ON usage_events(owner, kind, created_at)")
         conn.execute("CREATE TABLE IF NOT EXISTS upgrade_requests (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, plan TEXT NOT NULL, note TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'pending', created_at INTEGER NOT NULL)")
+        # Project-based plans: a cycle runs from activation; each used project's data is kept while paid (app/billing.py).
+        if "plan_started" not in {row[1] for row in conn.execute("PRAGMA table_info(users)")}:
+            conn.execute("ALTER TABLE users ADD COLUMN plan_started INTEGER")
+        if "plan_started" not in {row[1] for row in conn.execute("PRAGMA table_info(orgs)")}:
+            conn.execute("ALTER TABLE orgs ADD COLUMN plan_started INTEGER")
+        version_columns = {row[1] for row in conn.execute("PRAGMA table_info(project_versions)")}
+        for column in ("owner", "project_key"):
+            if column not in version_columns:
+                conn.execute(f"ALTER TABLE project_versions ADD COLUMN {column} TEXT")
+        conn.execute("CREATE INDEX IF NOT EXISTS versions_billing_project ON project_versions(owner, project_key)")
+        conn.execute("CREATE TABLE IF NOT EXISTS project_storage (owner TEXT NOT NULL, project_key TEXT NOT NULL, project_name TEXT NOT NULL, "
+                     "first_used INTEGER NOT NULL, covered_until INTEGER NOT NULL, storage_until INTEGER, purged_at INTEGER, PRIMARY KEY(owner, project_key))")
+        conn.execute("CREATE TABLE IF NOT EXISTS storage_requests (id INTEGER PRIMARY KEY, owner TEXT NOT NULL, project_key TEXT NOT NULL, months INTEGER NOT NULL, "
+                     "user_id INTEGER REFERENCES users(id) ON DELETE SET NULL, status TEXT NOT NULL DEFAULT 'pending', created_at INTEGER NOT NULL)")
         conn.commit()
 
 
-def save_version(project_name: str, version_label: str, reason: str, payload: dict[str, Any], user_id: int | None = None) -> int:
+def save_version(project_name: str, version_label: str, reason: str, payload: dict[str, Any], user_id: int | None = None,
+                 owner: str | None = None, project_key: str | None = None) -> int:
+    """owner/project_key tie the version to the billed project, so its retention (paid storage) applies to it."""
     with connect() as conn:
         cur = conn.execute(
-            "INSERT INTO project_versions(project_name,version_label,reason,payload_json,user_id) VALUES(?,?,?,?,?)",
-            (project_name, version_label, reason, json.dumps(payload, ensure_ascii=False), user_id),
+            "INSERT INTO project_versions(project_name,version_label,reason,payload_json,user_id,owner,project_key) VALUES(?,?,?,?,?,?,?)",
+            (project_name, version_label, reason, json.dumps(payload, ensure_ascii=False), user_id, owner, project_key),
         )
         conn.commit()
         return int(cur.lastrowid)
@@ -79,7 +95,7 @@ def list_versions(project_name: str | None, user_id: int | list[int] | None = No
     with connect() as conn:
         conn.row_factory = sqlite3.Row
         rows = conn.execute(
-            f"SELECT id,project_name,version_label,reason,payload_json,created_at FROM project_versions WHERE (? IS NULL OR project_name=?) AND (user_id IN ({marks}) OR (? IS NULL AND user_id IS NULL)) ORDER BY id DESC LIMIT 50",
+            f"SELECT id,project_name,version_label,reason,payload_json,created_at,owner,project_key FROM project_versions WHERE (? IS NULL OR project_name=?) AND (user_id IN ({marks}) OR (? IS NULL AND user_id IS NULL)) ORDER BY id DESC LIMIT 50",
             (project_name, project_name, *owners, owners[0] if len(owners) == 1 else 0),
         ).fetchall()
     out = []
@@ -98,7 +114,7 @@ def get_version(project_name:str,version_id:int,user_id:int | list[int] | None =
     owners=_owners(user_id);marks=",".join("?"*len(owners))
     with connect() as conn:
         conn.row_factory=sqlite3.Row
-        row=conn.execute(f'SELECT id,project_name,version_label,reason,payload_json,created_at FROM project_versions WHERE project_name=? AND id=? AND (user_id IN ({marks}) OR (? IS NULL AND user_id IS NULL))',(project_name,version_id,*owners,owners[0] if len(owners)==1 else 0)).fetchone()
+        row=conn.execute(f'SELECT id,project_name,version_label,reason,payload_json,created_at,owner,project_key FROM project_versions WHERE project_name=? AND id=? AND (user_id IN ({marks}) OR (? IS NULL AND user_id IS NULL))',(project_name,version_id,*owners,owners[0] if len(owners)==1 else 0)).fetchone()
     if row is None:return None
     item=dict(row);item['payload']=json.loads(item.pop('payload_json'))
     return item

@@ -18,7 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.auth import COOKIE, ensure_env_admin, router as auth_router, optional_user, require_user
-from app.billing import router as billing_router, ProjectQuota, chat_block, check_ai, record_ai, record_chat, team_member_ids
+from app.billing import router as billing_router, ProjectQuota, chat_block, check_ai, record_ai, record_chat, team_member_ids, project_ref, visible_versions, hidden_projects
 from fastapi import Request
 from app.database import init_db, list_versions, save_version, get_version
 from app.schemas import (
@@ -171,7 +171,7 @@ def advisor_propose(req: AdvisorRequest, request: Request, user=Depends(optional
         result.replay, result.elapsed_ms = demo.label(record), 0
         return result
     # Recording runs only on a developer machine (env flag), so it is not held to the guest quota.
-    quota = None if demo.recording_enabled() else ProjectQuota(request, user, req.config.project_name)
+    quota = None if demo.recording_enabled() else ProjectQuota(request, user, req.config)
     if quota:
         quota.check()
     # Guests get the rule-based planner: a paid AI call needs an account.
@@ -305,20 +305,20 @@ def solar_weather(req: WeatherRequest):
 
 @app.post("/api/design/generate", response_model=DesignResult)
 def design_generate(req: DesignRequest, request: Request, user=Depends(optional_user)):
-    quota = ProjectQuota(request, user, req.config.project_name)
+    quota = ProjectQuota(request, user, req.config)
     quota.check()
     result = generate_design(req)
     if result.panels:
         quota.record()
     if user:
-        save_version(req.config.project_name, "design", f"Thiết kế: {req.objective}", {"config":req.config.model_dump(),"panel":req.panel.model_dump(),"obstacles": [o.model_dump() for o in req.obstacles],"design":result.model_dump(),"evidence":req.evidence.model_dump(mode='json') if req.evidence else None}, user_id=user["id"])
+        save_version(req.config.project_name, "design", f"Thiết kế: {req.objective}", {"config":req.config.model_dump(),"panel":req.panel.model_dump(),"obstacles": [o.model_dump() for o in req.obstacles],"design":result.model_dump(),"evidence":req.evidence.model_dump(mode='json') if req.evidence else None}, user_id=user["id"], owner=quota.owner, project_key=quota.key)
     return result
 
 
 @app.post("/api/design/mounting-compare")
 def design_mounting_compare(req: DesignRequest, request: Request, user=Depends(optional_user)):
     from app.services.mounting import compare_mountings
-    quota = ProjectQuota(request, user, req.config.project_name)
+    quota = ProjectQuota(request, user, req.config)
     quota.check()
     result = compare_mountings(req)
     if any(o["panels"] for o in result["options"]):
@@ -370,7 +370,7 @@ def validate_project(req: DesignRequest):
 
 @app.post("/api/design/repair", response_model=RepairResult)
 def design_repair(req: RepairRequest, request: Request, user=Depends(optional_user)):
-    quota = ProjectQuota(request, user, req.config.project_name)
+    quota = ProjectQuota(request, user, req.config)
     quota.check()
     changed = []
     before = {o.id: o for o in req.obstacles_before}
@@ -414,7 +414,7 @@ def design_repair(req: RepairRequest, request: Request, user=Depends(optional_us
     if user:
         save_version(req.config.project_name, "repair", f"Self-heal after {changed_input}", {
             "config":req.config.model_dump(),"panel":req.panel.model_dump(),"obstacles":[o.model_dump() for o in req.obstacles_after],"impact": impact.model_dump(), "design": design.model_dump(), "verification": verification.model_dump(),"evidence":req.evidence.model_dump(mode='json') if req.evidence else None
-        }, user_id=user["id"])
+        }, user_id=user["id"], owner=quota.owner, project_key=quota.key)
     if design.panels:
         quota.record()
     return RepairResult(impact=impact, design=design, verification=verification)
@@ -430,18 +430,21 @@ def uncertainty_evaluate(req: UncertaintyRequest):
 
 @app.get("/api/history")
 def account_history(user=Depends(require_user)):
-    return list_versions(None, team_member_ids(user["id"]))
+    # Versions of a project whose paid storage lapsed past the grace days are no longer served.
+    return visible_versions(list_versions(None, team_member_ids(user["id"])))
 
 
 @app.get("/api/projects/{project_name}/versions")
 def project_versions(project_name: str, user=Depends(require_user)):
-    return list_versions(project_name, team_member_ids(user["id"]))
+    return visible_versions(list_versions(project_name, team_member_ids(user["id"])))
 
 
 @app.get('/api/projects/{project_name}/versions/{version_id}')
 def project_version(project_name:str,version_id:int,user=Depends(require_user)):
     version=get_version(project_name,version_id,team_member_ids(user["id"]))
     if version is None:raise HTTPException(404,'Không tìm thấy phiên bản của dự án này.')
+    if (version.get('owner'),version.get('project_key')) in hidden_projects({version.get('owner')} - {None}):
+        raise HTTPException(410,'Dữ liệu dự án này đã hết hạn lưu trữ (không gia hạn). Liên hệ quản trị viên nếu cần khôi phục trước khi bị xóa hẳn.')
     return version
 
 
@@ -452,5 +455,6 @@ def approve_project(req: VerifyRequest, user=Depends(require_user)):
     verification = verify_design(req)
     if not verification.valid:
         raise HTTPException(409, "Phương án chưa đạt các kiểm tra bắt buộc.")
-    version_id = save_version(req.config.project_name,"approved","Kỹ sư xác nhận trong phạm vi kiểm tra MVP",{**req.model_dump(mode='json'),"verification":verification.model_dump()}, user_id=user["id"])
+    owner, key = project_ref(user, req.config)
+    version_id = save_version(req.config.project_name,"approved","Kỹ sư xác nhận trong phạm vi kiểm tra MVP",{**req.model_dump(mode='json'),"verification":verification.model_dump()}, user_id=user["id"], owner=owner, project_key=key)
     return {"version_id":version_id,"verification":verification,"scope":"Xác nhận nội bộ bản sơ bộ; không phải chứng nhận đủ điều kiện thi công."}
