@@ -188,3 +188,43 @@ Giả định khác:
 4. Chạy bộ đánh giá mô hình AI trước khi đổi sang Claude.
 
 `docs/SO_LIEU_CHUAN.md` mục 5 vẫn ghi bảng giá cũ (790k / 3,49 tr / 9,9 tr). Nếu thuyết trình bảng giá mới, sửa ở đó trước.
+
+## 11. Đề xuất bản 3 (08/11/2026, chưa chốt)
+
+Số liệu trong `output/report/SolarOpt_Mo_hinh_tai_chinh_v3.xlsx` (dựng lại bằng `backend/scripts/build_cost_model.py`). App vẫn chạy bảng giá 07/11 trong `backend/app/billing.py`. Số khách, tỷ lệ gói và tỷ lệ gia hạn là giả định, chưa có dữ liệu pilot.
+
+**Lỗi bảng giá 07/11:** Tháng·2 (4,0 tr/dự án) rẻ hơn cả hai gói năm, nên nếu khách gom được 2 dự án mỗi tháng thì mua gói tháng luôn rẻ hơn gói năm.
+
+| Gói đề xuất | Giá | Dự án | Ghế | Giờ hỗ trợ/kỳ | Giá/dự án | Neo giá |
+|---|---|---|---|---|---|---|
+| Dự án lẻ | 5,99 tr / 30 ngày | 1 | 1 | 3 | 5,99 tr | Rẻ hơn Aurora Premium tháng 10% |
+| Start | 17,9 tr/năm | 8 | 2 | 6 | 2,24 tr | Rẻ hơn PVsyst 19% |
+| Team | 34,9 tr/năm | 24 | 5 | 18 | 1,45 tr | Rẻ hơn HelioScope Basic 16% |
+| Pro | 54,9 tr/năm | 60 | 10 | 30 | 0,92 tr | Rẻ hơn Aurora Premium năm 19% |
+
+Dịch vụ thêm: Thiết kế hộ 3,9 tr/dự án. Tiền mua lẻ được trừ khi nâng lên gói năm. Pilot giảm 30% cho 5 khách gói năm đầu.
+
+**Chi phí một dự án:** dự kiến 246.000 đ, tối đa 532.000 đ khi ghim mô hình, 868.000 đ nếu dùng mô hình đắt nhất. Trần cả gói Pro là 52,1 tr nếu không giới hạn, 9,4 tr (17% giá gói) khi ghim mô hình và giới hạn giờ hỗ trợ.
+
+**Hòa vốn năm đầu, lãi 50 tr, chưa tính lưu trữ và Thiết kế hộ.** Số khách ở mức dùng dự kiến, chi phí có 1 khách 8 tr:
+
+| Nhân sự | Cố định/năm | Toàn Start | Trộn 50/35/15 |
+|---|---|---|---|
+| 6 người đủ lương | 1,47 tỷ | 224 | 97 |
+| 5 người đủ lương | 1,28 tỷ | 199 | 85 |
+| 6 người nửa lương | 910 tr | 149 | 62 |
+| 3 người đủ lương | 910 tr | 149 | 62 |
+| 3 người nửa lương | 632 tr | 97 | 45 |
+
+**Dòng tiền, tuyển theo mốc 15, 30, 60 khách, đủ lương, vốn 600 tr:**
+
+| Kịch bản | Doanh thu năm 1 | EBITDA năm 1 / 2 / 3 | Tiền mặt thấp nhất |
+|---|---|---|---|
+| Cơ sở: 22 khách năm mới, 18 lượt lẻ, 30 dự án Thiết kế hộ | 789 tr | −509 / −258 / +174 tr | −168 tr |
+| Gấp đôi | 1,62 tỷ | −139 / +567 / +1.607 tr | +146 tr |
+| Gấp 2,5 lần | 2,04 tỷ | +62 / +1.044 / +2.343 tr | +187 tr |
+| Cơ sở, nhưng 6 người ngay từ đầu | 789 tr | −1.004 / −475 / +81 tr | −879 tr |
+
+**Lưu trữ theo bậc:** 299.000 đ/tháng tới 8 dự án, 599.000 đ tới 24, 899.000 đ tới 60, 1,49 tr tới 150; trên 150 báo giá. Gói năm lưu miễn phí bằng số dự án của gói. Khách không đóng thì có 30 ngày chỉ xem, sau đó dữ liệu chuyển sang kho lạnh, không xóa ngay. Khôi phục: truy thu tối đa 6 tháng cộng 500.000 đ, hoặc 299.000 đ mỗi dự án.
+
+Trước khi bán: luật sư chốt thời hạn giữ và điều khoản; không gọi là đã xóa khi còn giữ; cơ quan có thẩm quyền yêu cầu thì cung cấp, không thu phí; chuyển sang lưu trữ bền, có niêm phong; đổi `purge_expired_projects.py` từ xóa hẳn sang chuyển kho.
