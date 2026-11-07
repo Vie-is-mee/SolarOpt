@@ -10,7 +10,7 @@ export type Obstacle = {
   scope:'roof'|'neighbor'; source:'manual'|'groq'|'ollama'|'gemini'|'openai'|'demo'; confidence:number;
   confirmed:boolean; floors?:number|null;
   shape?:'rect'|'ellipse'|'polygon';rotation_deg?:number;points?:Point[];base_elevation_m?:number|null;top_installable?:boolean;kind?:string|null;
-  roof_exit?:boolean|null;
+  roof_exit?:boolean|null;ai_ref?:string|null;ai_edited?:boolean;height_assumed?:boolean;position_assumed?:boolean;
 }
 import type {WeatherYear,YieldLosses} from './yieldLosses'
 export type Config = {
@@ -48,7 +48,7 @@ export type Stress = {passed:number;warned?:number;failed?:number;total:number;s
 export type Repair = {impact:{changed_input:string;affected_nodes:string[];reused_nodes:string[];recomputation_ratio_pct:number};design:Design;verification:Verification}
 export type Vision = {
   mode:'groq'|'ollama'|'gemini'|'openai'|'manual';model:string;roof_width_m:number|null;roof_height_m:number|null;roof_confidence:number;
-  obstacles:{id:string;label:string;x_pct:number;y_pct:number;width_pct:number;depth_pct:number;height_m:number|null;confidence:number;observation:string;requires_placement:boolean}[];
+  obstacles:{id:string;label:string;kind?:string;scope?:'roof'|'around';x_pct:number;y_pct:number;width_pct:number;depth_pct:number;height_m:number|null;confidence:number;observation:string;requires_placement:boolean}[];
   roof_polygon_pct:Point[];extracted_text:string[];notes:string[];events:{stage:string;status:string;detail:string}[];cached:boolean;elapsed_ms:number;preview_data_url:string|null;replay?:string;
   roof_polygon_image_pct?:Point[];roof_aspect_ratio?:number|null;roof_crop_data_url?:string|null;coordinate_version?:number;relevant?:boolean;image_type?:string;reject_reason?:string;dimensions?:DimensionCheck|null;roof_shape?:string;ridge_axis?:'horizontal'|'vertical'|'unknown';rise_m?:number|null;
 }

@@ -37,6 +37,10 @@ class RectObstacle(StrictModel):
     base_elevation_m: float | None = Field(default=None, ge=0, le=500)
     top_installable: bool = Field(default=False, description="Flat top may carry panels, e.g. stair housing or shed roof; engineer confirms structure and access")
     kind: str | None = Field(default=None, max_length=30, description="Asset type for display (tank, tree_round, house...); shading uses the footprint prism")
+    ai_ref: str | None = Field(default=None, max_length=60, description="Placed by the image reading; which box it came from")
+    ai_edited: bool = Field(default=False, description="The engineer changed this object, so a new reading must leave it alone")
+    height_assumed: bool = Field(default=False, description="Height is a library value, not read or measured")
+    position_assumed: bool = Field(default=False, description="Position is a temporary spot, not read from the image")
     roof_exit: bool | None = Field(default=None, description="Roof exit (stair housing, hatch); None infers it from the kind or label. Fire rules keep panels 3 m away")
 
     @model_validator(mode="after")
@@ -396,10 +400,13 @@ class NormalizedPoint(StrictModel):
 class VisionObstacle(StrictModel):
     id: str
     label: str
-    x_pct: float = Field(ge=0, le=100)
-    y_pct: float = Field(ge=0, le=100)
-    width_pct: float = Field(ge=0, le=100)
-    depth_pct: float = Field(ge=0, le=100)
+    kind: str = Field(default="other", max_length=30)
+    scope: Literal["roof", "around"] = "roof"
+    # Percent of the roof box; objects around the roof fall outside 0-100.
+    x_pct: float = Field(ge=-1000, le=1100)
+    y_pct: float = Field(ge=-1000, le=1100)
+    width_pct: float = Field(ge=0, le=1000)
+    depth_pct: float = Field(ge=0, le=1000)
     height_m: float | None = Field(default=None, ge=0, le=500)
     confidence: float = Field(ge=0, le=1)
     observation: str = ""

@@ -35,6 +35,7 @@ from app.services.dependency import trace_impact
 from app.services.electrical import CATALOG, ElectricalRequest, ElectricalResult, design_electrical
 from app.services.site import SiteReview, SiteReviewRequest, review_site
 from app.services.vision import analyze_images, provider_status, VisionError
+from app.services.object_kinds import resolve_kind, scope_of
 from app.services.scene import simulate_scene
 from app.services.optimizer import generate_design
 from app.services.solar import fetch_pvgis, sun_position
@@ -138,6 +139,10 @@ async def vision_analyze(file: UploadFile = File(...), context_files: list[Uploa
     # A replay calls no model and costs nothing, so it needs neither an account nor quota.
     if demo_mode and (record := demo.load("vision", key)):
         result = VisionResult.model_validate(record["result"])
+        for item in result.obstacles:
+            # Recordings older than the object kinds carry only a label.
+            item.kind = resolve_kind(item.kind, item.label)
+            item.scope = scope_of(item.kind, item.scope)
         result.replay, result.elapsed_ms = demo.label(record), 0
         result.events = [{"stage": "demo", "status": "complete", "detail": result.replay}]
         return result

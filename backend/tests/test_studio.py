@@ -160,7 +160,7 @@ def test_provider_rate_limit_is_not_fake_success(authenticated_client,monkeypatc
     assert result.status_code==429
     assert 'mode' not in result.json()
 
-def test_vision_rejects_invalid_coordinates(authenticated_client,monkeypatch):
+def test_vision_drops_a_box_far_outside_the_image(authenticated_client,monkeypatch):
     client=authenticated_client
     monkeypatch.setenv('AI_PROVIDER','groq');monkeypatch.setenv('GROQ_API_KEY','test-coords');vision._cache.clear()
     class Response:
@@ -168,7 +168,8 @@ def test_vision_rejects_invalid_coordinates(authenticated_client,monkeypatch):
         def json(self):return {'choices':[{'message':{'content':json.dumps({'roof_confidence':.5,'obstacles':[{'id':'bad','label':'bad','x_pct':95,'y_pct':20,'width_pct':50,'depth_pct':10,'confidence':.5}]})}}]}
     monkeypatch.setattr(vision.requests,'post',lambda *a,**kw:Response())
     result=client.post('/api/vision/analyze',files={'file':('roof.png',image_bytes(),'image/png')})
-    assert result.status_code==502
+    assert result.status_code==200 and result.json()['obstacles']==[]
+    assert any('Bỏ 1 vật' in e['detail'] for e in result.json()['events'])
 
 def test_vision_trims_a_box_slightly_past_the_edge_and_asks_for_placement(authenticated_client,monkeypatch):
     client=authenticated_client
