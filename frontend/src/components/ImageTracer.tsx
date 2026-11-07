@@ -283,7 +283,7 @@ export function ImageTracer({image,kind,measuredLong,measuredShort,onLongChange,
  const toolLabel=ALL_TOOLS.find(t=>t.id===tool)!.label
  const cursorClass=panning?'panning':space.current?'pan-ready':`tool-${tool}`
 
- return <section ref={section} className="image-tracer">
+ return <section ref={section} className="image-tracer" onPointerLeave={()=>{engaged.current=false;space.current=false}}>
   <div className="tracer-heading"><div><h3>Trích biên đúng theo ảnh</h3><p>Khoanh sát mái → tách vùng → so lớp phủ → hiệu chuẩn số đo.</p></div><span>OpenCV · CPU</span></div>
   <div className="tracer-toolbar" role="toolbar" aria-label="Công cụ trích biên">
    {TOOLS.map(g=><div className="tool-group" key={g.group}><span>{g.group}</span><div>{g.items.map(t=><button key={t.id} type="button" className={tool===t.id?'active':''} aria-pressed={tool===t.id} title={`${t.label} (phím ${t.key})`} disabled={busy} onClick={()=>pick(t.id)}>{t.icon}<span>{t.label}</span><kbd>{t.key}</kbd></button>)}</div></div>)}
