@@ -4,7 +4,7 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-from app import database, main
+from app import billing, database, main
 from app.schemas import DesignRequest, PanelSpec, ProjectConfig
 from app.services import vision
 from app.services.optimizer import generate_design
@@ -105,32 +105,34 @@ def test_trial_account_has_one_project_then_must_buy_a_plan(api):
 
 def test_upgrade_request_admin_activation_and_expiry(api):
     register(api, 'eng@example.com')
-    assert api.post('/api/account/upgrade-request', json={'plan': 'month_1', 'note': 'Nhà xưởng 500 kWp'}).status_code == 201
-    assert api.get('/api/account/usage').json()['pending_request'] == 'month_1'
+    assert api.post('/api/account/upgrade-request', json={'plan': 'single', 'note': 'Nhà xưởng 500 kWp'}).status_code == 201
+    assert api.get('/api/account/usage').json()['pending_request'] == 'single'
     assert api.get('/api/admin/users').status_code == 403
     admin = make_admin(api)
     users = {u['email']: u for u in admin.get('/api/admin/users').json()}
-    assert users['eng@example.com']['pending_request']['plan'] == 'month_1'
+    assert users['eng@example.com']['pending_request']['plan'] == 'single'
     uid = users['eng@example.com']['id']
-    assert admin.post(f'/api/admin/users/{uid}/plan', json={'plan': 'month_1', 'periods': 1}).status_code == 200
+    assert admin.post(f'/api/admin/users/{uid}/plan', json={'plan': 'single', 'periods': 1}).status_code == 200
     usage = api.get('/api/account/usage').json()
-    assert usage['plan'] == 'month_1' and usage['limits']['projects'] == 1 and usage['pending_request'] is None
+    assert usage['plan'] == 'single' and usage['limits']['projects'] == 1 and usage['pending_request'] is None
     plans = usage['plans']
-    assert [plans[k]['price_vnd'] for k in ('month_1', 'month_2', 'year_3', 'year_7')] == [5_990_000, 7_990_000, 15_000_000, 30_000_000]
-    assert [plans[k]['projects'] for k in ('month_1', 'month_2', 'year_3', 'year_7')] == [1, 2, 3, 7]
-    assert plans['year_3']['period'] == 'year' and usage['storage_terms']['fee_vnd_per_project_month'] == 1_000_000
+    assert [plans[k]['price_vnd'] for k in ('single', 'start', 'team', 'pro')] == [5_990_000, 17_900_000, 34_900_000, 54_900_000]
+    assert [plans[k]['projects'] for k in ('single', 'start', 'team', 'pro')] == [1, 8, 24, 60]
+    assert [plans[k]['seats'] for k in ('single', 'start', 'team', 'pro')] == [1, 2, 5, 10]
+    assert set(plans) == {'free', 'single', 'start', 'team', 'pro'} and plans['start']['period'] == 'year'
+    assert [t['fee_vnd_month'] for t in usage['storage_terms']['tiers']] == [299_000, 599_000, 899_000, 1_490_000]
     with database.connect() as conn:
         conn.execute('UPDATE users SET plan_until=? WHERE id=?', (int(time.time()) - 1, uid))
     assert api.get('/api/account/usage').json()['plan'] == 'free'
     assert admin.post(f'/api/admin/users/{uid}/plan', json={'plan': 'gold'}).status_code == 422
-    assert admin.post(f'/api/admin/users/{uid}/plan', json={'plan': 'year_3', 'periods': 2}).json()['plan_until'] > time.time() + 700 * 86400
+    assert admin.post(f'/api/admin/users/{uid}/plan', json={'plan': 'start', 'periods': 2}).json()['plan_until'] > time.time() + 700 * 86400
 
 
 def test_cycle_resets_allowance_and_a_name_at_another_place_is_a_new_project(api):
     register(api, 'cycle@example.com')
     admin = make_admin(api)
     uid = {u['email']: u['id'] for u in admin.get('/api/admin/users').json()}['cycle@example.com']
-    admin.post(f'/api/admin/users/{uid}/plan', json={'plan': 'month_1', 'periods': 3})
+    admin.post(f'/api/admin/users/{uid}/plan', json={'plan': 'single', 'periods': 3})
     assert design(api, 'Nhà A').status_code == 200
     assert design(api, 'Nhà A', latitude=21.03, longitude=105.85).status_code == 402      # same name, roof in Hà Nội
     assert design(api, 'Nhà B').status_code == 402
@@ -139,7 +141,11 @@ def test_cycle_resets_allowance_and_a_name_at_another_place_is_a_new_project(api
         conn.execute('UPDATE usage_events SET created_at=created_at-?', (31 * 86400,))
     assert api.get('/api/account/usage').json()['used']['projects'] == 0
     assert design(api, 'Nhà B').status_code == 200
-    assert design(api, 'Nhà A').status_code == 402                                          # last month's project is not carried over
+    assert design(api, 'Nhà A').status_code == 200                                          # same job next month: not charged twice
+    assert api.get('/api/account/usage').json()['used']['projects'] == 1
+    with database.connect() as conn:                                                        # after a year it is a new use
+        conn.execute("UPDATE usage_events SET created_at=created_at-? WHERE project_key LIKE 'nhà a%'", (366 * 86400,))
+    assert design(api, 'Nhà A').status_code == 402
 
 
 def test_project_data_is_kept_while_paid_then_hidden_and_purged(api):
@@ -147,12 +153,12 @@ def test_project_data_is_kept_while_paid_then_hidden_and_purged(api):
     register(api, 'store@example.com')
     admin = make_admin(api)
     uid = {u['email']: u['id'] for u in admin.get('/api/admin/users').json()}['store@example.com']
-    admin.post(f'/api/admin/users/{uid}/plan', json={'plan': 'year_3', 'periods': 1})
+    admin.post(f'/api/admin/users/{uid}/plan', json={'plan': 'single', 'periods': 1})
     assert design(api, 'Kho Bình Dương').status_code == 200
     stored = api.get('/api/account/storage').json()
-    assert stored['grace_days'] == 2 and len(stored['projects']) == 1
+    assert stored['grace_days'] == 30 and len(stored['projects']) == 1
     project = stored['projects'][0]
-    assert project['state'] == 'included' and project['covered_until'] > time.time() + 360 * 86400
+    assert project['state'] == 'included' and project['covered_until'] > time.time() + 29 * 86400
     version = api.get('/api/history').json()[0]
     assert version['project_key'] == project['project_key']
 
@@ -162,16 +168,17 @@ def test_project_data_is_kept_while_paid_then_hidden_and_purged(api):
     age(1)
     assert api.get('/api/account/storage').json()['projects'][0]['state'] == 'grace'
     assert api.get('/api/account/usage').json()['storage_due'] == 1 and len(api.get('/api/history').json()) == 1
-    age(3)
+    age(31)
     assert api.get('/api/history').json() == []
     assert api.get(f"/api/projects/Kho Bình Dương/versions/{version['id']}").status_code == 410
-    assert api.post('/api/account/storage-request', json={'project_key': project['project_key'], 'months': 3}).json()['fee_vnd'] == 3_000_000
-    assert admin.get('/api/admin/storage').json()['projects'][0]['pending_months'] == 3
-    extended = admin.post('/api/admin/storage', json={'owner': f'u:{uid}', 'project_key': project['project_key'], 'months': 3}).json()
+    assert api.post('/api/account/storage-request', json={'months': 3}).json()['fee_vnd'] == 3 * 299_000
+    assert api.get('/api/account/storage').json()['pending_months'] == 3
+    assert admin.get('/api/admin/storage').json()['accounts'][0]['pending_months'] == 3
+    extended = admin.post('/api/admin/storage', json={'owner': f'u:{uid}', 'months': 3}).json()
     assert extended['storage_until'] > time.time() + 89 * 86400
     assert api.get('/api/account/storage').json()['projects'][0]['state'] == 'paid' and len(api.get('/api/history').json()) == 1
     with database.connect() as conn:
-        conn.execute('UPDATE project_storage SET storage_until=?', (int(time.time()) - 3 * 86400,))
+        conn.execute('UPDATE project_storage SET storage_until=?', (int(time.time()) - 31 * 86400,))
     purge_expired_projects.main(apply=False)
     assert len(api.get('/api/projects/Kho Bình Dương/versions').json()) == 0          # hidden, still on disk
     with database.connect() as conn:
@@ -180,7 +187,48 @@ def test_project_data_is_kept_while_paid_then_hidden_and_purged(api):
     with database.connect() as conn:
         assert conn.execute('SELECT COUNT(*) FROM project_versions').fetchone()[0] == 0
     assert api.get('/api/account/storage').json()['projects'][0]['state'] == 'purged'
-    assert admin.post('/api/admin/storage', json={'owner': f'u:{uid}', 'project_key': project['project_key'], 'months': 1}).status_code == 410
+    assert admin.post('/api/admin/storage', json={'owner': f'u:{uid}', 'months': 1}).status_code == 404
+    assert api.post('/api/account/storage-request', json={'months': 1}).status_code == 409
+
+
+@pytest.mark.parametrize('projects,fee', [(0, 0), (1, 299_000), (8, 299_000), (9, 599_000), (24, 599_000), (25, 899_000), (60, 899_000), (61, 1_490_000), (150, 1_490_000), (151, None)])
+def test_storage_fee_follows_the_tier_of_the_project_count(projects, fee):
+    assert billing.storage_fee(projects) == fee
+
+
+def test_twelve_months_of_storage_bill_ten():
+    assert [billing.storage_bill(9, m) for m in (1, 6, 12, 24)] == [599_000, 6 * 599_000, 10 * 599_000, 20 * 599_000]
+    assert billing.storage_bill(151, 12) is None
+
+
+def test_an_active_yearly_plan_keeps_as_many_stored_projects_free_as_it_sells(api):
+    register(api, 'renew@example.com')
+    admin = make_admin(api)
+    uid = {u['email']: u['id'] for u in admin.get('/api/admin/users').json()}['renew@example.com']
+    admin.post(f'/api/admin/users/{uid}/plan', json={'plan': 'start', 'periods': 1})
+    with database.connect() as conn:
+        for i in range(10):
+            conn.execute('INSERT INTO project_storage(owner,project_key,project_name,first_used,covered_until) VALUES(?,?,?,?,?)',
+                         (f'u:{uid}', f'cu {i}', f'Dự án cũ {i}', int(time.time()) - 500 * 86400 - i, int(time.time()) - 10 * 86400))
+    stored = api.get('/api/account/storage').json()
+    assert [p['state'] for p in stored['projects']] == ['included'] * 8 + ['grace'] * 2
+    assert stored['projects'][0]['project_name'] == 'Dự án cũ 0' and stored['billable'] == 2 and stored['fee_vnd_month'] == 299_000
+    with database.connect() as conn:
+        conn.execute('UPDATE users SET plan_until=? WHERE id=?', (int(time.time()) - 1, uid))
+    stored = api.get('/api/account/storage').json()
+    assert stored['billable'] == 10 and stored['fee_vnd_month'] == 599_000
+
+
+def test_retired_plans_are_not_sold_but_an_account_keeps_theirs_until_it_ends(api):
+    register(api, 'old@example.com')
+    assert api.post('/api/account/upgrade-request', json={'plan': 'year_7'}).status_code == 422
+    admin = make_admin(api)
+    uid = {u['email']: u['id'] for u in admin.get('/api/admin/users').json()}['old@example.com']
+    assert admin.post(f'/api/admin/users/{uid}/plan', json={'plan': 'year_7', 'periods': 1}).status_code == 422
+    with database.connect() as conn:
+        conn.execute("UPDATE users SET plan='year_7', plan_started=?, plan_until=? WHERE id=?", (int(time.time()), int(time.time()) + 86400, uid))
+    usage = api.get('/api/account/usage').json()
+    assert usage['plan'] == 'year_7' and usage['limits']['projects'] == 7 and 'year_7' not in usage['plans']
 
 
 def test_admin_is_unlimited_and_rights_come_only_from_the_database(api):
@@ -204,18 +252,18 @@ def test_team_pools_quota_shares_history_and_respects_seats(api):
     team = owner.post('/api/team', json={'name': 'Công ty Nắng'}).json()
     assert team['role'] == 'owner' and team['seats'] == 1
     assert owner.post('/api/team/members', json={'email': 'eng@example.com'}).status_code == 402      # unpaid team: 1 seat
-    assert owner.post('/api/account/upgrade-request', json={'plan': 'year_7'}).status_code == 201
+    assert owner.post('/api/account/upgrade-request', json={'plan': 'team'}).status_code == 201
     admin = make_admin(api)
     listed = {t['name']: t for t in admin.get('/api/admin/teams').json()}
-    assert listed['Công ty Nắng']['pending_request']['plan'] == 'year_7'
-    assert admin.post(f"/api/admin/teams/{team['id']}/plan", json={'plan': 'year_7', 'periods': 1}).status_code == 200
+    assert listed['Công ty Nắng']['pending_request']['plan'] == 'team'
+    assert admin.post(f"/api/admin/teams/{team['id']}/plan", json={'plan': 'team', 'periods': 1}).status_code == 200
     assert owner.post('/api/team/members', json={'email': 'nobody@example.com'}).status_code == 404
     assert owner.post('/api/team/members', json={'email': 'eng@example.com'}).json()['members'][1]['email'] == 'eng@example.com'
     assert eng.post('/api/team/members', json={'email': 'other@example.com'}).status_code == 403          # members cannot add
     assert design(eng, 'Nhà xưởng A').status_code == 200
     assert design(owner, 'Nhà xưởng A').status_code == 200                                               # same project, one use
     usage = owner.get('/api/account/usage').json()
-    assert usage['plan'] == 'year_7' and usage['used']['projects'] == 1 and usage['limits']['projects'] == 7
+    assert usage['plan'] == 'team' and usage['used']['projects'] == 1 and usage['limits']['projects'] == 24
     assert any(v['project_name'] == 'Nhà xưởng A' for v in owner.get('/api/history').json())             # engineer's version visible
     assert other.get('/api/history').json() == []                                                        # outsiders see nothing
     eng_member = [m for m in owner.get('/api/team').json()['members'] if m['email'] == 'eng@example.com'][0]

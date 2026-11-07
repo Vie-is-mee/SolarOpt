@@ -81,7 +81,7 @@ def widths(ws, values):
 # ------------------------------------------------------------------------------------------------
 ws = wb.active
 ws.title = "Huong_dan"
-title(ws, "SolarOpt — Mô hình chi phí, gói đề xuất, hòa vốn và dòng tiền (bản 3)", "Lập 08/11/2026 · đơn vị VND · tháng 1 của dòng tiền = tháng đầu bán (Gia_dinh: LAUNCH) · bảng giá ở đây là ĐỀ XUẤT, app vẫn chạy bảng 07/11")
+title(ws, "SolarOpt — Mô hình chi phí, gói, hòa vốn và dòng tiền (bản 3)", "Lập 08/11/2026 · đơn vị VND · tháng 1 của dòng tiền = tháng đầu bán (Gia_dinh: LAUNCH) · bảng giá này đã đưa lên app ngày 08/11/2026")
 rows = [
     ("Cách dùng", ""),
     ("1", "Chỉ sửa ô CHỮ XANH (đầu vào). Ô chữ đen là công thức; chữ xanh lá là liên kết sang sheet khác."),
@@ -89,7 +89,7 @@ rows = [
     ("3", "Đổi mô hình AI cho từng tính năng ở Gia_dinh (ô chọn danh sách). Đổi giá gói ở sheet Goi cột C, bậc lưu trữ ở Luu_tru. Đổi dự báo số lượt mua ở Dong_tien (dòng chữ xanh). Đặt FIXED_STAFF trong Gia_dinh để cố định số nhân sự; để 0 thì tuyển theo mốc khách ở Chi_phi_co_dinh."),
     ("4", "Kết quả: Tong_hop (năm 1–3, tháng có lãi, tiền mặt thấp nhất), Hoa_von (số khách tối thiểu theo từng phương án nhân sự), Goi (lãi gộp và chi phí tối đa từng gói), Luu_tru (bậc phí và kho lạnh), Doi_thu (so giá đối thủ), Chi_phi_du_an (chi phí biến đổi 1 dự án)."),
     ("", ""),
-    ("Thay đổi so với bản 07/11", "Bốn gói đề xuất (Dự án lẻ, Start, Team, Pro) thay Tháng·1, Tháng·2, Năm·3, Năm·7; giới hạn giờ hỗ trợ và chi phí tối đa theo gói; nhân sự 6 vị trí, tuyển theo mốc khách; thêm văn phòng và dự phòng 10%; phí lưu trữ theo bậc và kho lạnh; Thiết kế hộ; trừ tiền lẻ khi nâng gói; pilot 5 khách chỉ gói năm; sheet Hoa_von; năm 1 tính từ tháng đầu bán."),
+    ("Thay đổi so với bản 07/11", "Bốn gói mới (Dự án lẻ, Start, Team, Pro) thay Tháng·1, Tháng·2, Năm·3, Năm·7; giới hạn giờ hỗ trợ và chi phí tối đa theo gói; nhân sự 6 vị trí, tuyển theo mốc khách; thêm văn phòng và dự phòng 10%; phí lưu trữ theo bậc và kho lạnh; Thiết kế hộ; trừ tiền lẻ khi nâng gói; pilot 5 khách chỉ gói năm; sheet Hoa_von; năm 1 tính từ tháng đầu bán."),
     ("Nguồn số đo", "Token AI và giây CPU: backend/scripts/measure_cost.py chạy 04/11/2026 trên 5 mái mẫu (output/report/cost_measurements_2026-11-04.json)."),
     ("Nguồn giá", "Ghi cạnh từng ô (cột Nguồn). Tỷ giá Vietcombank bán ra 13:30 07/11/2026 (webgia.com); CHF và INR không đọc được, là giả định."),
     ("Giới hạn", "Số lượt mua gói, tỷ lệ dùng hạn mức, tỷ lệ trả phí lưu trữ, CAC, gia hạn là GIẢ ĐỊNH chưa có dữ liệu pilot. Bảo hiểm, pháp lý, lương là ước tính cần báo giá. Giá đối thủ lấy từ trang chính hãng khi đọc được, còn lại từ trang bên thứ ba (ghi rõ)."),
@@ -322,7 +322,7 @@ put(v, f"E{r0+1}", "Chênh lệch giữa mô hình rẻ nhất và mạnh nhất
 # Goi (plans, unit economics)
 # ------------------------------------------------------------------------------------------------
 p = wb.create_sheet("Goi")
-title(p, "Gói đề xuất 08/11/2026 — kinh tế đơn vị", "Cột B–F và P là đầu vào; còn lại là công thức. App vẫn chạy bảng 07/11 trong backend/app/billing.py cho tới khi chốt.")
+title(p, "Gói 08/11/2026 — kinh tế đơn vị", "Cột B–F và P là đầu vào; còn lại là công thức. Giá phải khớp PLANS trong backend/app/billing.py.")
 widths(p, [12, 22, 15, 10, 11, 12, 14, 15, 14, 14, 14, 12, 14, 15, 15, 12, 17, 10, 17, 10])
 header(p, 4, ["Mã gói", "Tên gói", "Giá (đ)", "Kỳ (tháng)", "Dự án / kỳ", "Ghế", "Giá / dự án", "Dự án dùng thực / kỳ", "Doanh thu / dự án dùng",
               "Giá vốn / dự án dùng", "Lãi gộp / dự án", "Biên gộp", "Biên gộp xấu nhất", "Quy đổi đ/tháng", "So với neo đối thủ",
@@ -334,7 +334,7 @@ plans = [("single", "Dự án lẻ", 5_990_000, 1, 1, 1, "NEO_MONTH", 3),
 for i, (pid, nm, price, months, projects, seats, neo, hours) in enumerate(plans, 5):
     put(p, f"A{i}", pid, BLUE)
     put(p, f"B{i}", nm, BLUE)
-    put(p, f"C{i}", price, BLUE, VND, note="Giá đề xuất 08/11/2026, chưa chốt")
+    put(p, f"C{i}", price, BLUE, VND, note="Bảng giá 08/11/2026")
     put(p, f"D{i}", months, BLUE, VND)
     put(p, f"E{i}", projects, BLUE, VND)
     put(p, f"F{i}", seats, BLUE, VND)
@@ -372,7 +372,7 @@ for k, line in enumerate(notes, 13):
 # Luu_tru (tiered storage and cold archive)
 # ------------------------------------------------------------------------------------------------
 l = wb.create_sheet("Luu_tru")
-title(l, "Lưu trữ hồ sơ dự án theo bậc và kho lạnh", "Đề xuất 08/11/2026, chưa có trong app. Phí tính theo số dự án đang lưu ngoài phần gói năm đã bao gồm.")
+title(l, "Lưu trữ hồ sơ dự án theo bậc và kho lạnh", "Bậc phí đã có trong app từ 08/11/2026; kho lạnh chưa làm. Phí tính theo số dự án đang lưu ngoài phần gói năm đã bao gồm.")
 widths(l, [46, 13, 13, 15, 17, 17, 17, 18, 44])
 put(l, "A3", "Phí cũ (đ/dự án/tháng, đang chạy trong app)", GREY)
 put(l, "D3", 1_000_000, BLUE, VND)
