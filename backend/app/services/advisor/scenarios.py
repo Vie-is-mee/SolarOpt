@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 
 from app.schemas import DesignRequest
-from app.services.advisor.models import AdvisorRequest, ApplyPlan, Consumption, Scenario, ScenarioParams
+from app.services.advisor.models import REPLACEMENT_PER_KWP, AdvisorRequest, ApplyPlan, Consumption, Scenario, ScenarioParams
 from app.services.advisor.tariff import TARIFF_SOURCE, marginal_price, monthly_saving, residential_kwh
 from app.services.geometry import build_context
 from app.services.optimizer import area_upper_bound, generate_design
@@ -83,7 +83,7 @@ def site_facts(req: AdvisorRequest) -> dict[str, float | str | None]:
 
 def cash_flow(req: AdvisorRequest, cons: Consumption, kwp: float, energy: float, investment: float,
               profile: list[float] | None = None, extra_daytime: float = 0.0):
-    """Self-used energy saves the customer's own tariff; surplus earns sell_price (0 by default) on at most half
+    """Self-used energy saves the customer's own tariff; surplus earns sell_price (845 đ/kWh in 2026) on at most half
     the output. With the layout's hourly output and a known bill, self-use is matched hour by hour against the
     customer's load profile (services/selfuse.py, the same model as the handover economics); otherwise it is
     capped by daytime demand, and without a known demand all output counts as self-used."""
@@ -97,6 +97,8 @@ def cash_flow(req: AdvisorRequest, cons: Consumption, kwp: float, energy: float,
                                   req.config.latitude, vat_pct=c.vat_pct, extra_daytime_kwh_year=extra_daytime)
         if kind == "business" and c.business_price_vnd_kwh:
             hourly["avoided_vnd"] = hourly["self_kwh"] * c.business_price_vnd_kwh * (1 + c.vat_pct / 100)
+    replacement = (f.replacement_vnd_per_kwp if f.replacement_vnd_per_kwp is not None
+                   else REPLACEMENT_PER_KWP["business" if c.tariff == "business" else "residential"]) * kwp
     cumulative, npv, payback = -investment, -investment, None
     first_saving, self_use_pct = 0.0, 100.0
     for year in range(1, f.years + 1):
@@ -113,7 +115,7 @@ def cash_flow(req: AdvisorRequest, cons: Consumption, kwp: float, energy: float,
             else:   # No bill: value self use at the 3rd residential tier, a conservative middle price.
                 saving = self_used * marginal_price(250) * (1 + c.vat_pct / 100) * growth
         export = min(e - self_used, e * EXPORT_CAP) * f.sell_price_vnd_kwh * growth
-        net = saving + export - f.maintenance_vnd_per_kwp_year * kwp
+        net = saving + export - f.maintenance_vnd_per_kwp_year * kwp - (replacement if year == f.replacement_year else 0)
         if year == 1:
             first_saving, self_use_pct = saving + export, (self_used / e * 100 if e else 0)
         previous = cumulative

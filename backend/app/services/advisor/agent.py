@@ -40,7 +40,7 @@ Quy tắc bắt buộc:
 - Suy luận trước khi gọi công cụ: nhu cầu khách là gì, mái chứa tối đa bao nhiêu, ngân sách và điện dùng ban ngày giới hạn quy mô thế nào. Thử 2–4 kịch bản khác nhau có chủ đích (ví dụ: vừa đủ điện ban ngày, phủ toàn bộ nhu cầu, tối đa mái trong ngân sách, chừa lối đi/dự phòng).
 - Nếu kỹ sư có góp ý, kịch bản mới phải phản ánh góp ý đó và lý do phải nói rõ đã thay đổi gì so với đề xuất trước.
 - Góp ý làm thay đổi nhu cầu (xe điện, thêm máy lạnh, bơm nhiệt...) phải đưa vào extra_daytime_kwh_year để dòng tiền tính đúng; lùi mép áp dụng đều mọi cạnh, đừng nói là riêng một phía.
-- Điện dư không được trả tiền (trừ khi giá bán > 0), nên quy mô vượt xa điện ban ngày thường làm hoàn vốn chậm.
+- Điện dư chỉ được trả giá thị trường điện (gia_ban_dien_du, năm 2026 khoảng 845 đ/kWh) trên tối đa 50% sản lượng, thấp hơn nhiều giá điện khách mua, nên quy mô vượt xa điện ban ngày thường làm hoàn vốn chậm.
 Khi đã đủ kịch bản, trả lời DUY NHẤT một đối tượng JSON:
 {"recommended_id":"S2","summary":"2–3 câu","reasons":[{"text":"lý do","refs":["S2.payback_years","consumption.daytime_kwh_year"]}],"risks":["..."],"questions":["câu hỏi cần hỏi khách"]}
 refs phải là khóa dữ kiện có thật (dạng S1.npv_vnd, S2.coverage_pct, site.max_kwp_by_area, consumption.annual_kwh, previous.panel_count khi có đề xuất trước...). Không viết tên khóa hay tên trường JSON trong câu; khóa chỉ nằm trong refs. Viết tiếng Việt, ngắn gọn, cho kỹ sư đọc."""
@@ -69,6 +69,9 @@ def computed_risks(book: ScenarioBook, pick: Scenario) -> list[str]:
         out.append(f"NPV âm ({_money(pick.npv_vnd)}): với giả định hiện tại, khoản đầu tư không bù được chi phí vốn trong {book.req.finance.years} năm.")
     if book.cons.daytime_kwh_year is not None and pick.self_use_pct < 50 and not book.req.finance.sell_price_vnd_kwh:
         out.append(f"Chỉ tự dùng {_num(pick.self_use_pct)}% sản lượng; phần dư không được trả tiền nên không tạo tiết kiệm.")
+    elif book.cons.daytime_kwh_year is not None and pick.self_use_pct < 50:
+        out.append(f"Chỉ tự dùng {_num(pick.self_use_pct)}% sản lượng; phần dư chỉ bán được {_num(book.req.finance.sell_price_vnd_kwh, 0)} đ/kWh "
+                   "trên tối đa 50% sản lượng, thấp hơn nhiều giá điện mua.")
     if pick.average_shading_loss_pct > 3:
         out.append(f"Tổn thất bóng trung bình {_num(pick.average_shading_loss_pct, 2)}%: kiểm tra lại cao độ vật cản trước khi chốt.")
     return out
@@ -172,7 +175,7 @@ def _rules_scenarios(req: AdvisorRequest, book: ScenarioBook) -> None:
             plans.append((ScenarioParams(objective="min_cost", target_energy_kwh_year=annual, **common), "Vừa đủ nhu cầu cả năm", "So sánh: dừng ở mức điện cả năm thì vốn giảm bao nhiêu."))
     elif req.need == "min_cost":
         if daytime:
-            plans.append((ScenarioParams(objective="min_cost", target_energy_kwh_year=daytime, **common), "Vừa đủ điện ban ngày", "Điện dư không được trả tiền: quy mô theo điện dùng ban ngày cho hoàn vốn nhanh nhất."))
+            plans.append((ScenarioParams(objective="min_cost", target_energy_kwh_year=daytime, **common), "Vừa đủ điện ban ngày", "Điện dư chỉ bán được giá thị trường, thấp hơn nhiều giá điện mua: quy mô theo điện dùng ban ngày cho hoàn vốn nhanh nhất."))
         if annual:
             plans.append((ScenarioParams(objective="min_cost", target_energy_kwh_year=annual, **common), "Phủ toàn bộ nhu cầu", "Nếu khách muốn hóa đơn gần bằng 0 thì cần thêm bao nhiêu vốn."))
         if not plans:
@@ -288,7 +291,9 @@ def propose(req: AdvisorRequest, client: ChatClient | None = None) -> Proposal:
     assumptions = [book.cons.source, book.capex_source,
                    f"Điện dùng ban ngày {_num(book.cons.daytime_share_pct)}%" + (" (kỹ sư nhập)." if req.customer.daytime_share_pct is not None else " (giả định theo loại biểu giá, cần hỏi khách)."),
                    f"Suy giảm {_num(req.finance.degradation_pct)}%/năm, bảo trì {_num(req.finance.maintenance_vnd_per_kwp_year, 0)} đ/kWp/năm, chiết khấu {_num(req.finance.discount_pct)}%/năm, "
-                   f"điện dư {'không được trả tiền' if not req.finance.sell_price_vnd_kwh else _num(req.finance.sell_price_vnd_kwh, 0) + ' đ/kWh'}.",
+                   f"giá điện tăng {_num(req.finance.price_growth_pct)}%/năm, "
+                   f"điện dư {'không được trả tiền' if not req.finance.sell_price_vnd_kwh else _num(req.finance.sell_price_vnd_kwh, 0) + ' đ/kWh trên tối đa 50% sản lượng (NĐ 243/2026; giá thị trường bình quân năm trước)'}"
+                   + (f", thay inverter năm {req.finance.replacement_year}." if req.finance.replacement_year else "."),
                    "Ngân sách đề xuất = vốn phương án chọn + 10% dự phòng, làm tròn lên 5 triệu."]
     return Proposal(
         mode=mode, model=getattr(client, "model", "") if mode == "llm" else "", need=req.need, consumption=book.cons,

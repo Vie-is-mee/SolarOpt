@@ -35,8 +35,8 @@ Theo giá inverter hiện nay (xem [2_inverter_vat_tu.md](2_inverter_vat_tu.md))
 
 | Giả định | Giá trị | Ghi chú |
 |---|---|---|
-| Bảo trì, vệ sinh | 150.000 đ/kWp/năm | Trợ lý tư vấn dùng 100.000. Cần báo giá dịch vụ O&M. Nguồn cho tần suất: vệ sinh 2–4 lần/năm ([VOV](https://vov.vn/cong-nghe/mot-viec-nhieu-gia-dinh-bo-quen-co-the-khien-dien-mat-troi-giam-toi-40-hieu-suat-post1320900.vov)) |
-| Suy giảm tấm | 0,55%/năm | Trợ lý dùng 0,5. Trang chép datasheet LONGi ghi ~0,73%/năm sau năm đầu. Nên lấy theo bảo hành của đúng tấm mua |
+| Bảo trì, vệ sinh | 150.000 đ/kWp/năm | Bước Bàn giao và Trợ lý tư vấn dùng chung. Cần báo giá dịch vụ O&M. Nguồn cho tần suất: vệ sinh 2–4 lần/năm ([VOV](https://vov.vn/cong-nghe/mot-viec-nhieu-gia-dinh-bo-quen-co-the-khien-dien-mat-troi-giam-toi-40-hieu-suat-post1320900.vov)) |
+| Suy giảm tấm | 0,55%/năm | Dùng chung cho Bàn giao và Trợ lý. Trang chép datasheet LONGi ghi ~0,73%/năm sau năm đầu. Nên lấy theo bảo hành của đúng tấm mua |
 | Tăng giá điện | 3%/năm | — |
 | Chiết khấu | 8%/năm | — |
 | Lãi nhà thầu | 15% | — |
