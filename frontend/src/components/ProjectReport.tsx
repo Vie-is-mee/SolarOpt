@@ -132,7 +132,7 @@ export function ProjectReport(p:ReportProps){
    {design&&m?<>
     <div className="rp-kpis">
      <Kpi label="Công suất lắp đặt" value={num(m.peak_power_kwp,2)} unit="kWp" note={`${num(m.panel_count)} tấm × ${num(panel.power_w)} W`}/>
-     <Kpi label="Điện năng năm đầu" value={num(m.annual_energy_kwh)} unit="kWh" note="sơ bộ, trời quang quy đổi"/>
+     <Kpi label="Điện năng năm đầu" value={num(m.annual_energy_kwh)} unit="kWh" note={config.weather?'sơ bộ, năm khí tượng điển hình PVGIS':'sơ bộ, trời quang quy đổi'}/>
      <Kpi label="Sản lượng riêng" value={num(specific)} unit="kWh/kWp"/>
      <Kpi label="Tổn thất bóng TB" value={num(m.average_shading_loss_pct,1)} unit="%" note={`cao nhất ${num(m.maximum_shading_loss_pct??0,1)}%`}/>
      <Kpi label="Tổng đầu tư" value={econReady?vnd(econ!.total):'—'} note={econReady&&econ!.costPerKwp!==null?`${num(econ!.costPerKwp/1e6,1)} triệu đ/kWp`:'chưa nhập đủ chi phí'}/>
@@ -190,7 +190,7 @@ export function ProjectReport(p:ReportProps){
 
    <Sheet title="Sản lượng và tổn thất" eyebrow="03 · Điện năng" project={project}>
     {design.monthly_energy_kwh?.length===12?<figure className="rp-figure"><h3>Điện năng theo tháng</h3><MonthlyChart values={design.monthly_energy_kwh}/>
-     <figcaption>Tổng năm chia theo tháng bằng bức xạ trời quang của từng mặt mái; tổn thất bóng tính theo năm. Cho thấy tính mùa vụ, không phải dự báo thời tiết từng tháng.</figcaption></figure>
+     <figcaption>Tổng năm chia theo tháng bằng bức xạ {config.weather?'năm khí tượng điển hình':'trời quang'} của từng mặt mái; tổn thất bóng tính theo năm. Cho thấy tính mùa vụ, không phải dự báo thời tiết từng tháng.</figcaption></figure>
      :<p className="rp-note">Tính lại phương án để có điện năng theo tháng.</p>}
     <figure className="rp-figure"><h3>Từ bức xạ đến điện năng</h3><Waterfall {...losses}/>
      <figcaption>Hệ thống gồm nhiệt độ tấm, dây dẫn, bộ biến đổi điện và bụi bẩn, gộp trong hệ số PR {num(config.performance_ratio*100)}%{config.yield_losses?' (tách từng khoản ở bảng thông số)':''}.</figcaption></figure>
@@ -279,7 +279,7 @@ export function ProjectReport(p:ReportProps){
 
   <Sheet title="Giả định, giới hạn và xác nhận" eyebrow={p.electrical&&design?'07 · Phạm vi':'06 · Phạm vi'} project={project}>
    <ul className="rp-list">
-    <li>Bức xạ năm quy đổi riêng cho từng mặt mái bằng pvlib với 12 ngày trời quang đại diện; bóng che tính cho mọi giờ có nắng của 12 ngày đó (khoảng 140 thời điểm), trên lưới khoảng 10 cm. Mỗi tấm được xét theo 3 chuỗi cell có diode bypass: chuỗi bị che 1/3 diện tích thì mất toàn bộ phần trực xạ; tổn thất được tính theo trực xạ từng giờ, ánh sáng tán xạ coi như không bị che. Chưa phải mô phỏng 8.760 giờ với thời tiết thực.</li>
+    <li>Bức xạ năm quy đổi riêng cho từng mặt mái bằng pvlib với 12 ngày {config.weather?'đại diện theo năm khí tượng điển hình':'trời quang đại diện'}; bóng che tính cho mọi giờ có nắng của 12 ngày đó (khoảng 140 thời điểm), trên lưới khoảng 10 cm. Mỗi tấm được xét theo 3 chuỗi cell có diode bypass: chuỗi bị che 1/3 diện tích thì mất toàn bộ phần trực xạ; tổn thất được tính theo trực xạ từng giờ, ánh sáng tán xạ coi như không bị che. {config.weather?'Chưa phải mô phỏng đủ 8.760 giờ: ngày nắng và ngày mây được gộp thành trung bình.':'Chưa phải mô phỏng 8.760 giờ với thời tiết thực.'}</li>
     <li>Tổn thất ngoài bóng che (nhiệt độ, dây dẫn, bộ biến đổi điện, bụi) gộp trong hệ số hiệu năng PR {num(config.performance_ratio*100)}%{config.yield_losses?'; tổn thất nhiệt tính từ thời tiết năm điển hình cho mặt mái chính':''}.</li>
     <li>{config.weather?'Bức xạ, mây và nhiệt độ lấy từ năm khí tượng điển hình PVGIS, gộp thành ngày trung bình của từng tháng; năm thực tế có thể cao hoặc thấp hơn vài phần trăm.':'Bức xạ theo mô hình trời quang và giá trị năm nhập tay; chưa có mùa mưa, mây và nhiệt độ thật.'}</li>
     <li>Vật cản là khối đứng theo mặt bằng; chưa xét cây có tán, kính phản xạ, địa hình.</li>
