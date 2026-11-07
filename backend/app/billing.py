@@ -1,12 +1,14 @@
 """Project-based plans, paid project storage, team accounts and the admin console.
 
-A plan sells a number of projects per billing cycle: a monthly plan resets every 30 days from activation, a yearly
-one every 365 days, and nothing carries over. One "project" use = the first successful layout computation of a
-project (its name at its location) inside the cycle; recomputing it in the same cycle is free.
+A plan sells a number of projects per billing cycle: the single-project plan lasts 30 days from activation, a yearly
+plan resets every 365 days, and nothing carries over. One "project" use = the first successful layout computation of a
+project (its name at its location); on a paid plan, working on it again within 12 months is free, because a site job
+outlasts a cycle and must not be charged twice.
 
 Each project a customer uses is stored while the cycle that counted it lasts (a trial project for a week). After
-that, keeping its data costs STORAGE_VND_PER_PROJECT_MONTH per project per month. Unpaid data stays visible for
-the grace days, is then hidden from the account, and scripts/purge_expired_projects.py deletes it.
+that an active yearly plan keeps as many stored projects free as it sells; the others are charged per month by the
+tier of STORAGE_TIERS their number falls in. Unpaid data stays visible for the grace days, is then hidden from the
+account, and scripts/purge_expired_projects.py deletes it.
 
 Payment is not integrated: users send a request and an admin activates the plan or the storage. Admins
 (users.role='admin', granted only on the server) have no limits and their projects are never expired. A team with an
@@ -27,22 +29,28 @@ MONTH = 30 * DAY
 YEAR = 365 * DAY
 PERIOD_SECONDS = {"month": MONTH, "year": YEAR}
 TRIAL_KEEP_DAYS = 7
-STORAGE_VND_PER_PROJECT_MONTH = 1_000_000
+STORAGE_TIERS = ((8, 299_000), (24, 599_000), (60, 899_000), (150, 1_490_000))   # up to N stored projects, đ/month
+STORAGE_MONTHS_FREE_PER_YEAR = 2
 UNLIMITED = {"projects": None, "ai_reads": None, "chat": None}
 LIMIT_KEYS = ("projects", "ai_reads", "chat")
-# Prices set by the founders on 07/11/2026; competitor comparison and cost model: docs/GIA_VA_CHI_PHI_THUONG_MAI.md.
+# Prices of 08/11/2026; competitor comparison and cost model: docs/GIA_VA_CHI_PHI_THUONG_MAI.md section 11.
 # AI allowances are per cycle and sized at 20 image reads and 300 assistant answers per project.
 PLANS = {
     "free": {"name": "Dùng thử", "price_vnd": 0, "period": None, "projects": 1, "ai_reads": 5, "chat": 30, "seats": 1,
              "features": ["1 dự án để dùng thử", "5 lượt AI đọc ảnh, 30 câu hỏi trợ lý AI", f"Dữ liệu giữ {TRIAL_KEEP_DAYS} ngày"]},
-    "month_1": {"name": "Tháng · 1 dự án", "price_vnd": 5_990_000, "period": "month", "projects": 1, "ai_reads": 20, "chat": 300, "seats": 3,
-                "features": ["1 dự án trong 30 ngày", "20 lượt AI đọc ảnh, 300 câu hỏi trợ lý AI", "Nhóm tới 3 kỹ sư", "Lưu dữ liệu dự án trong thời hạn gói"]},
-    "month_2": {"name": "Tháng · 2 dự án", "price_vnd": 7_990_000, "period": "month", "projects": 2, "ai_reads": 40, "chat": 600, "seats": 5,
-                "features": ["2 dự án trong 30 ngày", "40 lượt AI đọc ảnh, 600 câu hỏi trợ lý AI", "Nhóm tới 5 kỹ sư", "Lưu dữ liệu dự án trong thời hạn gói"]},
-    "year_3": {"name": "Năm · 3 dự án", "price_vnd": 15_000_000, "period": "year", "projects": 3, "ai_reads": 60, "chat": 900, "seats": 5,
-               "features": ["3 dự án trong 12 tháng", "60 lượt AI đọc ảnh, 900 câu hỏi trợ lý AI", "Nhóm tới 5 kỹ sư", "Lưu dữ liệu dự án trong thời hạn gói"]},
-    "year_7": {"name": "Năm · 7 dự án", "price_vnd": 30_000_000, "period": "year", "projects": 7, "ai_reads": 140, "chat": 2100, "seats": 10,
-               "features": ["7 dự án trong 12 tháng", "140 lượt AI đọc ảnh, 2.100 câu hỏi trợ lý AI", "Nhóm tới 10 kỹ sư", "Lưu dữ liệu dự án trong thời hạn gói"]},
+    "single": {"name": "Dự án lẻ", "price_vnd": 5_990_000, "period": "month", "projects": 1, "ai_reads": 20, "chat": 300, "seats": 1,
+               "features": ["1 dự án trong 30 ngày", "20 lượt AI đọc ảnh, 300 câu hỏi trợ lý AI", "1 kỹ sư", "Hỗ trợ tới 3 giờ"]},
+    "start": {"name": "Start", "price_vnd": 17_900_000, "period": "year", "projects": 8, "ai_reads": 160, "chat": 2400, "seats": 2,
+              "features": ["8 dự án trong 12 tháng", "160 lượt AI đọc ảnh, 2.400 câu hỏi trợ lý AI", "Nhóm tới 2 kỹ sư", "Hỗ trợ tới 6 giờ mỗi năm", "Lưu miễn phí 8 dự án khi còn gói"]},
+    "team": {"name": "Team", "price_vnd": 34_900_000, "period": "year", "projects": 24, "ai_reads": 480, "chat": 7200, "seats": 5,
+             "features": ["24 dự án trong 12 tháng", "480 lượt AI đọc ảnh, 7.200 câu hỏi trợ lý AI", "Nhóm tới 5 kỹ sư", "Hỗ trợ tới 18 giờ mỗi năm", "Lưu miễn phí 24 dự án khi còn gói"]},
+    "pro": {"name": "Pro", "price_vnd": 54_900_000, "period": "year", "projects": 60, "ai_reads": 1200, "chat": 18000, "seats": 10,
+            "features": ["60 dự án trong 12 tháng", "1.200 lượt AI đọc ảnh, 18.000 câu hỏi trợ lý AI", "Nhóm tới 10 kỹ sư", "Hỗ trợ tới 30 giờ mỗi năm", "Lưu miễn phí 60 dự án khi còn gói"]},
+    # Plans of 07/11/2026: no longer sold; an account that holds one keeps its limits until it ends.
+    "month_1": {"name": "Tháng · 1 dự án", "price_vnd": 5_990_000, "period": "month", "projects": 1, "ai_reads": 20, "chat": 300, "seats": 3, "retired": True},
+    "month_2": {"name": "Tháng · 2 dự án", "price_vnd": 7_990_000, "period": "month", "projects": 2, "ai_reads": 40, "chat": 600, "seats": 5, "retired": True},
+    "year_3": {"name": "Năm · 3 dự án", "price_vnd": 15_000_000, "period": "year", "projects": 3, "ai_reads": 60, "chat": 900, "seats": 5, "retired": True},
+    "year_7": {"name": "Năm · 7 dự án", "price_vnd": 30_000_000, "period": "year", "projects": 7, "ai_reads": 140, "chat": 2100, "seats": 10, "retired": True},
 }
 STATE_LABELS = {"included": "Trong thời hạn gói", "paid": "Đã trả phí lưu trữ", "grace": "Quá hạn, sắp xóa", "expired": "Đã hết hạn, chờ xóa",
                 "purged": "Đã xóa"}
@@ -54,8 +62,22 @@ def guest_daily_projects() -> int:
     return max(0, int(os.getenv("SOLAROPT_GUEST_DAILY_PROJECTS", "2")))
 
 
+def on_sale(plan: str) -> bool:
+    return plan in PLANS and not PLANS[plan].get("retired")
+
+
 def storage_grace_days() -> int:
-    return max(0, int(os.getenv("SOLAROPT_STORAGE_GRACE_DAYS", "2")))
+    return max(0, int(os.getenv("SOLAROPT_STORAGE_GRACE_DAYS", "30")))
+
+
+def storage_fee(projects: int) -> int | None:
+    """Monthly fee for keeping this many projects; None above the last tier, which is quoted by hand."""
+    return 0 if projects <= 0 else next((fee for top, fee in STORAGE_TIERS if projects <= top), None)
+
+
+def storage_bill(projects: int, months: int) -> int | None:
+    fee = storage_fee(projects)
+    return None if fee is None else fee * (months - STORAGE_MONTHS_FREE_PER_YEAR * (months // 12))
 
 
 def project_key(name: str, latitude: float | None = None, longitude: float | None = None) -> str:
@@ -160,9 +182,11 @@ class ProjectQuota:
         self.key, self.user = project_key(config.project_name, config.latitude, config.longitude), user
 
     def counted(self) -> bool:
+        paid = self.limits["until"] is not None
+        since = int(time.time()) - YEAR if paid else self.limits["since"]
         with connect() as conn:
             return conn.execute("SELECT 1 FROM usage_events WHERE owner=? AND kind='project' AND project_key=? AND created_at>=? LIMIT 1",
-                                (self.owner, self.key, self.limits["since"])).fetchone() is not None
+                                (self.owner, self.key, since)).fetchone() is not None
 
     def check(self) -> None:
         if self.limits["projects"] is None or self.counted():
@@ -170,7 +194,7 @@ class ProjectQuota:
         if usage_for(self.owner, self.limits)["projects"] >= self.limits["projects"]:
             if self.user is None:
                 raise HTTPException(402, f"Chế độ khách được thử {self.limits['projects']} dự án mỗi ngày. Đăng ký để dùng thử có AI và lưu dữ liệu {TRIAL_KEEP_DAYS} ngày.")
-            raise HTTPException(402, f"Đã dùng hết {self.limits['projects']} dự án của gói trong chu kỳ này. Mua thêm gói hoặc mở lại dự án đã tính trong chu kỳ.")
+            raise HTTPException(402, f"Đã dùng hết {self.limits['projects']} dự án của gói trong chu kỳ này. Mua thêm gói hoặc mở lại dự án đã tính trong 12 tháng qua.")
 
     def record(self) -> None:
         if not self.counted():
@@ -201,16 +225,46 @@ def _retention(covered_until: int, storage_until, purged_at, now: int) -> dict:
     return {"keep_until": keep_until, "delete_after": delete_after, "state": state, "state_label": STATE_LABELS[state]}
 
 
+def _free_slots(owner: str) -> list[int]:
+    """[stored projects an active yearly plan keeps free, when that plan ends]."""
+    kind, _, key = owner.partition(":")
+    if kind not in ("u", "o"):
+        return [0, 0]
+    with connect() as conn:
+        row = conn.execute(f"SELECT plan, plan_until FROM {'users' if kind == 'u' else 'orgs'} WHERE id=?", (key,)).fetchone()
+    if row is None or _active(row[0], row[1]) == "free" or PLANS[row[0]]["period"] != "year":
+        return [0, 0]
+    return [PLANS[row[0]]["projects"], row[1]]
+
+
 def storage_rows(owners: list[str] | None = None) -> list[dict]:
-    """Stored projects with their retention state; owners=None lists everyone (admin)."""
+    """Stored projects with their retention state, newest first; owners=None lists everyone (admin)."""
     now = int(time.time())
     where, args = ("", ()) if owners is None else (f"WHERE owner IN ({','.join('?' * len(owners))})", tuple(owners))
     with connect() as conn:
         rows = conn.execute(f"SELECT owner, project_key, project_name, first_used, covered_until, storage_until, purged_at FROM project_storage {where} "
                             "ORDER BY first_used DESC LIMIT 1000", args).fetchall()
-        pending = {(r[0], r[1]): r[2] for r in conn.execute("SELECT owner, project_key, SUM(months) FROM storage_requests WHERE status='pending' GROUP BY owner, project_key")}
-    return [{"owner": o, "project_key": k, "project_name": n, "first_used": f, "covered_until": c, "storage_until": s, "purged_at": p,
-             "pending_months": pending.get((o, k)), **_retention(c, s, p, now)} for o, k, n, f, c, s, p in rows]
+    out, slots = [], {}
+    for o, k, n, f, c, s, p in rows:
+        retention = _retention(c, s, p, now)
+        if retention["state"] in ("grace", "expired"):
+            free = slots.setdefault(o, _free_slots(o))
+            if free[0] > 0:
+                free[0] -= 1
+                retention = _retention(free[1], s, p, now)
+        out.append({"owner": o, "project_key": k, "project_name": n, "first_used": f, "covered_until": c, "storage_until": s, "purged_at": p, **retention})
+    return out
+
+
+def storage_accounts(owners: list[str] | None = None) -> list[dict]:
+    """One line per owner with projects that are outside every plan: how many, their tier fee, any open request."""
+    counts = {}
+    for r in storage_rows(owners):
+        if r["state"] in ("paid", "grace", "expired"):
+            counts[r["owner"]] = counts.get(r["owner"], 0) + 1
+    with connect() as conn:
+        pending = dict(conn.execute("SELECT owner, SUM(months) FROM storage_requests WHERE status='pending' GROUP BY owner").fetchall())
+    return [{"owner": o, "projects": n, "fee_vnd_month": storage_fee(n), "pending_months": pending.get(o)} for o, n in counts.items()]
 
 
 def hidden_projects(owners: set[str]) -> set[tuple[str, str]]:
@@ -254,7 +308,7 @@ def record_chat(user) -> None:
 
 def _catalog():
     return {k: {key: v[key] for key in ("name", "price_vnd", "period", "projects", "ai_reads", "chat", "features", "seats")}
-            | {"price_per_project_vnd": round(v["price_vnd"] / v["projects"]) if v["price_vnd"] else 0} for k, v in PLANS.items()}
+            | {"price_per_project_vnd": round(v["price_vnd"] / v["projects"]) if v["price_vnd"] else 0} for k, v in PLANS.items() if on_sale(k)}
 
 
 def _team_payload(user_id: int):
@@ -271,7 +325,8 @@ def _team_payload(user_id: int):
 
 
 def _storage_terms() -> dict:
-    return {"fee_vnd_per_project_month": STORAGE_VND_PER_PROJECT_MONTH, "grace_days": storage_grace_days(), "trial_keep_days": TRIAL_KEEP_DAYS}
+    return {"tiers": [{"max_projects": top, "fee_vnd_month": fee} for top, fee in STORAGE_TIERS], "months_free_per_year": STORAGE_MONTHS_FREE_PER_YEAR,
+            "grace_days": storage_grace_days(), "trial_keep_days": TRIAL_KEEP_DAYS}
 
 
 @router.get("/api/account/usage")
@@ -301,7 +356,7 @@ class UpgradeRequest(BaseModel):
 
 @router.post("/api/account/upgrade-request", dependencies=[Depends(same_origin)], status_code=201)
 def upgrade_request(body: UpgradeRequest, user=Depends(require_user)):
-    if body.plan not in PLANS or body.plan == "free":
+    if not on_sale(body.plan) or body.plan == "free":
         raise HTTPException(422, "Gói không hợp lệ.")
     with connect() as conn:
         conn.execute("UPDATE upgrade_requests SET status='replaced' WHERE user_id=? AND status='pending'", (user["id"],))
@@ -318,27 +373,31 @@ def _storage_owners(user) -> list[str]:
 
 @router.get("/api/account/storage")
 def account_storage(user=Depends(require_user)):
-    unlimited = is_admin(user)
-    return {**_storage_terms(), "unlimited": unlimited, "projects": [] if unlimited else storage_rows(_storage_owners(user))}
+    if is_admin(user):
+        return {**_storage_terms(), "unlimited": True, "projects": [], "billable": 0, "fee_vnd_month": 0, "pending_months": None}
+    owners = _storage_owners(user)
+    accounts = storage_accounts(owners)
+    fees = [a["fee_vnd_month"] for a in accounts]
+    return {**_storage_terms(), "unlimited": False, "projects": storage_rows(owners), "billable": sum(a["projects"] for a in accounts),
+            "fee_vnd_month": None if None in fees else sum(fees), "pending_months": next((a["pending_months"] for a in accounts if a["pending_months"]), None)}
 
 
 class StorageRequest(BaseModel):
-    project_key: str = Field(min_length=1, max_length=200)
     months: int = Field(default=1, ge=1, le=24)
 
 
 @router.post("/api/account/storage-request", dependencies=[Depends(same_origin)], status_code=201)
 def storage_request(body: StorageRequest, user=Depends(require_user)):
-    owners = _storage_owners(user)
-    match = [r for r in storage_rows(owners) if r["project_key"] == body.project_key]
-    if not match:
-        raise HTTPException(404, "Không tìm thấy dự án trong tài khoản.")
-    if match[0]["state"] == "purged":
-        raise HTTPException(410, "Dữ liệu dự án này đã bị xóa theo chính sách lưu trữ; không gia hạn được.")
+    accounts = storage_accounts(_storage_owners(user))
+    if not accounts:
+        raise HTTPException(409, "Chưa có dự án nào cần đóng phí lưu trữ.")
     with connect() as conn:
-        conn.execute("INSERT INTO storage_requests(owner,project_key,months,user_id,status,created_at) VALUES(?,?,?,?,'pending',?)",
-                     (match[0]["owner"], body.project_key, body.months, user["id"], int(time.time())))
-    return {"ok": True, "fee_vnd": body.months * STORAGE_VND_PER_PROJECT_MONTH}
+        for a in accounts:
+            conn.execute("UPDATE storage_requests SET status='replaced' WHERE owner=? AND status='pending'", (a["owner"],))
+            conn.execute("INSERT INTO storage_requests(owner,project_key,months,user_id,status,created_at) VALUES(?,'*',?,?,'pending',?)",
+                         (a["owner"], body.months, user["id"], int(time.time())))
+    bills = [storage_bill(a["projects"], body.months) for a in accounts]
+    return {"ok": True, "fee_vnd": None if None in bills else sum(bills)}
 
 
 # ---- Teams -------------------------------------------------------------------------------------
@@ -451,7 +510,7 @@ def admin_teams(admin=Depends(require_admin)):
     for org_id, name, plan, until, started, owner_email, members in rows:
         active = _active(plan, until)
         limits = _limits(active, started if active != "free" else None, until if active != "free" else None, now)
-        out.append({"id": org_id, "name": name, "plan": active, "plan_until": until, "owner": owner_email, "members": members,
+        out.append({"id": org_id, "name": name, "plan": active, "plan_name": PLANS[active]["name"], "plan_until": until, "owner": owner_email, "members": members,
                     "seats": PLANS[active]["seats"], "used": usage_for(f"o:{org_id}", limits), "limits": {k: limits[k] for k in LIMIT_KEYS},
                     "pending_request": requests.get(org_id)})
     return out
@@ -462,28 +521,28 @@ def admin_storage(admin=Depends(require_admin)):
     with connect() as conn:
         users = {f"u:{r[0]}": r[1] for r in conn.execute("SELECT id, email FROM users")}
         teams = {f"o:{r[0]}": f"Nhóm {r[1]}" for r in conn.execute("SELECT id, name FROM orgs")}
-    return {**_storage_terms(), "projects": [r | {"owner_label": users.get(r["owner"]) or teams.get(r["owner"]) or r["owner"]} for r in storage_rows()]}
+    label = lambda r: r | {"owner_label": users.get(r["owner"]) or teams.get(r["owner"]) or r["owner"]}
+    return {**_storage_terms(), "projects": [label(r) for r in storage_rows()], "accounts": [label(a) for a in storage_accounts()]}
 
 
 class StorageExtend(BaseModel):
     owner: str = Field(min_length=3, max_length=40)
-    project_key: str = Field(min_length=1, max_length=200)
     months: int = Field(default=1, ge=1, le=36)
 
 
 @router.post("/api/admin/storage", dependencies=[Depends(same_origin)])
 def admin_extend_storage(body: StorageExtend, admin=Depends(require_admin)):
-    """Record a paid storage extension: it runs from the later of today and the current end of retention."""
-    row = next((r for r in storage_rows([body.owner]) if r["project_key"] == body.project_key), None)
-    if row is None:
-        raise HTTPException(404, "Không tìm thấy dự án.")
-    if row["state"] == "purged":
-        raise HTTPException(410, "Dữ liệu dự án này đã bị xóa; không gia hạn được.")
-    until = max(int(time.time()), row["keep_until"]) + body.months * MONTH
+    """Record a paid storage extension for an owner: each project runs from the later of today and its end of retention."""
+    rows = [r for r in storage_rows([body.owner]) if r["state"] in ("paid", "grace", "expired")]
+    if not rows:
+        raise HTTPException(404, "Không có dự án nào cần gia hạn.")
+    now = int(time.time())
     with connect() as conn:
-        conn.execute("UPDATE project_storage SET storage_until=? WHERE owner=? AND project_key=?", (until, body.owner, body.project_key))
-        conn.execute("UPDATE storage_requests SET status='done' WHERE owner=? AND project_key=? AND status='pending'", (body.owner, body.project_key))
-    return {"owner": body.owner, "project_key": body.project_key, "storage_until": until}
+        for r in rows:
+            conn.execute("UPDATE project_storage SET storage_until=? WHERE owner=? AND project_key=?",
+                         (max(now, r["keep_until"]) + body.months * MONTH, body.owner, r["project_key"]))
+        conn.execute("UPDATE storage_requests SET status='done' WHERE owner=? AND status='pending'", (body.owner,))
+    return {"owner": body.owner, "projects": len(rows), "storage_until": max(now, max(r["keep_until"] for r in rows)) + body.months * MONTH}
 
 
 class PlanChange(BaseModel):
@@ -493,7 +552,7 @@ class PlanChange(BaseModel):
 
 def _until(body: PlanChange) -> tuple[int | None, int | None]:
     """(started, until) for a plan activated now."""
-    if body.plan not in PLANS:
+    if not on_sale(body.plan):
         raise HTTPException(422, "Gói không hợp lệ.")
     period = PLANS[body.plan]["period"]
     if period is None:

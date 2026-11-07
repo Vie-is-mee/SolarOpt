@@ -189,9 +189,9 @@ Giả định khác:
 
 `docs/SO_LIEU_CHUAN.md` mục 5 vẫn ghi bảng giá cũ (790k / 3,49 tr / 9,9 tr). Nếu thuyết trình bảng giá mới, sửa ở đó trước.
 
-## 11. Đề xuất bản 3 (08/11/2026, chưa chốt)
+## 11. Bảng giá bản 3 (08/11/2026, đã đưa lên app)
 
-Số liệu trong `output/report/SolarOpt_Mo_hinh_tai_chinh_v3.xlsx` (dựng lại bằng `backend/scripts/build_cost_model.py`). App vẫn chạy bảng giá 07/11 trong `backend/app/billing.py`. Số khách, tỷ lệ gói và tỷ lệ gia hạn là giả định, chưa có dữ liệu pilot.
+Số liệu trong `output/report/SolarOpt_Mo_hinh_tai_chinh_v3.xlsx` (dựng lại bằng `backend/scripts/build_cost_model.py`). Bốn gói, bậc phí lưu trữ, ân hạn 30 ngày, lưu miễn phí theo gói năm và không trừ lượt khi sửa dự án trong 12 tháng đã có trong `backend/app/billing.py`. Chưa làm: trừ tiền lẻ khi nâng gói, tính lượt theo quy mô, theo dõi giờ hỗ trợ, Thiết kế hộ trên app, kho lạnh. Số khách, tỷ lệ gói và tỷ lệ gia hạn là giả định, chưa có dữ liệu pilot.
 
 **Lỗi bảng giá 07/11:** Tháng·2 (4,0 tr/dự án) rẻ hơn cả hai gói năm, nên nếu khách gom được 2 dự án mỗi tháng thì mua gói tháng luôn rẻ hơn gói năm.
 

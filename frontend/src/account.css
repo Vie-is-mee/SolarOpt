@@ -52,8 +52,8 @@
 .pa-arc{fill:none;stroke:#e6b84a;stroke-width:1;stroke-dasharray:3 6;opacity:.55}
 .pa-hill{fill:#d6e8cb;opacity:.8}.pa-ground{stroke:#9fc39a;stroke-width:1}
 .plan-card{position:relative;overflow:hidden;border-top:3px solid #cfe0c6!important;background:linear-gradient(180deg,#fff,#fbfdf9)}
-.plan-card.plan-year_3{border-color:#9cc78b!important;border-top-color:#2e8b4e!important;box-shadow:0 10px 26px #1b5e3314}
-.plan-card.plan-year_7{border-top-color:#1b5e33!important}
+.plan-card.plan-team{border-color:#9cc78b!important;border-top-color:#2e8b4e!important;box-shadow:0 10px 26px #1b5e3314}
+.plan-card.plan-pro{border-top-color:#1b5e33!important}
 .plan-card-head{display:flex;align-items:center;gap:10px}
 .plan-icon{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:#eaf4e4;color:#2e8b4e;border:1px solid #d4e6cb}
 .plan-pro .plan-icon{background:#2e8b4e;color:#fff;border-color:#2e8b4e}
